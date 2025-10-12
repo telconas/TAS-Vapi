@@ -136,7 +136,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   // Helper function to send call data to Make.com webhook
   async function sendToMakeWebhook(callId: string) {
-    const webhookUrl = 'https://hook.us1.make.com/5ry41bqhkx973b9bglf7ixe7pfw8j3ix';
+    const webhookUrl = 'https://hook.us1.make.com/qomm4skpqxiyq40jxwwxcij4d1wl1psr';
     
     try {
       const call = await storage.getCall(callId);

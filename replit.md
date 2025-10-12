@@ -100,3 +100,5 @@ Note: User declined Replit's Twilio integration - using manual API credentials i
 - ✅ **AI only speaks when asked** - No initial greeting, call starts with silence until caller speaks
 - ✅ **Silent operator instructions** - Send real-time guidance to AI during calls that caller never hears
 - ✅ **Voice preview** - Hear ElevenLabs voices before selecting with audio preview buttons
+- ✅ **GPT-4.1 upgrade** - Upgraded from GPT-4o to GPT-4.1 (21.4% better coding, 10.5% better instruction following, 20% cost reduction)
+- ✅ **Make.com webhook** - Completed calls now send data to https://hook.us1.make.com/qomm4skpqxiyq40jxwwxcij4d1wl1psr
