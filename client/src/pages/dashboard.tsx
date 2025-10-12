@@ -125,7 +125,7 @@ export default function Dashboard() {
     }
   };
 
-  const handleStartCall = async (phone: string) => {
+  const handleStartCall = async (phone: string, prompt: string) => {
     try {
       if (!sessionId) {
         toast({
@@ -146,6 +146,7 @@ export default function Dashboard() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           phoneNumber: phone,
+          prompt,
           voiceId: selectedVoiceId,
           voiceName: selectedVoiceName,
           sessionId,

@@ -23,6 +23,7 @@ const elevenLabsClient = new ElevenLabsClient({
 interface ActiveCall {
   callId: string;
   phoneNumber: string;
+  prompt: string;
   twilioCallSid?: string;
   openaiConversation: any[];
   ws: WebSocket;
@@ -93,11 +94,15 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // API: Start a new call
   app.post('/api/calls/start', async (req, res) => {
     try {
-      const { phoneNumber, voiceId, voiceName, sessionId } = req.body;
+      const { phoneNumber, prompt, voiceId, voiceName, sessionId } = req.body;
 
       // Validate request
       if (!phoneNumber) {
         return res.status(400).json({ error: 'Phone number is required' });
+      }
+
+      if (!prompt) {
+        return res.status(400).json({ error: 'AI prompt is required' });
       }
 
       // Validate environment variables
@@ -115,6 +120,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       // Create call record in database
       const call = await storage.createCall({
         phoneNumber,
+        prompt,
         status: 'ringing',
         voiceId,
         voiceName,
@@ -125,6 +131,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       activeCalls.set(call.id, {
         callId: call.id,
         phoneNumber,
+        prompt,
         openaiConversation: [],
         ws: wsClient,
         startTime: Date.now(),
@@ -280,7 +287,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         },
       }));
 
-      // Generate AI response
+      // Generate AI response using the provided prompt
       activeCall.openaiConversation.push({ role: "user", content: TranscriptionText });
 
       const completion = await openaiClient.chat.completions.create({
@@ -288,7 +295,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         messages: [
           {
             role: "system",
-            content: "You are a helpful AI voice assistant. Keep responses concise and conversational, suitable for text-to-speech.",
+            content: activeCall.prompt + "\n\nKeep responses concise and conversational, suitable for text-to-speech.",
           },
           ...activeCall.openaiConversation,
         ],

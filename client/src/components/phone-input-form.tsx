@@ -2,11 +2,12 @@ import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Phone } from "lucide-react";
 
 interface PhoneInputFormProps {
-  onStartCall: (phoneNumber: string) => void;
+  onStartCall: (phoneNumber: string, prompt: string) => void;
   isCallActive: boolean;
 }
 
@@ -52,6 +53,7 @@ export function PhoneInputForm({ onStartCall, isCallActive }: PhoneInputFormProp
   const [countryCode, setCountryCode] = useState("+1");
   const [phoneNumber, setPhoneNumber] = useState("");
   const [selectedProvider, setSelectedProvider] = useState("");
+  const [prompt, setPrompt] = useState("");
 
   const handleProviderSelect = (value: string) => {
     setSelectedProvider(value);
@@ -67,13 +69,28 @@ export function PhoneInputForm({ onStartCall, isCallActive }: PhoneInputFormProp
 
   const handleStartCall = () => {
     const fullNumber = `${countryCode}${phoneNumber}`;
-    onStartCall(fullNumber);
+    onStartCall(fullNumber, prompt);
   };
 
-  const isValid = phoneNumber.length >= 10;
+  const isValid = phoneNumber.length >= 10 && prompt.trim().length > 0;
 
   return (
     <div className="space-y-6">
+      <div className="space-y-3">
+        <Label htmlFor="prompt" className="text-base font-medium">
+          AI Instructions
+        </Label>
+        <Textarea
+          id="prompt"
+          placeholder="Tell the AI what to do on this call. For example: 'You are calling to schedule a service appointment. Be friendly and professional.'"
+          value={prompt}
+          onChange={(e) => setPrompt(e.target.value)}
+          className="min-h-[100px] bg-card border-card-border resize-none"
+          disabled={isCallActive}
+          data-testid="input-prompt"
+        />
+      </div>
+
       <div className="space-y-3">
         <Label htmlFor="provider" className="text-base font-medium">
           Provider (Optional)

@@ -7,6 +7,7 @@ import { z } from "zod";
 export const calls = pgTable("calls", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
   phoneNumber: text("phone_number").notNull(),
+  prompt: text("prompt").notNull(), // AI instructions for the call
   status: text("status").notNull(), // 'idle' | 'ringing' | 'connected' | 'ended'
   duration: integer("duration"), // in seconds
   startedAt: timestamp("started_at").defaultNow(),
