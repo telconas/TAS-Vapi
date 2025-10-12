@@ -75,8 +75,12 @@ Note: User declined Replit's Twilio integration - using manual API credentials i
   - Allowlist validation prevents TwiML injection attacks
   - Default voice: "Polly.Joanna" (female, US English)
   - ElevenLabs integration still available as fallback (if voiceId configured and credits available)
+- **Infinite hold time support**: `<Redirect method="POST">` fallbacks ensure calls stay alive indefinitely during long hold times (up to Twilio's 4-hour maximum call duration)
+  - Gather loops continue automatically when no speech detected
+  - AI can wait on hold for 5-10+ minutes without timeout
+  - Logged gather loops for debugging and monitoring
 - Speech recognition with `speechTimeout="auto"` for natural conversation flow
-- Extended `<Gather>` timeout to 60 seconds (max) to prevent premature call disconnection during conversations
+- Extended `<Gather>` timeout to 60 seconds (max) combined with redirect fallbacks for continuous listening
 - Database persistence ensures call history and transcripts are saved
 - Dual recording approach: Both call-level and TwiML-based recording to ensure both sides are captured
 - TwiML `<Start><Record>` captures AI voice and DTMF tones that call-level recording might miss
