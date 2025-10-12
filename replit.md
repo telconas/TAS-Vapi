@@ -45,7 +45,7 @@ A full-stack web application that enables outbound AI voice calls using Twilio f
 ## Tech Stack
 - **Frontend**: React, Tailwind CSS, Wouter (routing), TanStack Query
 - **Backend**: Node.js, Express, WebSocket (ws package)
-- **External APIs**: Twilio (calls), OpenAI (AI logic), ElevenLabs (TTS)
+- **External APIs**: Twilio (calls), OpenAI GPT-4o (AI logic), ElevenLabs (TTS)
 - **Real-time**: WebSocket for live transcription and audio streaming
 
 ## Environment Variables
