@@ -6,6 +6,8 @@ import twilio from "twilio";
 import OpenAI from "openai";
 import { ElevenLabsClient } from "elevenlabs";
 import { randomUUID } from "crypto";
+import { writeFileSync, mkdirSync, existsSync } from "fs";
+import { join, basename } from "path";
 
 const twilioClient = twilio(
   process.env.TWILIO_ACCOUNT_SID,
@@ -31,6 +33,34 @@ interface ActiveCall {
 }
 
 const activeCalls = new Map<string, ActiveCall>();
+
+// Helper function to generate and save ElevenLabs audio
+async function generateAndSaveAudio(text: string, voiceId: string, filename: string): Promise<string> {
+  const audioStream = await elevenLabsClient.generate({
+    voice: voiceId,
+    text,
+    model_id: "eleven_monolingual_v1",
+  });
+
+  // Convert stream to buffer
+  const chunks: Buffer[] = [];
+  for await (const chunk of audioStream) {
+    chunks.push(chunk);
+  }
+  const buffer = Buffer.concat(chunks);
+
+  // Ensure audio cache directory exists
+  const audioCacheDir = '/tmp/audio-cache';
+  if (!existsSync(audioCacheDir)) {
+    mkdirSync(audioCacheDir, { recursive: true });
+  }
+
+  // Save to file
+  const audioPath = join(audioCacheDir, filename);
+  writeFileSync(audioPath, buffer);
+  
+  return `/api/audio/${filename}`;
+}
 
 export async function registerRoutes(app: Express): Promise<Server> {
   const httpServer = createServer(app);
@@ -173,6 +203,26 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // API: Serve generated audio files
+  app.get('/api/audio/:filename', (req, res) => {
+    const { filename } = req.params;
+    
+    // Validate filename to prevent path traversal
+    const safeFilename = basename(filename);
+    if (safeFilename !== filename || !safeFilename.endsWith('.mp3')) {
+      return res.status(400).json({ error: 'Invalid filename' });
+    }
+    
+    const audioPath = join('/tmp/audio-cache', safeFilename);
+    
+    // Check if file exists
+    if (!existsSync(audioPath)) {
+      return res.status(404).json({ error: 'Audio file not found' });
+    }
+    
+    res.sendFile(audioPath);
+  });
+
   // API: Get ElevenLabs voices
   app.get('/api/voices', async (req, res) => {
     try {
@@ -279,22 +329,42 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // TwiML endpoint - Called by Twilio when call connects
   app.post('/api/twiml/:callId', async (req, res) => {
     const { callId } = req.params;
-    const activeCall = activeCalls.get(callId);
 
-    if (!activeCall) {
-      return res.status(404).send('Call not found');
-    }
+    try {
+      // Get call details to access voiceId
+      const call = await storage.getCall(callId);
+      
+      if (!call) {
+        return res.status(404).send('Call not found');
+      }
 
-    // TwiML to start the call with initial greeting
-    // Note: Full media streaming implementation would require Twilio Media Streams
-    const twiml = `<?xml version="1.0" encoding="UTF-8"?>
+      const voiceId = call.voiceId || "EXAVITQu4vr4xnSDxMaL"; // Default ElevenLabs voice
+      
+      // Generate initial greeting with ElevenLabs
+      const greetingText = "Hello! I'm your AI assistant. How can I help you today?";
+      const audioFilename = `${callId}-greeting.mp3`;
+      const audioUrl = await generateAndSaveAudio(greetingText, voiceId, audioFilename);
+
+      // TwiML to play ElevenLabs audio and record response
+      const twiml = `<?xml version="1.0" encoding="UTF-8"?>
+<Response>
+  <Play>https://${req.get('host')}${audioUrl}</Play>
+  <Record timeout="3" maxLength="30" playBeep="false" transcribe="true" transcribeCallback="https://${req.get('host')}/api/transcribe/${callId}" />
+</Response>`;
+
+      res.type('text/xml');
+      res.send(twiml);
+    } catch (error) {
+      console.error('Error generating TwiML:', error);
+      // Fallback to Say verb if audio generation fails
+      const twiml = `<?xml version="1.0" encoding="UTF-8"?>
 <Response>
   <Say voice="alice">Hello! I'm your AI assistant. How can I help you today?</Say>
   <Record timeout="3" maxLength="30" playBeep="false" transcribe="true" transcribeCallback="https://${req.get('host')}/api/transcribe/${callId}" />
 </Response>`;
-
-    res.type('text/xml');
-    res.send(twiml);
+      res.type('text/xml');
+      res.send(twiml);
+    }
   });
 
   // Call status callback
@@ -315,19 +385,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
         },
       }));
 
-      // Start AI conversation with greeting
+      // Greeting is handled in TwiML endpoint with ElevenLabs audio
       const greeting = "Hello! I'm your AI assistant. How can I help you today?";
       
-      // Generate TTS audio
-      const audioStream = await elevenLabsClient.generate({
-        voice: activeCall.openaiConversation.length > 0 ? 
-          (await storage.getCall(callId))?.voiceId || "EXAVITQu4vr4xnSDxMaL" : 
-          "EXAVITQu4vr4xnSDxMaL",
-        text: greeting,
-        model_id: "eleven_monolingual_v1",
-      });
-
-      // Save transcript
+      // Save transcript for UI
       await storage.addTranscriptMessage({
         callId,
         speaker: 'ai',
@@ -536,15 +597,23 @@ export async function registerRoutes(app: Express): Promise<Server> {
         },
       }));
 
-      // Generate TTS (note: audio playback in production would require Twilio Media Streams or SIP)
+      // Generate ElevenLabs audio and play it back to caller
       const call = await storage.getCall(callId);
-      if (call?.voiceId) {
-        const audioStream = await elevenLabsClient.generate({
-          voice: call.voiceId,
-          text: aiResponse,
-          model_id: "eleven_monolingual_v1",
-        });
-        // Audio would be played back through Twilio in production
+      if (call?.voiceId && activeCall.twilioCallSid) {
+        try {
+          // Generate and save audio
+          const audioFilename = `${callId}-${Date.now()}.mp3`;
+          const audioUrl = await generateAndSaveAudio(aiResponse, call.voiceId, audioFilename);
+
+          // Update call to play the AI response
+          await twilioClient.calls(activeCall.twilioCallSid)
+            .update({ 
+              method: 'POST', 
+              url: `https://${req.get('host')}/api/twiml-response/${callId}?audioUrl=${encodeURIComponent(audioUrl)}` 
+            });
+        } catch (audioError) {
+          console.error('Error playing AI audio:', audioError);
+        }
       }
 
     } catch (error) {
@@ -552,6 +621,22 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
 
     res.sendStatus(200);
+  });
+
+  // TwiML endpoint - Play AI response and continue recording
+  app.post('/api/twiml-response/:callId', async (req, res) => {
+    const { callId } = req.params;
+    const { audioUrl } = req.query;
+
+    // TwiML to play AI response and continue recording
+    const twiml = `<?xml version="1.0" encoding="UTF-8"?>
+<Response>
+  <Play>https://${req.get('host')}${audioUrl}</Play>
+  <Record timeout="3" maxLength="30" playBeep="false" transcribe="true" transcribeCallback="https://${req.get('host')}/api/transcribe/${callId}" />
+</Response>`;
+
+    res.type('text/xml');
+    res.send(twiml);
   });
 
   // DTMF endpoint - Sends button press tones
