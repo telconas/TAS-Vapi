@@ -26,48 +26,66 @@ export default function Dashboard() {
   const [recordingUrl, setRecordingUrl] = useState<string | null>(null);
   const wsRef = useRef<WebSocket | null>(null);
   const durationIntervalRef = useRef<NodeJS.Timeout | null>(null);
+  const reconnectTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const { toast } = useToast();
 
-  // Initialize WebSocket connection
+  // Initialize WebSocket connection with auto-reconnect
   useEffect(() => {
-    const protocol = window.location.protocol === "https:" ? "wss:" : "ws:";
-    const wsUrl = `${protocol}//${window.location.host}/ws`;
-    
-    const ws = new WebSocket(wsUrl);
-    wsRef.current = ws;
+    let isComponentMounted = true;
 
-    ws.onopen = () => {
-      console.log("WebSocket connected");
-    };
-
-    ws.onmessage = (event) => {
-      const message = JSON.parse(event.data);
+    const connectWebSocket = () => {
+      const protocol = window.location.protocol === "https:" ? "wss:" : "ws:";
+      const wsUrl = `${protocol}//${window.location.host}/ws`;
       
-      // Handle session ID
-      if (message.type === 'session') {
-        setSessionId(message.data.sessionId);
-        console.log("Session ID received:", message.data.sessionId);
-        return;
-      }
-      
-      handleWebSocketMessage(message);
+      const ws = new WebSocket(wsUrl);
+      wsRef.current = ws;
+
+      ws.onopen = () => {
+        console.log("WebSocket connected");
+      };
+
+      ws.onmessage = (event) => {
+        const message = JSON.parse(event.data);
+        
+        // Handle session ID
+        if (message.type === 'session') {
+          setSessionId(message.data.sessionId);
+          console.log("Session ID received:", message.data.sessionId);
+          return;
+        }
+        
+        handleWebSocketMessage(message);
+      };
+
+      ws.onerror = (error) => {
+        console.error("WebSocket error:", error);
+      };
+
+      ws.onclose = () => {
+        console.log("WebSocket disconnected");
+        wsRef.current = null;
+        setSessionId(null);
+        
+        // Auto-reconnect after 2 seconds if component is still mounted
+        if (isComponentMounted) {
+          reconnectTimeoutRef.current = setTimeout(() => {
+            console.log("Attempting to reconnect WebSocket...");
+            connectWebSocket();
+          }, 2000);
+        }
+      };
     };
 
-    ws.onerror = (error) => {
-      console.error("WebSocket error:", error);
-      toast({
-        title: "Connection Error",
-        description: "Failed to connect to the server. Please refresh the page.",
-        variant: "destructive",
-      });
-    };
-
-    ws.onclose = () => {
-      console.log("WebSocket disconnected");
-    };
+    connectWebSocket();
 
     return () => {
-      ws.close();
+      isComponentMounted = false;
+      if (reconnectTimeoutRef.current) {
+        clearTimeout(reconnectTimeoutRef.current);
+      }
+      if (wsRef.current) {
+        wsRef.current.close();
+      }
       if (durationIntervalRef.current) {
         clearInterval(durationIntervalRef.current);
       }

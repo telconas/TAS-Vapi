@@ -84,6 +84,21 @@ export async function registerRoutes(app: Express): Promise<Server> {
       data: { sessionId },
     }));
 
+    // Set up ping interval to keep connection alive
+    const pingInterval = setInterval(() => {
+      if (ws.readyState === WebSocket.OPEN) {
+        ws.ping();
+      }
+    }, 30000); // Ping every 30 seconds
+
+    ws.on('pong', () => {
+      // Connection is alive
+    });
+
+    ws.on('error', (error) => {
+      console.error('WebSocket error:', error);
+    });
+
     ws.on('message', async (data: string) => {
       try {
         const message = JSON.parse(data.toString());
@@ -130,6 +145,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
     ws.on('close', () => {
       console.log('WebSocket client disconnected');
+      clearInterval(pingInterval);
       wsClients.delete(sessionId);
     });
   });
