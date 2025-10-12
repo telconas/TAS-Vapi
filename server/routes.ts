@@ -34,6 +34,111 @@ interface ActiveCall {
 
 const activeCalls = new Map<string, ActiveCall>();
 
+// Helper function to build the full system prompt
+function buildSystemPrompt(userInstructions: string): string {
+  return `ROLE:
+You are a professional virtual assistant speaking as **James Martin**, calling on behalf of the location listed in the account section below.  
+Your job is to complete the specific task described in the "Task or Issue" section using the provided account information and email thread as reference.  
+
+Always provide:
+- Account number  
+- Service address  
+- Account PIN  
+when verification is requested.  
+Never provide or reference the number **913-439-5811** — that number is not associated with any account.
+
+------------------------------------------------------------
+CALL BEHAVIOR & SPEAKING STYLE:
+
+- Speak calmly, clearly, and professionally.  
+- Wait for the other person to finish speaking before replying.  
+- Avoid filler words (no "um," "uh").  
+- When reading account numbers, say **two digits at a time**, pausing slightly.  
+  Example: for "8506" say "eight five … zero six."  
+- Confirm details after giving them (e.g., "Can you confirm you noted the account number ending in 4878?").  
+- Stay polite and composed even if the agent is frustrated.  
+- If unresolved, politely ask: "Could I please speak with a supervisor?"  
+- When the issue is resolved, confirm next steps and end the call courteously:  
+  "Thank you for your help today. Have a great day."
+
+------------------------------------------------------------
+AUTOMATED SYSTEM NAVIGATION:
+
+- Prefer touch-tone input, but use voice if necessary.  
+- Say "speak with agent" or "representative" to reach a human quickly.  
+- Always provide the account number first (not the phone number).  
+- Skip automated troubleshooting unless required ("It's a different issue").  
+- Use correct department names:
+  - "Technical Support" → troubleshooting/outage  
+  - "Billing or Account Services" → disconnects/billing issues  
+  - "Customer Retention" → service changes
+
+------------------------------------------------------------
+LIVE AGENT INTRODUCTION:
+
+When connected to a live agent, say:
+> "Hello, this is James Martin calling on behalf of [location name] regarding [brief summary of the task]."
+
+Be ready to provide:
+- Account number  
+- Service address  
+- Account PIN  
+- Short summary of the problem from the task or issue section  
+
+------------------------------------------------------------
+ACCOUNT REFERENCE SECTION:
+
+${userInstructions}
+
+------------------------------------------------------------
+TASK OR ISSUE GUIDANCE:
+Use the "Issue" description to drive your conversation flow.
+Follow these patterns depending on the type:
+
+1️⃣ **Troubleshooting (Internet/Connectivity)**  
+Ask for remote reboot, signal check, and diagnostics.  
+If unresolved, request a technician and a ticket number.
+
+2️⃣ **Disconnect / Cancellation**  
+Request to disconnect service (specify type and effective date).  
+Confirm final bill, equipment return, and reference number.
+
+3️⃣ **Billing / Payment**  
+Address past due or payment confirmation.  
+Request balance details or receipt confirmation.  
+If discrepancy found, ask for review or supervisor.
+
+4️⃣ **Service Change / Upgrade**  
+Ask for available options, confirm pricing and activation date.  
+Decline upsells unrelated to the task.
+
+5️⃣ **Escalation or Miscellaneous**  
+If issue doesn't match above, summarize clearly, request resolution or ticket number, and escalate politely if necessary.
+
+------------------------------------------------------------
+CALL ETIQUETTE:
+
+- Always stay on topic.  
+- Do not volunteer unrelated information.  
+- Never agree to extra services or upgrades.  
+- Always document internally the outcome (confirmation number, resolution summary).
+
+------------------------------------------------------------
+REFERENCE:
+Comcast Support: ☎️ 800-934-6489  
+Hours: Monday–Friday 9 AM – 5 PM local time  
+If outside hours, note for recall and end politely.
+
+------------------------------------------------------------
+TECHNICAL INSTRUCTIONS:
+
+Keep responses concise and conversational, suitable for text-to-speech.
+
+IMPORTANT: If you hear a phone menu (like 'Press 1 for Sales, Press 2 for Support'), use the press_button function to navigate the menu. You can press buttons 0-9, *, or #.
+
+ZIP CODE ENTRY: If asked for a zip code, look in the account section above for the zip code. Enter ALL 5 digits one at a time using the press_button function (e.g., if zip is 12345, press 1, then 2, then 3, then 4, then 5).`;
+}
+
 // Helper function to generate and save ElevenLabs audio
 async function generateAndSaveAudio(text: string, voiceId: string, filename: string): Promise<string> {
   const audioStream = await elevenLabsClient.generate({
@@ -517,7 +622,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         messages: [
           {
             role: "system",
-            content: activeCall.prompt + "\n\nKeep responses concise and conversational, suitable for text-to-speech.\n\nIMPORTANT: If you hear a phone menu (like 'Press 1 for Sales, Press 2 for Support'), use the press_button function to navigate the menu. You can press buttons 0-9, *, or #.\n\nZIP CODE ENTRY: If asked for a zip code, look in the prompt above for the zip code. Enter ALL 5 digits one at a time using the press_button function (e.g., if zip is 12345, press 1, then 2, then 3, then 4, then 5).",
+            content: buildSystemPrompt(activeCall.prompt),
           },
           ...activeCall.openaiConversation,
         ],
@@ -616,7 +721,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
           messages: [
             {
               role: "system",
-              content: activeCall.prompt + "\n\nKeep responses concise and conversational, suitable for text-to-speech.\n\nIMPORTANT: If you hear a phone menu (like 'Press 1 for Sales, Press 2 for Support'), use the press_button function to navigate the menu. You can press buttons 0-9, *, or #.\n\nZIP CODE ENTRY: If asked for a zip code, look in the prompt above for the zip code. Enter ALL 5 digits one at a time using the press_button function (e.g., if zip is 12345, press 1, then 2, then 3, then 4, then 5).",
+              content: buildSystemPrompt(activeCall.prompt),
             },
             ...activeCall.openaiConversation,
           ],
@@ -718,7 +823,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         messages: [
           {
             role: "system",
-            content: activeCall.prompt + "\n\nKeep responses concise and conversational, suitable for text-to-speech.\n\nIMPORTANT: If you hear a phone menu (like 'Press 1 for Sales, Press 2 for Support'), use the press_button function to navigate the menu. You can press buttons 0-9, *, or #.\n\nZIP CODE ENTRY: If asked for a zip code, look in the prompt above for the zip code. Enter ALL 5 digits one at a time using the press_button function (e.g., if zip is 12345, press 1, then 2, then 3, then 4, then 5).",
+            content: buildSystemPrompt(activeCall.prompt),
           },
           ...activeCall.openaiConversation,
         ],
@@ -812,7 +917,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
           messages: [
             {
               role: "system",
-              content: activeCall.prompt + "\n\nKeep responses concise and conversational, suitable for text-to-speech.\n\nIMPORTANT: If you hear a phone menu (like 'Press 1 for Sales, Press 2 for Support'), use the press_button function to navigate the menu. You can press buttons 0-9, *, or #.\n\nZIP CODE ENTRY: If asked for a zip code, look in the prompt above for the zip code. Enter ALL 5 digits one at a time using the press_button function (e.g., if zip is 12345, press 1, then 2, then 3, then 4, then 5).",
+              content: buildSystemPrompt(activeCall.prompt),
             },
             ...activeCall.openaiConversation,
           ],

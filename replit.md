@@ -67,6 +67,7 @@ Note: User declined Replit's Twilio integration - using manual API credentials i
 - ElevenLabs TTS generates audio responses from AI text
 
 ## Implementation Notes
+- **Hard-coded System Prompt**: Professional virtual assistant "James Martin" prompt with call behavior guidelines, IVR navigation rules, task patterns, and call etiquette. User's AI Instructions are injected into the "ACCOUNT REFERENCE SECTION" placeholder.
 - **Barge-in support**: Uses `<Gather>` with speech recognition instead of `<Record>` so AI stops speaking when caller interrupts
 - ElevenLabs audio playback implemented via TwiML `<Play>` verb inside `<Gather>`:
   - Audio generated on-demand and cached to `/tmp/audio-cache`
