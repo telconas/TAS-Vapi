@@ -77,6 +77,8 @@ Note: User declined Replit's Twilio integration - using manual API credentials i
 - Speech recognition with `speechTimeout="auto"` for natural conversation flow
 - Extended `<Gather>` timeout to 60 seconds (max) to prevent premature call disconnection during conversations
 - Database persistence ensures call history and transcripts are saved
+- Dual recording approach: Both call-level and TwiML-based recording to ensure both sides are captured
+- TwiML `<Start><Record>` captures AI voice and DTMF tones that call-level recording might miss
 
 ## Design System
 - Dark theme based on design_guidelines.md

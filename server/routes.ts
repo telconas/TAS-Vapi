@@ -511,6 +511,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         statusCallback: `https://${req.get("host")}/api/call-status/${call.id}`,
         statusCallbackEvent: ["initiated", "ringing", "answered", "completed"],
         record: true,
+        recordingChannels: "dual",
         recordingStatusCallback: `https://${req.get("host")}/api/recording/${call.id}`,
       });
 
@@ -552,9 +553,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(404).send("Call not found");
       }
 
-      // Start gathering speech immediately - AI only speaks when asked a question
+      // Start recording and gathering speech immediately - AI only speaks when asked a question
       const twiml = `<?xml version="1.0" encoding="UTF-8"?>
 <Response>
+  <Start>
+    <Record recordingTrack="both" recordingStatusCallback="https://${req.get("host")}/api/twiml-recording/${callId}" />
+  </Start>
   <Gather input="speech" timeout="60" speechTimeout="auto" action="https://${req.get("host")}/api/gather/${callId}" />
 </Response>`;
 
@@ -1138,7 +1142,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     res.send(twiml);
   });
 
-  // Recording callback - Receives recording URL from Twilio
+  // Recording callback - Receives recording URL from Twilio (call-level recording)
   app.post("/api/recording/:callId", async (req, res) => {
     const { callId } = req.params;
     const { RecordingUrl, RecordingSid } = req.body;
@@ -1160,6 +1164,32 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.sendStatus(200);
     } catch (error) {
       console.error("Error processing recording callback:", error);
+      res.sendStatus(500);
+    }
+  });
+
+  // TwiML recording callback - Receives recording URL from TwiML <Record> verb
+  app.post("/api/twiml-recording/:callId", async (req, res) => {
+    const { callId } = req.params;
+    const { RecordingUrl, RecordingSid } = req.body;
+
+    console.log(`TwiML recording callback for call ${callId}: ${RecordingUrl}`);
+
+    try {
+      // Append .mp3 to get actual audio file
+      const audioUrl = RecordingUrl + ".mp3";
+
+      // Update recording URL in database (this will override any call-level recording)
+      await storage.updateCall(callId, { recordingUrl: audioUrl });
+
+      // Send to Make.com webhook with the TwiML recording
+      sendToMakeWebhook(callId).catch((err) =>
+        console.error("Webhook send failed from TwiML recording callback:", err),
+      );
+
+      res.sendStatus(200);
+    } catch (error) {
+      console.error("Error processing TwiML recording callback:", error);
       res.sendStatus(500);
     }
   });
