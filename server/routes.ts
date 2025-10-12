@@ -497,7 +497,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       activeCall.openaiConversation.push({ role: "user", content: TranscriptionText });
 
       const completion = await openaiClient.chat.completions.create({
-        model: "gpt-4o",
+        model: "gpt-4.1",
         messages: [
           {
             role: "system",
@@ -596,7 +596,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         
         // Get follow-up response from AI after button press
         const followUpCompletion = await openaiClient.chat.completions.create({
-          model: "gpt-4o",
+          model: "gpt-4.1",
           messages: [
             {
               role: "system",
