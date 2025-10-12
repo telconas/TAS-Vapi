@@ -280,6 +280,35 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // API: Generate voice preview audio
+  app.get('/api/voices/:voiceId/preview', async (req, res) => {
+    try {
+      const { voiceId } = req.params;
+      const previewText = "Hello! This is a preview of my voice. I'm an AI assistant powered by ElevenLabs.";
+      
+      // Generate preview audio
+      const audioStream = await elevenLabsClient.generate({
+        voice: voiceId,
+        text: previewText,
+        model_id: "eleven_monolingual_v1",
+      });
+
+      // Convert stream to buffer
+      const chunks: Buffer[] = [];
+      for await (const chunk of audioStream) {
+        chunks.push(chunk);
+      }
+      const buffer = Buffer.concat(chunks);
+
+      // Send as audio response
+      res.setHeader('Content-Type', 'audio/mpeg');
+      res.send(buffer);
+    } catch (error) {
+      console.error('Error generating voice preview:', error);
+      res.status(500).json({ error: 'Failed to generate voice preview' });
+    }
+  });
+
   // API: Start a new call
   app.post('/api/calls/start', async (req, res) => {
     try {
