@@ -1,0 +1,254 @@
+import { useState, useEffect, useRef } from "react";
+import { PhoneInputForm } from "@/components/phone-input-form";
+import { CallStatus } from "@/components/call-status";
+import { TranscriptionPanel } from "@/components/transcription-panel";
+import { AudioPlayer } from "@/components/audio-player";
+import { VoiceSelector } from "@/components/voice-selector";
+import { CallSummary } from "@/components/call-summary";
+import { Card } from "@/components/ui/card";
+import { useToast } from "@/hooks/use-toast";
+import type { TranscriptMessage } from "@shared/schema";
+import { Phone } from "lucide-react";
+
+type CallStatus = "idle" | "ringing" | "connected" | "ended";
+
+export default function Dashboard() {
+  const [callStatus, setCallStatus] = useState<CallStatus>("idle");
+  const [phoneNumber, setPhoneNumber] = useState("");
+  const [duration, setDuration] = useState(0);
+  const [transcript, setTranscript] = useState<TranscriptMessage[]>([]);
+  const [isAudioPlaying, setIsAudioPlaying] = useState(false);
+  const [selectedVoiceId, setSelectedVoiceId] = useState("");
+  const [selectedVoiceName, setSelectedVoiceName] = useState("");
+  const [currentCallId, setCurrentCallId] = useState<string | null>(null);
+  const wsRef = useRef<WebSocket | null>(null);
+  const durationIntervalRef = useRef<NodeJS.Timeout | null>(null);
+  const { toast } = useToast();
+
+  // Initialize WebSocket connection
+  useEffect(() => {
+    const protocol = window.location.protocol === "https:" ? "wss:" : "ws:";
+    const wsUrl = `${protocol}//${window.location.host}/ws`;
+    
+    const ws = new WebSocket(wsUrl);
+    wsRef.current = ws;
+
+    ws.onopen = () => {
+      console.log("WebSocket connected");
+    };
+
+    ws.onmessage = (event) => {
+      const message = JSON.parse(event.data);
+      handleWebSocketMessage(message);
+    };
+
+    ws.onerror = (error) => {
+      console.error("WebSocket error:", error);
+      toast({
+        title: "Connection Error",
+        description: "Failed to connect to the server. Please refresh the page.",
+        variant: "destructive",
+      });
+    };
+
+    ws.onclose = () => {
+      console.log("WebSocket disconnected");
+    };
+
+    return () => {
+      ws.close();
+      if (durationIntervalRef.current) {
+        clearInterval(durationIntervalRef.current);
+      }
+    };
+  }, []);
+
+  const handleWebSocketMessage = (message: any) => {
+    switch (message.type) {
+      case "call_status":
+        setCallStatus(message.data.status);
+        if (message.data.status === "connected") {
+          startDurationCounter();
+          setIsAudioPlaying(true);
+        } else if (message.data.status === "ended") {
+          stopDurationCounter();
+          setIsAudioPlaying(false);
+        }
+        break;
+
+      case "transcription":
+        const newMessage: Partial<TranscriptMessage> = {
+          id: Math.random().toString(36).substr(2, 9),
+          speaker: message.data.speaker,
+          text: message.data.text,
+          timestamp: new Date(message.data.timestamp || Date.now()),
+        };
+        setTranscript((prev) => [...prev, newMessage as TranscriptMessage]);
+        break;
+
+      case "audio_chunk":
+        // Audio chunks would be handled here for playback
+        break;
+
+      case "error":
+        toast({
+          title: "Error",
+          description: message.data.message || "An error occurred during the call",
+          variant: "destructive",
+        });
+        break;
+    }
+  };
+
+  const startDurationCounter = () => {
+    if (durationIntervalRef.current) {
+      clearInterval(durationIntervalRef.current);
+    }
+    durationIntervalRef.current = setInterval(() => {
+      setDuration((prev) => prev + 1);
+    }, 1000);
+  };
+
+  const stopDurationCounter = () => {
+    if (durationIntervalRef.current) {
+      clearInterval(durationIntervalRef.current);
+      durationIntervalRef.current = null;
+    }
+  };
+
+  const handleStartCall = async (phone: string) => {
+    try {
+      setPhoneNumber(phone);
+      setCallStatus("ringing");
+      setDuration(0);
+      setTranscript([]);
+
+      const response = await fetch("/api/calls/start", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          phoneNumber: phone,
+          voiceId: selectedVoiceId,
+          voiceName: selectedVoiceName,
+        }),
+      });
+
+      if (!response.ok) {
+        throw new Error("Failed to start call");
+      }
+
+      const data = await response.json();
+      setCurrentCallId(data.callId);
+
+      toast({
+        title: "Call Initiated",
+        description: `Calling ${phone}...`,
+      });
+    } catch (error) {
+      console.error("Error starting call:", error);
+      setCallStatus("idle");
+      toast({
+        title: "Call Failed",
+        description: "Failed to initiate the call. Please try again.",
+        variant: "destructive",
+      });
+    }
+  };
+
+  const handleDownloadTranscript = () => {
+    const text = transcript
+      .map((msg) => {
+        const date = msg.timestamp instanceof Date ? msg.timestamp : new Date(msg.timestamp as any);
+        const time = date.toLocaleTimeString();
+        const speaker = msg.speaker === "ai" ? "AI Assistant" : "Caller";
+        return `[${time}] ${speaker}: ${msg.text}`;
+      })
+      .join("\n\n");
+
+    const blob = new Blob([text], { type: "text/plain" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `transcript-${phoneNumber}-${Date.now()}.txt`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+
+    toast({
+      title: "Transcript Downloaded",
+      description: "The call transcript has been saved to your device.",
+    });
+  };
+
+  const handleVoiceChange = (voiceId: string, voiceName: string) => {
+    setSelectedVoiceId(voiceId);
+    setSelectedVoiceName(voiceName);
+  };
+
+  const isCallActive = callStatus === "ringing" || callStatus === "connected";
+
+  return (
+    <div className="min-h-screen bg-background">
+      <header className="border-b border-border bg-card/50 backdrop-blur">
+        <div className="container mx-auto px-6 py-4">
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 rounded-lg bg-primary flex items-center justify-center">
+              <Phone className="w-6 h-6 text-primary-foreground" />
+            </div>
+            <div>
+              <h1 className="text-2xl font-bold">AI Voice Agent</h1>
+              <p className="text-sm text-muted-foreground">
+                Powered by Twilio, OpenAI & ElevenLabs
+              </p>
+            </div>
+          </div>
+        </div>
+      </header>
+
+      <main className="container mx-auto px-6 py-8 max-w-7xl">
+        <div className="grid grid-cols-1 lg:grid-cols-5 gap-8">
+          <div className="lg:col-span-2 space-y-6">
+            <Card className="p-6">
+              <h2 className="text-xl font-semibold mb-6">Call Controls</h2>
+              <div className="space-y-6">
+                <VoiceSelector
+                  selectedVoiceId={selectedVoiceId}
+                  onVoiceChange={handleVoiceChange}
+                  disabled={isCallActive}
+                />
+                <PhoneInputForm
+                  onStartCall={handleStartCall}
+                  isCallActive={isCallActive}
+                />
+                <CallStatus status={callStatus} duration={duration} />
+              </div>
+            </Card>
+
+            {callStatus === "connected" && (
+              <AudioPlayer
+                isPlaying={isAudioPlaying}
+                onPlayPause={() => setIsAudioPlaying(!isAudioPlaying)}
+              />
+            )}
+          </div>
+
+          <div className="lg:col-span-3 space-y-6">
+            <TranscriptionPanel
+              messages={transcript}
+              isActive={callStatus === "connected"}
+            />
+
+            {callStatus === "ended" && transcript.length > 0 && (
+              <CallSummary
+                duration={duration}
+                transcript={transcript}
+                onDownloadTranscript={handleDownloadTranscript}
+              />
+            )}
+          </div>
+        </div>
+      </main>
+    </div>
+  );
+}

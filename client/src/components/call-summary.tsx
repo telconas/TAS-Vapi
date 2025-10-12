@@ -1,0 +1,78 @@
+import { Card } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+import { Download, Clock, MessageSquare } from "lucide-react";
+import type { TranscriptMessage } from "@shared/schema";
+
+interface CallSummaryProps {
+  duration: number;
+  transcript: TranscriptMessage[];
+  onDownloadTranscript: () => void;
+}
+
+export function CallSummary({ duration, transcript, onDownloadTranscript }: CallSummaryProps) {
+  const formatDuration = (seconds: number) => {
+    const mins = Math.floor(seconds / 60);
+    const secs = seconds % 60;
+    return `${mins}m ${secs}s`;
+  };
+
+  const messageCount = transcript.length;
+  const aiMessages = transcript.filter((m) => m.speaker === "ai").length;
+  const callerMessages = transcript.filter((m) => m.speaker === "caller").length;
+
+  return (
+    <Card className="p-6 border-t-2 border-t-primary" data-testid="card-call-summary">
+      <div className="space-y-6">
+        <div className="flex items-center justify-between">
+          <h3 className="text-xl font-semibold">Call Summary</h3>
+          <Button
+            variant="outline"
+            onClick={onDownloadTranscript}
+            data-testid="button-download-transcript"
+          >
+            <Download className="w-4 h-4 mr-2" />
+            Download Transcript
+          </Button>
+        </div>
+
+        <div className="grid grid-cols-3 gap-6">
+          <div className="space-y-2">
+            <div className="flex items-center gap-2 text-muted-foreground">
+              <Clock className="w-4 h-4" />
+              <span className="text-sm font-medium">Duration</span>
+            </div>
+            <p className="text-2xl font-semibold" data-testid="text-summary-duration">
+              {formatDuration(duration)}
+            </p>
+          </div>
+
+          <div className="space-y-2">
+            <div className="flex items-center gap-2 text-muted-foreground">
+              <MessageSquare className="w-4 h-4" />
+              <span className="text-sm font-medium">Total Messages</span>
+            </div>
+            <p className="text-2xl font-semibold" data-testid="text-summary-messages">
+              {messageCount}
+            </p>
+          </div>
+
+          <div className="space-y-2">
+            <div className="flex items-center gap-2 text-muted-foreground">
+              <MessageSquare className="w-4 h-4" />
+              <span className="text-sm font-medium">AI / Caller</span>
+            </div>
+            <p className="text-2xl font-semibold font-mono" data-testid="text-summary-breakdown">
+              {aiMessages} / {callerMessages}
+            </p>
+          </div>
+        </div>
+
+        <div className="pt-4 border-t border-card-border">
+          <p className="text-sm text-muted-foreground">
+            Call completed successfully. Full transcript available above.
+          </p>
+        </div>
+      </div>
+    </Card>
+  );
+}
