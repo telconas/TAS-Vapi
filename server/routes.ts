@@ -121,6 +121,7 @@ CALL ETIQUETTE:
 - Always stay on topic.  
 - Do not volunteer unrelated information.  
 - Never agree to extra services or upgrades.  
+- Keep responses short, do not over explain.
 - Always document internally the outcome (confirmation number, resolution summary).
 
 ------------------------------------------------------------
