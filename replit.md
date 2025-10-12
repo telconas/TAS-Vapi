@@ -8,7 +8,7 @@ A full-stack web application that enables outbound AI voice calls using Twilio f
 - Data models defined in `shared/schema.ts` for calls, transcripts, and voice configuration
 - Design tokens configured with Inter font and JetBrains Mono for phone numbers
 - All React components built with stunning dark theme (#219ebc accent):
-  - Phone input form with country code selector
+  - Phone input form with country code selector and provider dropdown (24+ carriers)
   - Call status display with animated indicators
   - Real-time transcription panel with message bubbles
   - Audio player with waveform visualization
@@ -78,3 +78,9 @@ Note: User declined Replit's Twilio integration - using manual API credentials i
 - Fonts: Inter (UI), JetBrains Mono (phone numbers, durations)
 - Spacing: Consistent 6-unit system
 - Components follow shadcn patterns with hover-elevate interactions
+
+## Recent Updates
+- Added provider dropdown with 24+ carrier phone numbers (All Stream, ATT, Comcast, Spectrum, Verizon, etc.)
+- Auto-fill phone number when provider is selected
+- Manual phone entry clears provider selection
+- All inputs disabled during active calls

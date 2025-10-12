@@ -21,9 +21,49 @@ const countryCodes = [
   { code: "+61", country: "AU" },
 ];
 
+const providers = [
+  { name: "All Stream", number: "800-360-4467" },
+  { name: "ATT", number: "800-321-2000" },
+  { name: "Century Link", number: "800-777-9594" },
+  { name: "Comcast Business", number: "800-391-3000" },
+  { name: "Comcast Premier Central", number: "866-925-9635" },
+  { name: "Comcast Premier East", number: "833-847-4249" },
+  { name: "Comcast Scheduling", number: "866-347-7357" },
+  { name: "Comcast West", number: "866-950-3231" },
+  { name: "Cox", number: "866-272-5777" },
+  { name: "Direct TV", number: "888-342-7288" },
+  { name: "Frontier", number: "800-921-8102" },
+  { name: "Grande Communications", number: "877-881-7575" },
+  { name: "Granite", number: "866-847-5500" },
+  { name: "MetTel", number: "800-876-9823" },
+  { name: "Mood Media", number: "800-345-5000" },
+  { name: "Optimum (CableVision)", number: "866-251-4435" },
+  { name: "RCN", number: "877-726-7000" },
+  { name: "Spectrum Business", number: "866-772-4948" },
+  { name: "Spectrum Disconnects", number: "866-833-4292" },
+  { name: "Spectrum Enterprise", number: "555-812-2591" },
+  { name: "Spectrum Residential", number: "888-892-2253" },
+  { name: "Spectrum Scheduling", number: "888-681-8943" },
+  { name: "ATT U-verse", number: "888-288-8339" },
+  { name: "Verizon Enterprise", number: "888-622-0255" },
+];
+
 export function PhoneInputForm({ onStartCall, isCallActive }: PhoneInputFormProps) {
   const [countryCode, setCountryCode] = useState("+1");
   const [phoneNumber, setPhoneNumber] = useState("");
+  const [selectedProvider, setSelectedProvider] = useState("");
+
+  const handleProviderSelect = (value: string) => {
+    setSelectedProvider(value);
+    if (value) {
+      const provider = providers.find(p => p.number === value);
+      if (provider) {
+        // Strip all non-digits from the phone number
+        const cleanNumber = provider.number.replace(/\D/g, "");
+        setPhoneNumber(cleanNumber);
+      }
+    }
+  };
 
   const handleStartCall = () => {
     const fullNumber = `${countryCode}${phoneNumber}`;
@@ -35,11 +75,40 @@ export function PhoneInputForm({ onStartCall, isCallActive }: PhoneInputFormProp
   return (
     <div className="space-y-6">
       <div className="space-y-3">
+        <Label htmlFor="provider" className="text-base font-medium">
+          Provider (Optional)
+        </Label>
+        <Select 
+          value={selectedProvider} 
+          onValueChange={handleProviderSelect}
+          disabled={isCallActive}
+        >
+          <SelectTrigger 
+            className="w-full bg-card border-card-border"
+            data-testid="select-provider"
+          >
+            <SelectValue placeholder="Select a Provider" />
+          </SelectTrigger>
+          <SelectContent>
+            {providers.map((provider) => (
+              <SelectItem 
+                key={provider.number} 
+                value={provider.number}
+                data-testid={`option-provider-${provider.name.toLowerCase().replace(/\s+/g, '-')}`}
+              >
+                {provider.name} - {provider.number}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+      </div>
+
+      <div className="space-y-3">
         <Label htmlFor="phone-number" className="text-base font-medium">
           Phone Number
         </Label>
         <div className="flex gap-3">
-          <Select value={countryCode} onValueChange={setCountryCode}>
+          <Select value={countryCode} onValueChange={setCountryCode} disabled={isCallActive}>
             <SelectTrigger 
               className="w-32 bg-card border-card-border"
               data-testid="select-country-code"
@@ -63,7 +132,10 @@ export function PhoneInputForm({ onStartCall, isCallActive }: PhoneInputFormProp
             type="tel"
             placeholder="5551234567"
             value={phoneNumber}
-            onChange={(e) => setPhoneNumber(e.target.value.replace(/\D/g, ""))}
+            onChange={(e) => {
+              setPhoneNumber(e.target.value.replace(/\D/g, ""));
+              setSelectedProvider(""); // Clear provider selection when manually typing
+            }}
             className="flex-1 bg-card border-card-border text-lg font-mono"
             disabled={isCallActive}
             data-testid="input-phone-number"
