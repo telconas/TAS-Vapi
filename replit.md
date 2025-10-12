@@ -68,7 +68,12 @@ Note: User declined Replit's Twilio integration - using manual API credentials i
 
 ## Implementation Notes
 - Current implementation uses Twilio's built-in transcription rather than streaming Media Streams
-- Audio playback is generated but would require additional TwiML integration for phone playback
+- ElevenLabs audio playback implemented via TwiML `<Play>` verb:
+  - Audio generated on-demand and cached to `/tmp/audio-cache`
+  - Served via `/api/audio/:filename` endpoint with security validation
+  - Initial greeting and AI responses use selected ElevenLabs voice
+  - Falls back to Twilio's `<Say>` verb if audio generation fails
+- Call redirection used to play AI responses during conversation
 - For production, consider upgrading to Twilio Media Streams for true bidirectional audio
 - Database persistence ensures call history and transcripts are saved
 
@@ -90,3 +95,4 @@ Note: User declined Replit's Twilio integration - using manual API credentials i
 - Prompt is used as OpenAI system message for personalized AI behavior
 - Hang up properly terminates Twilio calls and updates call status
 - AI uses OpenAI function calling to intelligently decide when to press buttons
+- ✅ **Callers now hear ElevenLabs voices** - Audio generated on-demand and played via TwiML `<Play>` verb
