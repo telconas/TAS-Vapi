@@ -580,12 +580,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
 
       // Start recording and gathering speech immediately - AI only speaks when asked a question
+      // If gather times out, redirect back to continue listening (keeps call alive during hold)
       const twiml = `<?xml version="1.0" encoding="UTF-8"?>
 <Response>
   <Start>
     <Record recordingTrack="both" recordingStatusCallback="https://${req.get("host")}/api/twiml-recording/${callId}" />
   </Start>
   <Gather input="speech" timeout="60" speechTimeout="auto" action="https://${req.get("host")}/api/gather/${callId}" />
+  <Redirect method="POST">https://${req.get("host")}/api/gather/${callId}</Redirect>
 </Response>`;
 
       res.type("text/xml");
@@ -879,10 +881,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
     const activeCall = activeCalls.get(callId);
 
     if (!activeCall || !SpeechResult) {
-      // No speech detected, continue gathering
+      // No speech detected (timeout or silence) - continue gathering to keep call alive
+      // This allows the AI to stay on hold indefinitely (up to Twilio's 4-hour max call duration)
+      console.log(`Call ${callId}: No speech detected, continuing gather loop (keeps call alive during hold)`);
       const twiml = `<?xml version="1.0" encoding="UTF-8"?>
 <Response>
   <Gather input="speech" timeout="60" speechTimeout="auto" action="https://${req.get("host")}/api/gather/${callId}" />
+  <Redirect method="POST">https://${req.get("host")}/api/gather/${callId}</Redirect>
 </Response>`;
       res.type("text/xml");
       return res.send(twiml);
@@ -1098,12 +1103,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
               audioFilename,
             );
 
-            // Return TwiML to play audio with barge-in
+            // Return TwiML to play audio with barge-in (redirect keeps call alive)
             const twiml = `<?xml version="1.0" encoding="UTF-8"?>
 <Response>
   <Gather input="speech" timeout="60" speechTimeout="auto" action="https://${req.get("host")}/api/gather/${callId}">
     <Play>https://${req.get("host")}${audioUrl}</Play>
   </Gather>
+  <Redirect method="POST">https://${req.get("host")}/api/gather/${callId}</Redirect>
 </Response>`;
             res.type("text/xml");
             return res.send(twiml);
@@ -1124,24 +1130,27 @@ export async function registerRoutes(app: Express): Promise<Server> {
   <Gather input="speech" timeout="60" speechTimeout="auto" action="https://${req.get("host")}/api/gather/${callId}">
     <Say${voiceAttr}>${escapeXml(aiResponse)}</Say>
   </Gather>
+  <Redirect method="POST">https://${req.get("host")}/api/gather/${callId}</Redirect>
 </Response>`;
         res.type("text/xml");
         return res.send(twiml);
       }
 
-      // No AI response - just continue gathering
+      // No AI response - just continue gathering (keeps call alive)
       const twiml = `<?xml version="1.0" encoding="UTF-8"?>
 <Response>
   <Gather input="speech" timeout="60" speechTimeout="auto" action="https://${req.get("host")}/api/gather/${callId}" />
+  <Redirect method="POST">https://${req.get("host")}/api/gather/${callId}</Redirect>
 </Response>`;
       res.type("text/xml");
       res.send(twiml);
     } catch (error) {
       console.error("Gather processing error:", error);
-      // Continue gathering on error
+      // Continue gathering on error (keeps call alive even during long hold times)
       const twiml = `<?xml version="1.0" encoding="UTF-8"?>
 <Response>
   <Gather input="speech" timeout="60" speechTimeout="auto" action="https://${req.get("host")}/api/gather/${callId}" />
+  <Redirect method="POST">https://${req.get("host")}/api/gather/${callId}</Redirect>
 </Response>`;
       res.type("text/xml");
       res.send(twiml);
@@ -1154,11 +1163,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
     const { audioUrl } = req.query;
 
     // TwiML to play AI response with speech barge-in (interruption support)
+    // Redirect keeps call alive if gather times out
     const twiml = `<?xml version="1.0" encoding="UTF-8"?>
 <Response>
   <Gather input="speech" timeout="60" speechTimeout="auto" action="https://${req.get("host")}/api/gather/${callId}">
     <Play>https://${req.get("host")}${audioUrl}</Play>
   </Gather>
+  <Redirect method="POST">https://${req.get("host")}/api/gather/${callId}</Redirect>
 </Response>`;
 
     res.type("text/xml");
@@ -1171,11 +1182,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
     const { digit } = req.query;
 
     // Return TwiML that plays the DTMF tone with speech barge-in
+    // Redirect keeps call alive if gather times out
     const twiml = `<?xml version="1.0" encoding="UTF-8"?>
 <Response>
   <Play digits="${digit}"/>
   <Pause length="1"/>
   <Gather input="speech" timeout="60" speechTimeout="auto" action="https://${req.get("host")}/api/gather/${callId}" />
+  <Redirect method="POST">https://${req.get("host")}/api/gather/${callId}</Redirect>
 </Response>`;
 
     res.type("text/xml");
