@@ -1,0 +1,68 @@
+Build a full-stack web application that integrates with the Vapi.ai API for outbound AI calls.
+
+The app should include:
+
+Purpose & Overview
+
+A dashboard that lets the user start outbound calls through their Vapi.ai account.
+When a call is active, the app should show:
+Real-time transcription updates (streaming text as it’s spoken)
+Live audio monitoring (a play/pause toggle that plays the live call audio)
+After the call ends, the transcript should remain visible along with call duration and summary.
+Frontend
+
+Use React + Tailwind CSS.
+Show an input field for a phone number and a “Start Call” button.
+Below it, display:
+Current call status (Idle / Ringing / Connected / Ended)
+A live transcription area that updates in real time.
+A waveform or audio player showing the audio stream.
+Include simple, modern styling: dark background, rounded cards, accent color #219ebc.
+Backend / API
+
+Use Node.js (Express or Next.js API routes).
+Include a .env variable for VAPI_API_KEY.
+When the frontend requests a call:
+Send a POST request to https://api.vapi.ai/call with:
+
+{
+  "assistantId": "<replace_with_assistant_id>",
+  "phoneNumberId": "<replace_with_phone_number_id>",
+  "customer": { "number": "<user_entered_number>" }
+}
+Return the callId to the frontend.
+Real-Time Streaming
+
+Connect to the Vapi WebSocket or event stream to receive transcript and audio events for that callId.
+Display live transcription text as messages arrive.
+Stream the audio (if provided as URL chunks) to an <audio> element that updates as the call progresses.
+Environment Config
+
+.env should include:
+
+VAPI_API_KEY=your_vapi_api_key
+ASSISTANT_ID=your_assistant_id
+PHONE_NUMBER_ID=your_phone_number_id
+Use server-side routes to securely call Vapi.
+UI Behavior
+
+When “Start Call” is clicked:
+Disable the button and show status = “Calling…”
+When connected, change status = “Live Call”
+Stream transcription in real time in a scrollable container.
+Play live audio stream if user presses “Listen Live”.
+When call ends, display:
+“Call Ended” status
+The full transcript (final version)
+Total call duration
+Bonus Features
+
+Include a “Save Transcript” button that downloads the text as a .txt file.
+Optional “Schedule Call” form that lets you specify a date/time and schedules via Vapi’s schedulePlan parameter.
+Tech stack:
+
+Frontend: React + Tailwind CSS
+Backend: Node.js/Express or Next.js API routes
+Communication: WebSocket for live transcription
+Audio: HTML5 <audio> element streaming live data
+Deliver the complete working code and clear setup instructions (npm install, set .env, run dev).
