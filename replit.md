@@ -96,3 +96,5 @@ Note: User declined Replit's Twilio integration - using manual API credentials i
 - Hang up properly terminates Twilio calls and updates call status
 - AI uses OpenAI function calling to intelligently decide when to press buttons
 - ✅ **Callers now hear ElevenLabs voices** - Audio generated on-demand and played via TwiML `<Play>` verb
+- ✅ **Caller ID set to 913-439-5811** - All outbound calls use this phone number
+- ✅ **AI only speaks when asked** - No initial greeting, call starts with silence until caller speaks
