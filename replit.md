@@ -98,3 +98,4 @@ Note: User declined Replit's Twilio integration - using manual API credentials i
 - ✅ **Callers now hear ElevenLabs voices** - Audio generated on-demand and played via TwiML `<Play>` verb
 - ✅ **Caller ID set to 913-439-5811** - All outbound calls use this phone number
 - ✅ **AI only speaks when asked** - No initial greeting, call starts with silence until caller speaks
+- ✅ **Silent operator instructions** - Send real-time guidance to AI during calls that caller never hears
