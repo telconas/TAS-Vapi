@@ -75,6 +75,7 @@ Note: User declined Replit's Twilio integration - using manual API credentials i
   - AI responses use selected ElevenLabs voice with interrupt capability
   - Falls back to Twilio's `<Say>` verb if audio generation fails
 - Speech recognition with `speechTimeout="auto"` for natural conversation flow
+- Extended `<Gather>` timeout to 60 seconds (max) to prevent premature call disconnection during conversations
 - Database persistence ensures call history and transcripts are saved
 
 ## Design System
