@@ -61,20 +61,19 @@ Note: User declined Replit's Twilio integration - using manual API credentials i
 ## Architecture Notes
 - WebSocket server runs on `/ws` path to avoid conflicts with Vite HMR
 - Session-based WebSocket client management for multi-user support
-- Twilio integration uses Record verb with transcription callbacks (simpler than Media Streams for MVP)
-- Real-time transcription via Twilio's built-in transcription service
-- OpenAI GPT-4 for conversational AI logic
+- Twilio integration uses `<Gather>` with speech recognition for **barge-in support** (AI stops speaking when interrupted)
+- Real-time speech recognition via Twilio's `<Gather>` verb with `speechTimeout="auto"`
+- OpenAI GPT-4.1 for conversational AI logic
 - ElevenLabs TTS generates audio responses from AI text
 
 ## Implementation Notes
-- Current implementation uses Twilio's built-in transcription rather than streaming Media Streams
-- ElevenLabs audio playback implemented via TwiML `<Play>` verb:
+- **Barge-in support**: Uses `<Gather>` with speech recognition instead of `<Record>` so AI stops speaking when caller interrupts
+- ElevenLabs audio playback implemented via TwiML `<Play>` verb inside `<Gather>`:
   - Audio generated on-demand and cached to `/tmp/audio-cache`
   - Served via `/api/audio/:filename` endpoint with security validation
-  - Initial greeting and AI responses use selected ElevenLabs voice
+  - AI responses use selected ElevenLabs voice with interrupt capability
   - Falls back to Twilio's `<Say>` verb if audio generation fails
-- Call redirection used to play AI responses during conversation
-- For production, consider upgrading to Twilio Media Streams for true bidirectional audio
+- Speech recognition with `speechTimeout="auto"` for natural conversation flow
 - Database persistence ensures call history and transcripts are saved
 
 ## Design System
@@ -102,3 +101,4 @@ Note: User declined Replit's Twilio integration - using manual API credentials i
 - ✅ **Voice preview** - Hear ElevenLabs voices before selecting with audio preview buttons
 - ✅ **GPT-4.1 upgrade** - Upgraded from GPT-4o to GPT-4.1 (21.4% better coding, 10.5% better instruction following, 20% cost reduction)
 - ✅ **Make.com webhook** - Completed calls now send data to https://hook.us1.make.com/qomm4skpqxiyq40jxwwxcij4d1wl1psr
+- ✅ **Barge-in support** - AI stops speaking immediately when service rep/caller starts talking (switched from `<Record>` to `<Gather>` with speech recognition)
