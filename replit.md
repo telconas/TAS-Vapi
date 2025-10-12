@@ -88,6 +88,7 @@ Note: User declined Replit's Twilio integration - using manual API credentials i
 - Added provider dropdown with 24+ carrier phone numbers (All Stream, ATT, Comcast, Spectrum, Verizon, etc.)
 - Added Hang Up button to disconnect active calls
 - Added DTMF button pressing capability (AI can press 0-9, *, #) to navigate phone menus
+- AI automatically enters zip codes digit-by-digit from the prompt when asked
 - Auto-fill phone number when provider is selected
 - Manual phone entry clears provider selection
 - All inputs disabled during active calls

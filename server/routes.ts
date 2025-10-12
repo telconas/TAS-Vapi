@@ -517,7 +517,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         messages: [
           {
             role: "system",
-            content: activeCall.prompt + "\n\nKeep responses concise and conversational, suitable for text-to-speech.\n\nIMPORTANT: If you hear a phone menu (like 'Press 1 for Sales, Press 2 for Support'), use the press_button function to navigate the menu. You can press buttons 0-9, *, or #.",
+            content: activeCall.prompt + "\n\nKeep responses concise and conversational, suitable for text-to-speech.\n\nIMPORTANT: If you hear a phone menu (like 'Press 1 for Sales, Press 2 for Support'), use the press_button function to navigate the menu. You can press buttons 0-9, *, or #.\n\nZIP CODE ENTRY: If asked for a zip code, look in the prompt above for the zip code. Enter ALL 5 digits one at a time using the press_button function (e.g., if zip is 12345, press 1, then 2, then 3, then 4, then 5).",
           },
           ...activeCall.openaiConversation,
         ],
@@ -616,7 +616,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
           messages: [
             {
               role: "system",
-              content: activeCall.prompt + "\n\nKeep responses concise and conversational, suitable for text-to-speech.\n\nIMPORTANT: If you hear a phone menu (like 'Press 1 for Sales, Press 2 for Support'), use the press_button function to navigate the menu. You can press buttons 0-9, *, or #.",
+              content: activeCall.prompt + "\n\nKeep responses concise and conversational, suitable for text-to-speech.\n\nIMPORTANT: If you hear a phone menu (like 'Press 1 for Sales, Press 2 for Support'), use the press_button function to navigate the menu. You can press buttons 0-9, *, or #.\n\nZIP CODE ENTRY: If asked for a zip code, look in the prompt above for the zip code. Enter ALL 5 digits one at a time using the press_button function (e.g., if zip is 12345, press 1, then 2, then 3, then 4, then 5).",
             },
             ...activeCall.openaiConversation,
           ],
@@ -718,7 +718,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         messages: [
           {
             role: "system",
-            content: activeCall.prompt + "\n\nKeep responses concise and conversational, suitable for text-to-speech.\n\nIMPORTANT: If you hear a phone menu (like 'Press 1 for Sales, Press 2 for Support'), use the press_button function to navigate the menu. You can press buttons 0-9, *, or #.",
+            content: activeCall.prompt + "\n\nKeep responses concise and conversational, suitable for text-to-speech.\n\nIMPORTANT: If you hear a phone menu (like 'Press 1 for Sales, Press 2 for Support'), use the press_button function to navigate the menu. You can press buttons 0-9, *, or #.\n\nZIP CODE ENTRY: If asked for a zip code, look in the prompt above for the zip code. Enter ALL 5 digits one at a time using the press_button function (e.g., if zip is 12345, press 1, then 2, then 3, then 4, then 5).",
           },
           ...activeCall.openaiConversation,
         ],
@@ -812,7 +812,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
           messages: [
             {
               role: "system",
-              content: activeCall.prompt + "\n\nKeep responses concise and conversational, suitable for text-to-speech.\n\nIMPORTANT: If you hear a phone menu (like 'Press 1 for Sales, Press 2 for Support'), use the press_button function to navigate the menu. You can press buttons 0-9, *, or #.",
+              content: activeCall.prompt + "\n\nKeep responses concise and conversational, suitable for text-to-speech.\n\nIMPORTANT: If you hear a phone menu (like 'Press 1 for Sales, Press 2 for Support'), use the press_button function to navigate the menu. You can press buttons 0-9, *, or #.\n\nZIP CODE ENTRY: If asked for a zip code, look in the prompt above for the zip code. Enter ALL 5 digits one at a time using the press_button function (e.g., if zip is 12345, press 1, then 2, then 3, then 4, then 5).",
             },
             ...activeCall.openaiConversation,
           ],
