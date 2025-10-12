@@ -448,10 +448,29 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Allowlist of valid Polly voices
+  const VALID_POLLY_VOICES = [
+    "Polly.Joanna",
+    "Polly.Matthew",
+    "Polly.Salli",
+    "Polly.Kendra",
+    "Polly.Kimberly",
+    "Polly.Ivy",
+    "Polly.Joey",
+    "Polly.Justin",
+    "Polly.Amy",
+    "Polly.Brian",
+    "Polly.Emma",
+    "Polly.Aditi",
+    "Polly.Raveena",
+    "Polly.Nicole",
+    "Polly.Russell",
+  ];
+
   // API: Start a new call
   app.post("/api/calls/start", async (req, res) => {
     try {
-      const { phoneNumber, prompt, voiceId, voiceName, sessionId } = req.body;
+      const { phoneNumber, prompt, pollyVoice, sessionId } = req.body;
 
       // Validate request
       if (!phoneNumber) {
@@ -461,6 +480,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
       if (!prompt) {
         return res.status(400).json({ error: "AI prompt is required" });
       }
+
+      // Validate Polly voice against allowlist
+      const validatedVoice = pollyVoice && VALID_POLLY_VOICES.includes(pollyVoice)
+        ? pollyVoice
+        : "Polly.Joanna"; // Default to Joanna if not specified or invalid
 
       // Validate environment variables
       if (
@@ -489,8 +513,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         phoneNumber,
         prompt,
         status: "ringing",
-        voiceId,
-        voiceName,
+        pollyVoice: validatedVoice,
         duration: 0,
       });
 
@@ -1062,6 +1085,18 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
         // Generate and play audio
         const call = await storage.getCall(callId);
+        
+        // Helper to escape XML special characters
+        const escapeXml = (text: string) => {
+          return text
+            .replace(/&/g, '&amp;')
+            .replace(/</g, '&lt;')
+            .replace(/>/g, '&gt;')
+            .replace(/"/g, '&quot;')
+            .replace(/'/g, '&apos;');
+        };
+        
+        // Try ElevenLabs first if voiceId is configured
         if (call?.voiceId) {
           try {
             const audioFilename = `${callId}-${Date.now()}.mp3`;
@@ -1082,23 +1117,20 @@ export async function registerRoutes(app: Express): Promise<Server> {
             return res.send(twiml);
           } catch (audioError) {
             console.error("Error generating audio:", audioError);
-            // Fallback to Twilio's <Say> verb when audio generation fails
-            const twiml = `<?xml version="1.0" encoding="UTF-8"?>
-<Response>
-  <Gather input="speech" timeout="60" speechTimeout="auto" action="https://${req.get("host")}/api/gather/${callId}">
-    <Say>${aiResponse}</Say>
-  </Gather>
-</Response>`;
-            res.type("text/xml");
-            return res.send(twiml);
+            // Fallback to Polly voice or default
           }
         }
         
-        // No voiceId configured - use Twilio's <Say> as default
+        // Use Polly voice (either as primary choice or fallback from ElevenLabs failure)
+        // Validate voice against allowlist for security
+        const safeVoice = call?.pollyVoice && VALID_POLLY_VOICES.includes(call.pollyVoice)
+          ? call.pollyVoice
+          : "Polly.Joanna";
+        const voiceAttr = ` voice="${safeVoice}"`;
         const twiml = `<?xml version="1.0" encoding="UTF-8"?>
 <Response>
   <Gather input="speech" timeout="60" speechTimeout="auto" action="https://${req.get("host")}/api/gather/${callId}">
-    <Say>${aiResponse}</Say>
+    <Say${voiceAttr}>${escapeXml(aiResponse)}</Say>
   </Gather>
 </Response>`;
         res.type("text/xml");

@@ -12,8 +12,9 @@ export const calls = pgTable("calls", {
   duration: integer("duration"), // in seconds
   startedAt: timestamp("started_at").defaultNow(),
   endedAt: timestamp("ended_at"),
-  voiceId: text("voice_id"),
-  voiceName: text("voice_name"),
+  voiceId: text("voice_id"), // ElevenLabs voice ID (deprecated, keeping for backwards compat)
+  voiceName: text("voice_name"), // ElevenLabs voice name (deprecated)
+  pollyVoice: text("polly_voice"), // Amazon Polly voice (e.g., "Polly.Joanna")
   twilioCallSid: text("twilio_call_sid"), // Twilio call identifier
   recordingUrl: text("recording_url"), // URL to call recording
 });

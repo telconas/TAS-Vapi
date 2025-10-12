@@ -3,7 +3,7 @@ import { PhoneInputForm } from "@/components/phone-input-form";
 import { CallStatus } from "@/components/call-status";
 import { TranscriptionPanel } from "@/components/transcription-panel";
 import { AudioPlayer } from "@/components/audio-player";
-import { VoiceSelector } from "@/components/voice-selector";
+import { PollyVoiceSelector } from "@/components/polly-voice-selector";
 import { CallSummary } from "@/components/call-summary";
 import { InstructionInput } from "@/components/instruction-input";
 import { Card } from "@/components/ui/card";
@@ -19,8 +19,7 @@ export default function Dashboard() {
   const [duration, setDuration] = useState(0);
   const [transcript, setTranscript] = useState<TranscriptMessage[]>([]);
   const [isAudioPlaying, setIsAudioPlaying] = useState(false);
-  const [selectedVoiceId, setSelectedVoiceId] = useState("");
-  const [selectedVoiceName, setSelectedVoiceName] = useState("");
+  const [selectedPollyVoice, setSelectedPollyVoice] = useState("Polly.Joanna");
   const [currentCallId, setCurrentCallId] = useState<string | null>(null);
   const [sessionId, setSessionId] = useState<string | null>(null);
   const [recordingUrl, setRecordingUrl] = useState<string | null>(null);
@@ -203,8 +202,7 @@ export default function Dashboard() {
         body: JSON.stringify({
           phoneNumber: phone,
           prompt,
-          voiceId: selectedVoiceId,
-          voiceName: selectedVoiceName,
+          pollyVoice: selectedPollyVoice,
           sessionId,
         }),
       });
@@ -255,11 +253,6 @@ export default function Dashboard() {
       title: "Transcript Downloaded",
       description: "The call transcript has been saved to your device.",
     });
-  };
-
-  const handleVoiceChange = (voiceId: string, voiceName: string) => {
-    setSelectedVoiceId(voiceId);
-    setSelectedVoiceName(voiceName);
   };
 
   const handleHangUp = async () => {
@@ -325,7 +318,7 @@ export default function Dashboard() {
             <div>
               <h1 className="text-2xl font-bold">AI Voice Agent</h1>
               <p className="text-sm text-muted-foreground">
-                Powered by Twilio, OpenAI & ElevenLabs
+                Powered by Twilio, OpenAI & Amazon Polly
               </p>
             </div>
           </div>
@@ -338,9 +331,9 @@ export default function Dashboard() {
             <Card className="p-6">
               <h2 className="text-xl font-semibold mb-6">Call Controls</h2>
               <div className="space-y-6">
-                <VoiceSelector
-                  selectedVoiceId={selectedVoiceId}
-                  onVoiceChange={handleVoiceChange}
+                <PollyVoiceSelector
+                  selectedVoice={selectedPollyVoice}
+                  onVoiceChange={setSelectedPollyVoice}
                   disabled={isCallActive}
                 />
                 <PhoneInputForm

@@ -45,7 +45,7 @@ A full-stack web application that enables outbound AI voice calls using Twilio f
 ## Tech Stack
 - **Frontend**: React, Tailwind CSS, Wouter (routing), TanStack Query
 - **Backend**: Node.js, Express, WebSocket (ws package)
-- **External APIs**: Twilio (calls), OpenAI GPT-4.1 (AI logic), ElevenLabs (TTS)
+- **External APIs**: Twilio (calls + Polly TTS), OpenAI GPT-4.1 (AI logic)
 - **Real-time**: WebSocket for live transcription and audio streaming
 
 ## Environment Variables
@@ -69,11 +69,12 @@ Note: User declined Replit's Twilio integration - using manual API credentials i
 ## Implementation Notes
 - **Hard-coded System Prompt**: Professional virtual assistant "James Martin" prompt with call behavior guidelines, IVR navigation rules, task patterns, and call etiquette. User's AI Instructions are injected into the "ACCOUNT REFERENCE SECTION" placeholder.
 - **Barge-in support**: Uses `<Gather>` with speech recognition instead of `<Record>` so AI stops speaking when caller interrupts
-- ElevenLabs audio playback implemented via TwiML `<Play>` verb inside `<Gather>`:
-  - Audio generated on-demand and cached to `/tmp/audio-cache`
-  - Served via `/api/audio/:filename` endpoint with security validation
-  - AI responses use selected ElevenLabs voice with interrupt capability
-  - **Automatic fallback to Twilio's `<Say>` verb** if ElevenLabs fails (ensures AI always responds)
+- **Amazon Polly TTS (FREE)**: AI uses Amazon Polly voices via Twilio's `<Say voice="Polly.Joanna">` verb:
+  - 15 high-quality voices available (US, British, Indian, Australian accents)
+  - No additional API costs - included in Twilio call pricing
+  - Allowlist validation prevents TwiML injection attacks
+  - Default voice: "Polly.Joanna" (female, US English)
+  - ElevenLabs integration still available as fallback (if voiceId configured and credits available)
 - Speech recognition with `speechTimeout="auto"` for natural conversation flow
 - Extended `<Gather>` timeout to 60 seconds (max) to prevent premature call disconnection during conversations
 - Database persistence ensures call history and transcripts are saved
@@ -99,11 +100,12 @@ Note: User declined Replit's Twilio integration - using manual API credentials i
 - Prompt is used as OpenAI system message for personalized AI behavior
 - Hang up properly terminates Twilio calls and updates call status
 - AI uses OpenAI function calling to intelligently decide when to press buttons
-- ✅ **Callers now hear ElevenLabs voices** - Audio generated on-demand and played via TwiML `<Play>` verb
 - ✅ **Caller ID set to 913-439-5811** - All outbound calls use this phone number
 - ✅ **AI only speaks when asked** - No initial greeting, call starts with silence until caller speaks
 - ✅ **Silent operator instructions** - Send real-time guidance to AI during calls that caller never hears
-- ✅ **Voice preview** - Hear ElevenLabs voices before selecting with audio preview buttons
 - ✅ **GPT-4.1 upgrade** - Upgraded from GPT-4o to GPT-4.1 (21.4% better coding, 10.5% better instruction following, 20% cost reduction)
 - ✅ **Make.com webhook** - Completed calls now send data to https://hook.us1.make.com/qomm4skpqxiyq40jxwwxcij4d1wl1psr
 - ✅ **Barge-in support** - AI stops speaking immediately when service rep/caller starts talking (switched from `<Record>` to `<Gather>` with speech recognition)
+- ✅ **Amazon Polly voices (FREE)** - Switched from ElevenLabs to Amazon Polly TTS (15 voices, no extra cost, included in Twilio pricing)
+  - Allowlist validation for security (prevents TwiML injection)
+  - ElevenLabs still available as fallback if configured and has credits
