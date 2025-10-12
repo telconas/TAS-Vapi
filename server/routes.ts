@@ -64,10 +64,12 @@ CALL BEHAVIOR & SPEAKING STYLE:
 ------------------------------------------------------------
 AUTOMATED SYSTEM NAVIGATION:
 
-- Prefer touch-tone input, but use voice if necessary.  
-- Say "speak with agent" or "representative" to reach a human quickly.  
+- Prefer touch-tone input, but use voice when asked a direct question. 
+- You will almost always encounter an automated system before speaking with a live agent. Be patient and wait for instructions during the automated system portion of the call.  During this time, use short sentences, or a few words to get instructions across. 
+- Once connected to a live agent, you can then adjust your speaking style to be more human like since you are speaking with a real human at that point in the call.
+- Say "speak with agent" or "representative" to reach a human quicker than going through many automated prompts.
 - Always provide the account number first (not the phone number).  
-- Skip automated troubleshooting unless required ("It's a different issue").  
+- Skip automated troubleshooting unless required ("It's a different issue for companies like Spectrum").  
 - Use correct department names:
   - "Technical Support" → troubleshooting/outage  
   - "Billing or Account Services" → disconnects/billing issues  
@@ -84,6 +86,7 @@ Be ready to provide:
 - Service address  
 - Account PIN  
 - Short summary of the problem from the task or issue section  
+-You may wait on hold during this phase of the call. Only speak when asked a question, unless prompted to do otherwise.
 
 ------------------------------------------------------------
 ACCOUNT REFERENCE SECTION:
@@ -518,7 +521,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // API: Start a new call
   app.post("/api/calls/start", async (req, res) => {
     try {
-      const { phoneNumber, prompt, pollyVoice, openaiVoice, voiceProvider, sessionId } = req.body;
+      const {
+        phoneNumber,
+        prompt,
+        pollyVoice,
+        openaiVoice,
+        voiceProvider,
+        sessionId,
+      } = req.body;
 
       // Validate request
       if (!phoneNumber) {
@@ -536,15 +546,17 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       if (validatedProvider === "openai") {
         // Validate OpenAI voice
-        validatedOpenAIVoice = openaiVoice && VALID_OPENAI_VOICES.includes(openaiVoice)
-          ? openaiVoice
-          : "alloy"; // Default to alloy
+        validatedOpenAIVoice =
+          openaiVoice && VALID_OPENAI_VOICES.includes(openaiVoice)
+            ? openaiVoice
+            : "alloy"; // Default to alloy
       } else {
         // Default to or validate Polly voice
         validatedProvider = "polly";
-        validatedPollyVoice = pollyVoice && VALID_POLLY_VOICES.includes(pollyVoice)
-          ? pollyVoice
-          : "Polly.Joanna"; // Default to Joanna
+        validatedPollyVoice =
+          pollyVoice && VALID_POLLY_VOICES.includes(pollyVoice)
+            ? pollyVoice
+            : "Polly.Joanna"; // Default to Joanna
       }
 
       // Validate environment variables
@@ -647,7 +659,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   <Start>
     <Record recordingTrack="both" recordingStatusCallback="https://${req.get("host")}/api/twiml-recording/${callId}" />
   </Start>
-  <Gather input="speech" timeout="60" speechTimeout="auto" action="https://${req.get("host")}/api/gather/${callId}" />
+  <Gather input="speech" timeout="60" speechTimeout="1" action="https://${req.get("host")}/api/gather/${callId}" />
   <Redirect method="POST">https://${req.get("host")}/api/gather/${callId}</Redirect>
 </Response>`;
 
@@ -841,7 +853,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
                   speaker: "ai",
                   text: buttonMessage,
                 });
-                
+
                 // Note: Button press not sent to frontend WebSocket (hidden from live transcript UI)
               } catch (dtmfError) {
                 console.error("Error sending DTMF:", dtmfError);
@@ -944,10 +956,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
     if (!activeCall || !SpeechResult) {
       // No speech detected (timeout or silence) - continue gathering to keep call alive
       // This allows the AI to stay on hold indefinitely (up to Twilio's 4-hour max call duration)
-      console.log(`Call ${callId}: No speech detected, continuing gather loop (keeps call alive during hold)`);
+      console.log(
+        `Call ${callId}: No speech detected, continuing gather loop (keeps call alive during hold)`,
+      );
       const twiml = `<?xml version="1.0" encoding="UTF-8"?>
 <Response>
-  <Gather input="speech" timeout="60" speechTimeout="auto" action="https://${req.get("host")}/api/gather/${callId}" />
+  <Gather input="speech" timeout="60" speechTimeout="1" action="https://${req.get("host")}/api/gather/${callId}" />
   <Redirect method="POST">https://${req.get("host")}/api/gather/${callId}</Redirect>
 </Response>`;
       res.type("text/xml");
@@ -955,6 +969,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
 
     try {
+      const t0 = Date.now();
+      console.log(`[LATENCY] Call ${callId}: Speech received - "${SpeechResult}"`);
+
       // Save caller's speech
       await storage.addTranscriptMessage({
         callId,
@@ -974,6 +991,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
           },
         }),
       );
+
+      const t1 = Date.now();
+      console.log(`[LATENCY] Call ${callId}: Starting GPT-4.1 request (+${t1 - t0}ms)`);
 
       // Generate AI response
       activeCall.openaiConversation.push({
@@ -1031,6 +1051,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
         ],
         tool_choice: "auto",
       });
+
+      const t2 = Date.now();
+      console.log(`[LATENCY] Call ${callId}: GPT-4.1 response received (+${t2 - t1}ms, total: ${t2 - t0}ms)`);
 
       const message = completion.choices[0]?.message;
       let aiResponse = message?.content || "";
@@ -1143,40 +1166,45 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
         // Generate and play audio
         const call = await storage.getCall(callId);
-        
+
         // Helper to escape XML special characters
         const escapeXml = (text: string) => {
           return text
-            .replace(/&/g, '&amp;')
-            .replace(/</g, '&lt;')
-            .replace(/>/g, '&gt;')
-            .replace(/"/g, '&quot;')
-            .replace(/'/g, '&apos;');
+            .replace(/&/g, "&amp;")
+            .replace(/</g, "&lt;")
+            .replace(/>/g, "&gt;")
+            .replace(/"/g, "&quot;")
+            .replace(/'/g, "&apos;");
         };
-        
+
         // Check voice provider and generate audio accordingly
         if (call?.voiceProvider === "openai" && call?.openaiVoice) {
           // Use OpenAI TTS
           const safeOpenAIVoice = VALID_OPENAI_VOICES.includes(call.openaiVoice)
             ? call.openaiVoice
             : "alloy";
-          
+
           try {
+            const t4 = Date.now();
+            console.log(`[LATENCY] Call ${callId}: Starting OpenAI TTS generation (+${t4 - t0}ms)`);
             const audioFilename = `${callId}-${Date.now()}.mp3`;
             const audioUrl = await generateOpenAIAudio(
               aiResponse,
               safeOpenAIVoice,
               audioFilename,
             );
+            const t5 = Date.now();
+            console.log(`[LATENCY] Call ${callId}: OpenAI TTS audio generated (+${t5 - t4}ms, total: ${t5 - t0}ms)`);
 
             // Return TwiML to play audio with barge-in (redirect keeps call alive)
             const twiml = `<?xml version="1.0" encoding="UTF-8"?>
 <Response>
-  <Gather input="speech" timeout="60" speechTimeout="auto" action="https://${req.get("host")}/api/gather/${callId}">
+  <Gather input="speech" timeout="60" speechTimeout="1" action="https://${req.get("host")}/api/gather/${callId}">
     <Play>https://${req.get("host")}${audioUrl}</Play>
   </Gather>
   <Redirect method="POST">https://${req.get("host")}/api/gather/${callId}</Redirect>
 </Response>`;
+            console.log(`[LATENCY] Call ${callId}: TwiML response sent to Twilio (total pipeline: ${Date.now() - t0}ms)`);
             res.type("text/xml");
             return res.send(twiml);
           } catch (audioError) {
@@ -1186,21 +1214,26 @@ export async function registerRoutes(app: Express): Promise<Server> {
         } else if (call?.voiceId) {
           // Try ElevenLabs if voiceId is configured
           try {
+            const t4 = Date.now();
+            console.log(`[LATENCY] Call ${callId}: Starting ElevenLabs TTS generation (+${t4 - t0}ms)`);
             const audioFilename = `${callId}-${Date.now()}.mp3`;
             const audioUrl = await generateAndSaveAudio(
               aiResponse,
               call.voiceId,
               audioFilename,
             );
+            const t5 = Date.now();
+            console.log(`[LATENCY] Call ${callId}: ElevenLabs TTS audio generated (+${t5 - t4}ms, total: ${t5 - t0}ms)`);
 
             // Return TwiML to play audio with barge-in (redirect keeps call alive)
             const twiml = `<?xml version="1.0" encoding="UTF-8"?>
 <Response>
-  <Gather input="speech" timeout="60" speechTimeout="auto" action="https://${req.get("host")}/api/gather/${callId}">
+  <Gather input="speech" timeout="60" speechTimeout="1" action="https://${req.get("host")}/api/gather/${callId}">
     <Play>https://${req.get("host")}${audioUrl}</Play>
   </Gather>
   <Redirect method="POST">https://${req.get("host")}/api/gather/${callId}</Redirect>
 </Response>`;
+            console.log(`[LATENCY] Call ${callId}: TwiML response sent to Twilio (total pipeline: ${Date.now() - t0}ms)`);
             res.type("text/xml");
             return res.send(twiml);
           } catch (audioError) {
@@ -1208,20 +1241,23 @@ export async function registerRoutes(app: Express): Promise<Server> {
             // Fallback to Polly voice
           }
         }
-        
+
         // Use Polly voice (default or fallback)
         // Validate voice against allowlist for security
-        const safeVoice = call?.pollyVoice && VALID_POLLY_VOICES.includes(call.pollyVoice)
-          ? call.pollyVoice
-          : "Polly.Joanna";
+        const safeVoice =
+          call?.pollyVoice && VALID_POLLY_VOICES.includes(call.pollyVoice)
+            ? call.pollyVoice
+            : "Polly.Joanna";
         const voiceAttr = ` voice="${safeVoice}"`;
+        console.log(`[LATENCY] Call ${callId}: Using Polly voice (no TTS generation needed) - total: ${Date.now() - t0}ms`);
         const twiml = `<?xml version="1.0" encoding="UTF-8"?>
 <Response>
-  <Gather input="speech" timeout="60" speechTimeout="auto" action="https://${req.get("host")}/api/gather/${callId}">
+  <Gather input="speech" timeout="60" speechTimeout="1" action="https://${req.get("host")}/api/gather/${callId}">
     <Say${voiceAttr}>${escapeXml(aiResponse)}</Say>
   </Gather>
   <Redirect method="POST">https://${req.get("host")}/api/gather/${callId}</Redirect>
 </Response>`;
+        console.log(`[LATENCY] Call ${callId}: TwiML response sent to Twilio (total pipeline: ${Date.now() - t0}ms)`);
         res.type("text/xml");
         return res.send(twiml);
       }
@@ -1229,7 +1265,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       // No AI response - just continue gathering (keeps call alive)
       const twiml = `<?xml version="1.0" encoding="UTF-8"?>
 <Response>
-  <Gather input="speech" timeout="60" speechTimeout="auto" action="https://${req.get("host")}/api/gather/${callId}" />
+  <Gather input="speech" timeout="60" speechTimeout="1" action="https://${req.get("host")}/api/gather/${callId}" />
   <Redirect method="POST">https://${req.get("host")}/api/gather/${callId}</Redirect>
 </Response>`;
       res.type("text/xml");
@@ -1239,7 +1275,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       // Continue gathering on error (keeps call alive even during long hold times)
       const twiml = `<?xml version="1.0" encoding="UTF-8"?>
 <Response>
-  <Gather input="speech" timeout="60" speechTimeout="auto" action="https://${req.get("host")}/api/gather/${callId}" />
+  <Gather input="speech" timeout="60" speechTimeout="1" action="https://${req.get("host")}/api/gather/${callId}" />
   <Redirect method="POST">https://${req.get("host")}/api/gather/${callId}</Redirect>
 </Response>`;
       res.type("text/xml");
@@ -1256,7 +1292,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     // Redirect keeps call alive if gather times out
     const twiml = `<?xml version="1.0" encoding="UTF-8"?>
 <Response>
-  <Gather input="speech" timeout="60" speechTimeout="auto" action="https://${req.get("host")}/api/gather/${callId}">
+  <Gather input="speech" timeout="60" speechTimeout="1" action="https://${req.get("host")}/api/gather/${callId}">
     <Play>https://${req.get("host")}${audioUrl}</Play>
   </Gather>
   <Redirect method="POST">https://${req.get("host")}/api/gather/${callId}</Redirect>
@@ -1277,7 +1313,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 <Response>
   <Play digits="${digit}"/>
   <Pause length="1"/>
-  <Gather input="speech" timeout="60" speechTimeout="auto" action="https://${req.get("host")}/api/gather/${callId}" />
+  <Gather input="speech" timeout="60" speechTimeout="1" action="https://${req.get("host")}/api/gather/${callId}" />
   <Redirect method="POST">https://${req.get("host")}/api/gather/${callId}</Redirect>
 </Response>`;
 

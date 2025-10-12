@@ -122,3 +122,8 @@ Note: User declined Replit's Twilio integration - using manual API credentials i
   - Proper caching headers for Twilio compatibility
   - Higher quality audio for better recording capture
   - Works with existing barge-in and infinite hold time features
+- ✅ **Latency Optimizations** - Reduced AI response time delay
+  - Changed speechTimeout from "auto" (2-4s delay) to "1" second for faster response
+  - Added detailed latency logging at each pipeline stage (speech detection, GPT call, TTS generation)
+  - Logs show millisecond timing for bottleneck identification
+  - Maintains infinite hold time support (timeout=60s with redirect)
