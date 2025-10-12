@@ -6,7 +6,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 
 interface VoiceSelectorProps {
   voiceProvider: "polly" | "openai";
@@ -82,10 +82,8 @@ export function VoiceSelector({
             OpenAI TTS
           </TabsTrigger>
         </TabsList>
-      </Tabs>
-
-      {voiceProvider === "polly" ? (
-        <>
+        
+        <TabsContent value="polly" className="space-y-3 mt-3">
           <Select
             value={selectedPollyVoice}
             onValueChange={onPollyVoiceChange}
@@ -109,9 +107,9 @@ export function VoiceSelector({
           <p className="text-xs text-muted-foreground">
             Amazon Polly voices are included in Twilio call costs (15 voices)
           </p>
-        </>
-      ) : (
-        <>
+        </TabsContent>
+        
+        <TabsContent value="openai" className="space-y-3 mt-3">
           <Select
             value={selectedOpenAIVoice}
             onValueChange={onOpenAIVoiceChange}
@@ -135,8 +133,8 @@ export function VoiceSelector({
           <p className="text-xs text-muted-foreground">
             OpenAI TTS provides premium voices with natural prosody (6 voices)
           </p>
-        </>
-      )}
+        </TabsContent>
+      </Tabs>
     </div>
   );
 }
