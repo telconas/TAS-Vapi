@@ -291,11 +291,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
         voiceName: call.voiceName,
         twilioCallSid: call.twilioCallSid,
         recordingUrl: call.recordingUrl,
-        transcripts: transcripts.map((t) => ({
-          speaker: t.speaker,
-          text: t.text,
-          timestamp: t.timestamp,
-        })),
+        transcripts: transcripts
+          .filter((t) => !t.text.startsWith("[INTERNAL:")) // Filter out internal audit messages
+          .map((t) => ({
+            speaker: t.speaker,
+            text: t.text,
+            timestamp: t.timestamp,
+          })),
       };
 
       const response = await fetch(webhookUrl, {
@@ -769,25 +771,15 @@ export async function registerRoutes(app: Express): Promise<Server> {
                   message: `Pressed button ${args.digit} successfully`,
                 };
 
-                // Log button press
-                const buttonMessage = `[Pressed button: ${args.digit}] ${args.reason}`;
+                // Save button press to database for audit trail (hidden from UI)
+                const buttonMessage = `[INTERNAL: Pressed button ${args.digit}] ${args.reason}`;
                 await storage.addTranscriptMessage({
                   callId,
                   speaker: "ai",
                   text: buttonMessage,
                 });
-
-                activeCall.ws.send(
-                  JSON.stringify({
-                    type: "transcription",
-                    data: {
-                      callId,
-                      speaker: "ai",
-                      text: buttonMessage,
-                      timestamp: Date.now(),
-                    },
-                  }),
-                );
+                
+                // Note: Button press not sent to frontend WebSocket (hidden from live transcript UI)
               } catch (dtmfError) {
                 console.error("Error sending DTMF:", dtmfError);
                 result = {
