@@ -5,6 +5,7 @@ import { TranscriptionPanel } from "@/components/transcription-panel";
 import { AudioPlayer } from "@/components/audio-player";
 import { VoiceSelector } from "@/components/voice-selector";
 import { CallSummary } from "@/components/call-summary";
+import { InstructionInput } from "@/components/instruction-input";
 import { Card } from "@/components/ui/card";
 import { useToast } from "@/hooks/use-toast";
 import type { TranscriptMessage } from "@shared/schema";
@@ -98,6 +99,21 @@ export default function Dashboard() {
           timestamp: new Date(message.data.timestamp || Date.now()),
         };
         setTranscript((prev) => [...prev, newMessage as TranscriptMessage]);
+        break;
+
+      case "instruction_response":
+        if (message.data.success) {
+          toast({
+            title: "Instruction Sent",
+            description: "The AI agent has received your guidance.",
+          });
+        } else {
+          toast({
+            title: "Instruction Failed",
+            description: message.data.message || "Failed to send instruction to AI agent",
+            variant: "destructive",
+          });
+        }
         break;
 
       case "audio_chunk":
@@ -260,6 +276,24 @@ export default function Dashboard() {
     }
   };
 
+  const handleSendInstruction = (instruction: string) => {
+    if (wsRef.current?.readyState === WebSocket.OPEN && currentCallId) {
+      wsRef.current.send(JSON.stringify({
+        type: 'instruction',
+        data: {
+          callId: currentCallId,
+          instruction,
+        },
+      }));
+    } else {
+      toast({
+        title: "Connection Error",
+        description: "Cannot send instruction - no active connection",
+        variant: "destructive",
+      });
+    }
+  };
+
   const isCallActive = callStatus === "ringing" || callStatus === "connected";
 
   return (
@@ -313,6 +347,10 @@ export default function Dashboard() {
               messages={transcript}
               isActive={callStatus === "connected"}
             />
+
+            {callStatus === "connected" && (
+              <InstructionInput onSendInstruction={handleSendInstruction} />
+            )}
 
             {callStatus === "ended" && transcript.length > 0 && (
               <CallSummary

@@ -88,6 +88,41 @@ export async function registerRoutes(app: Express): Promise<Server> {
       try {
         const message = JSON.parse(data.toString());
         console.log('Received WebSocket message:', message.type);
+
+        // Handle operator instructions
+        if (message.type === 'instruction') {
+          const { callId, instruction } = message.data;
+          const activeCall = activeCalls.get(callId);
+
+          if (activeCall) {
+            // Add instruction to AI conversation context as a system message
+            // This won't be transcribed or played to caller
+            activeCall.openaiConversation.push({
+              role: "system",
+              content: `[OPERATOR INSTRUCTION - Not for caller]: ${instruction}`,
+            });
+
+            console.log(`Instruction added for call ${callId}: ${instruction}`);
+
+            // Send success response
+            ws.send(JSON.stringify({
+              type: 'instruction_response',
+              data: {
+                success: true,
+                message: 'Instruction added to AI context',
+              },
+            }));
+          } else {
+            // Send error response
+            ws.send(JSON.stringify({
+              type: 'instruction_response',
+              data: {
+                success: false,
+                message: 'Call not found or not active',
+              },
+            }));
+          }
+        }
       } catch (error) {
         console.error('WebSocket message error:', error);
       }
