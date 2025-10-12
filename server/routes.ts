@@ -171,6 +171,34 @@ async function generateAndSaveAudio(
   return `/api/audio/${filename}`;
 }
 
+// Helper function to generate and save OpenAI TTS audio
+async function generateOpenAIAudio(
+  text: string,
+  voice: string, // alloy, echo, fable, onyx, nova, shimmer
+  filename: string,
+): Promise<string> {
+  const mp3 = await openaiClient.audio.speech.create({
+    model: "tts-1", // Faster model, use tts-1-hd for higher quality if needed
+    voice: voice as any,
+    input: text,
+  });
+
+  // Convert response to buffer
+  const buffer = Buffer.from(await mp3.arrayBuffer());
+
+  // Ensure audio cache directory exists
+  const audioCacheDir = "/tmp/audio-cache";
+  if (!existsSync(audioCacheDir)) {
+    mkdirSync(audioCacheDir, { recursive: true });
+  }
+
+  // Save to file
+  const audioPath = join(audioCacheDir, filename);
+  writeFileSync(audioPath, buffer);
+
+  return `/api/audio/${filename}`;
+}
+
 export async function registerRoutes(app: Express): Promise<Server> {
   const httpServer = createServer(app);
 
@@ -469,10 +497,20 @@ export async function registerRoutes(app: Express): Promise<Server> {
     "Polly.Russell",
   ];
 
+  // Allowlist of valid OpenAI voices
+  const VALID_OPENAI_VOICES = [
+    "alloy",
+    "echo",
+    "fable",
+    "onyx",
+    "nova",
+    "shimmer",
+  ];
+
   // API: Start a new call
   app.post("/api/calls/start", async (req, res) => {
     try {
-      const { phoneNumber, prompt, pollyVoice, sessionId } = req.body;
+      const { phoneNumber, prompt, pollyVoice, openaiVoice, voiceProvider, sessionId } = req.body;
 
       // Validate request
       if (!phoneNumber) {
@@ -483,10 +521,23 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(400).json({ error: "AI prompt is required" });
       }
 
-      // Validate Polly voice against allowlist
-      const validatedVoice = pollyVoice && VALID_POLLY_VOICES.includes(pollyVoice)
-        ? pollyVoice
-        : "Polly.Joanna"; // Default to Joanna if not specified or invalid
+      // Determine voice provider and validate voices
+      let validatedProvider = voiceProvider || "polly"; // Default to Polly
+      let validatedPollyVoice: string | undefined;
+      let validatedOpenAIVoice: string | undefined;
+
+      if (validatedProvider === "openai") {
+        // Validate OpenAI voice
+        validatedOpenAIVoice = openaiVoice && VALID_OPENAI_VOICES.includes(openaiVoice)
+          ? openaiVoice
+          : "alloy"; // Default to alloy
+      } else {
+        // Default to or validate Polly voice
+        validatedProvider = "polly";
+        validatedPollyVoice = pollyVoice && VALID_POLLY_VOICES.includes(pollyVoice)
+          ? pollyVoice
+          : "Polly.Joanna"; // Default to Joanna
+      }
 
       // Validate environment variables
       if (
@@ -515,7 +566,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
         phoneNumber,
         prompt,
         status: "ringing",
-        pollyVoice: validatedVoice,
+        voiceProvider: validatedProvider,
+        pollyVoice: validatedPollyVoice,
+        openaiVoice: validatedOpenAIVoice,
         duration: 0,
       });
 
@@ -1093,8 +1146,37 @@ export async function registerRoutes(app: Express): Promise<Server> {
             .replace(/'/g, '&apos;');
         };
         
-        // Try ElevenLabs first if voiceId is configured
-        if (call?.voiceId) {
+        // Check voice provider and generate audio accordingly
+        if (call?.voiceProvider === "openai" && call?.openaiVoice) {
+          // Use OpenAI TTS
+          const safeOpenAIVoice = VALID_OPENAI_VOICES.includes(call.openaiVoice)
+            ? call.openaiVoice
+            : "alloy";
+          
+          try {
+            const audioFilename = `${callId}-${Date.now()}.mp3`;
+            const audioUrl = await generateOpenAIAudio(
+              aiResponse,
+              safeOpenAIVoice,
+              audioFilename,
+            );
+
+            // Return TwiML to play audio with barge-in (redirect keeps call alive)
+            const twiml = `<?xml version="1.0" encoding="UTF-8"?>
+<Response>
+  <Gather input="speech" timeout="60" speechTimeout="auto" action="https://${req.get("host")}/api/gather/${callId}">
+    <Play>https://${req.get("host")}${audioUrl}</Play>
+  </Gather>
+  <Redirect method="POST">https://${req.get("host")}/api/gather/${callId}</Redirect>
+</Response>`;
+            res.type("text/xml");
+            return res.send(twiml);
+          } catch (audioError) {
+            console.error("Error generating OpenAI audio:", audioError);
+            // Fallback to Polly voice
+          }
+        } else if (call?.voiceId) {
+          // Try ElevenLabs if voiceId is configured
           try {
             const audioFilename = `${callId}-${Date.now()}.mp3`;
             const audioUrl = await generateAndSaveAudio(
@@ -1114,12 +1196,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
             res.type("text/xml");
             return res.send(twiml);
           } catch (audioError) {
-            console.error("Error generating audio:", audioError);
-            // Fallback to Polly voice or default
+            console.error("Error generating ElevenLabs audio:", audioError);
+            // Fallback to Polly voice
           }
         }
         
-        // Use Polly voice (either as primary choice or fallback from ElevenLabs failure)
+        // Use Polly voice (default or fallback)
         // Validate voice against allowlist for security
         const safeVoice = call?.pollyVoice && VALID_POLLY_VOICES.includes(call.pollyVoice)
           ? call.pollyVoice
