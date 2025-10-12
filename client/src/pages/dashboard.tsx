@@ -21,6 +21,7 @@ export default function Dashboard() {
   const [selectedVoiceId, setSelectedVoiceId] = useState("");
   const [selectedVoiceName, setSelectedVoiceName] = useState("");
   const [currentCallId, setCurrentCallId] = useState<string | null>(null);
+  const [sessionId, setSessionId] = useState<string | null>(null);
   const wsRef = useRef<WebSocket | null>(null);
   const durationIntervalRef = useRef<NodeJS.Timeout | null>(null);
   const { toast } = useToast();
@@ -39,6 +40,14 @@ export default function Dashboard() {
 
     ws.onmessage = (event) => {
       const message = JSON.parse(event.data);
+      
+      // Handle session ID
+      if (message.type === 'session') {
+        setSessionId(message.data.sessionId);
+        console.log("Session ID received:", message.data.sessionId);
+        return;
+      }
+      
       handleWebSocketMessage(message);
     };
 
@@ -118,6 +127,15 @@ export default function Dashboard() {
 
   const handleStartCall = async (phone: string) => {
     try {
+      if (!sessionId) {
+        toast({
+          title: "Connection Error",
+          description: "WebSocket session not ready. Please wait and try again.",
+          variant: "destructive",
+        });
+        return;
+      }
+
       setPhoneNumber(phone);
       setCallStatus("ringing");
       setDuration(0);
@@ -130,6 +148,7 @@ export default function Dashboard() {
           phoneNumber: phone,
           voiceId: selectedVoiceId,
           voiceName: selectedVoiceName,
+          sessionId,
         }),
       });
 
