@@ -340,5 +340,46 @@ export async function registerRoutes(app: Express): Promise<Server> {
     res.sendStatus(200);
   });
 
+  // API: Hang up an active call
+  app.post('/api/calls/:callId/hangup', async (req, res) => {
+    const { callId } = req.params;
+    const activeCall = activeCalls.get(callId);
+
+    if (!activeCall) {
+      return res.status(404).json({ error: 'Call not found' });
+    }
+
+    try {
+      // End the Twilio call if we have a call SID
+      if (activeCall.twilioCallSid) {
+        await twilioClient.calls(activeCall.twilioCallSid).update({ status: 'completed' });
+      }
+
+      // Calculate duration
+      const duration = Math.floor((Date.now() - activeCall.startTime) / 1000);
+
+      // Update call status in database
+      await storage.updateCallStatus(callId, 'ended', duration, new Date());
+
+      // Send WebSocket update
+      activeCall.ws.send(JSON.stringify({
+        type: 'call_status',
+        data: {
+          callId,
+          status: 'ended',
+          duration,
+        },
+      }));
+
+      // Clean up active call
+      activeCalls.delete(callId);
+
+      res.json({ success: true, duration });
+    } catch (error) {
+      console.error('Error hanging up call:', error);
+      res.status(500).json({ error: 'Failed to hang up call' });
+    }
+  });
+
   return httpServer;
 }

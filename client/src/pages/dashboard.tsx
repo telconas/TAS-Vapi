@@ -206,6 +206,38 @@ export default function Dashboard() {
     setSelectedVoiceName(voiceName);
   };
 
+  const handleHangUp = async () => {
+    if (!currentCallId) {
+      return;
+    }
+
+    try {
+      const response = await fetch(`/api/calls/${currentCallId}/hangup`, {
+        method: "POST",
+      });
+
+      if (!response.ok) {
+        throw new Error("Failed to hang up call");
+      }
+
+      toast({
+        title: "Call Ended",
+        description: "The call has been disconnected.",
+      });
+
+      setCallStatus("ended");
+      stopDurationCounter();
+      setIsAudioPlaying(false);
+    } catch (error) {
+      console.error("Error hanging up call:", error);
+      toast({
+        title: "Error",
+        description: "Failed to hang up the call. Please try again.",
+        variant: "destructive",
+      });
+    }
+  };
+
   const isCallActive = callStatus === "ringing" || callStatus === "connected";
 
   return (
@@ -239,6 +271,7 @@ export default function Dashboard() {
                 />
                 <PhoneInputForm
                   onStartCall={handleStartCall}
+                  onHangUp={handleHangUp}
                   isCallActive={isCallActive}
                 />
                 <CallStatus status={callStatus} duration={duration} />

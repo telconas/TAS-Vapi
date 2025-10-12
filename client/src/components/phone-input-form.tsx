@@ -4,10 +4,11 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Phone } from "lucide-react";
+import { Phone, PhoneOff } from "lucide-react";
 
 interface PhoneInputFormProps {
   onStartCall: (phoneNumber: string, prompt: string) => void;
+  onHangUp: () => void;
   isCallActive: boolean;
 }
 
@@ -49,7 +50,7 @@ const providers = [
   { name: "Verizon Enterprise", number: "888-622-0255" },
 ];
 
-export function PhoneInputForm({ onStartCall, isCallActive }: PhoneInputFormProps) {
+export function PhoneInputForm({ onStartCall, onHangUp, isCallActive }: PhoneInputFormProps) {
   const [countryCode, setCountryCode] = useState("+1");
   const [phoneNumber, setPhoneNumber] = useState("");
   const [selectedProvider, setSelectedProvider] = useState("");
@@ -160,16 +161,29 @@ export function PhoneInputForm({ onStartCall, isCallActive }: PhoneInputFormProp
         </div>
       </div>
 
-      <Button
-        onClick={handleStartCall}
-        disabled={!isValid || isCallActive}
-        size="lg"
-        className="w-full text-lg"
-        data-testid="button-start-call"
-      >
-        <Phone className="w-5 h-5 mr-2" />
-        {isCallActive ? "Call in Progress..." : "Start Call"}
-      </Button>
+      {isCallActive ? (
+        <Button
+          onClick={onHangUp}
+          variant="destructive"
+          size="lg"
+          className="w-full text-lg"
+          data-testid="button-hang-up"
+        >
+          <PhoneOff className="w-5 h-5 mr-2" />
+          Hang Up
+        </Button>
+      ) : (
+        <Button
+          onClick={handleStartCall}
+          disabled={!isValid}
+          size="lg"
+          className="w-full text-lg"
+          data-testid="button-start-call"
+        >
+          <Phone className="w-5 h-5 mr-2" />
+          Start Call
+        </Button>
+      )}
     </div>
   );
 }
