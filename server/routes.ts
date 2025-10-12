@@ -178,9 +178,10 @@ async function generateOpenAIAudio(
   filename: string,
 ): Promise<string> {
   const mp3 = await openaiClient.audio.speech.create({
-    model: "tts-1", // Faster model, use tts-1-hd for higher quality if needed
+    model: "tts-1-hd", // High-definition model for better quality and recording compatibility
     voice: voice as any,
     input: text,
+    speed: 1.0, // Normal speed
   });
 
   // Convert response to buffer
@@ -195,6 +196,8 @@ async function generateOpenAIAudio(
   // Save to file
   const audioPath = join(audioCacheDir, filename);
   writeFileSync(audioPath, buffer);
+
+  console.log(`Generated OpenAI audio: ${filename} (${buffer.length} bytes)`);
 
   return `/api/audio/${filename}`;
 }
@@ -420,9 +423,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
     // Check if file exists
     if (!existsSync(audioPath)) {
+      console.error(`Audio file not found: ${audioPath}`);
       return res.status(404).json({ error: "Audio file not found" });
     }
 
+    // Set proper headers for audio playback and Twilio compatibility
+    res.setHeader("Content-Type", "audio/mpeg");
+    res.setHeader("Accept-Ranges", "bytes");
+    res.setHeader("Cache-Control", "public, max-age=3600"); // Cache for 1 hour
     res.sendFile(audioPath);
   });
 

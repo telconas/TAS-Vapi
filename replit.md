@@ -45,8 +45,9 @@ A full-stack web application that enables outbound AI voice calls using Twilio f
 ## Tech Stack
 - **Frontend**: React, Tailwind CSS, Wouter (routing), TanStack Query
 - **Backend**: Node.js, Express, WebSocket (ws package)
-- **External APIs**: Twilio (calls + Polly TTS), OpenAI GPT-4.1 (AI logic)
+- **External APIs**: Twilio (calls), OpenAI GPT-4.1 (AI logic + TTS), Amazon Polly (TTS)
 - **Real-time**: WebSocket for live transcription and audio streaming
+- **Voice Providers**: Amazon Polly (15 free voices), OpenAI TTS (6 premium voices)
 
 ## Environment Variables
 The following secrets are configured and available:
@@ -110,6 +111,14 @@ Note: User declined Replit's Twilio integration - using manual API credentials i
 - ✅ **GPT-4.1 upgrade** - Upgraded from GPT-4o to GPT-4.1 (21.4% better coding, 10.5% better instruction following, 20% cost reduction)
 - ✅ **Make.com webhook** - Completed calls now send data to https://hook.us1.make.com/qomm4skpqxiyq40jxwwxcij4d1wl1psr
 - ✅ **Barge-in support** - AI stops speaking immediately when service rep/caller starts talking (switched from `<Record>` to `<Gather>` with speech recognition)
-- ✅ **Amazon Polly voices (FREE)** - Switched from ElevenLabs to Amazon Polly TTS (15 voices, no extra cost, included in Twilio pricing)
-  - Allowlist validation for security (prevents TwiML injection)
+- ✅ **Dual Voice Providers** - Support for both Amazon Polly (FREE) and OpenAI TTS (premium)
+  - **Amazon Polly**: 15 voices via Twilio's `<Say voice="Polly.Joanna">` (included in call costs)
+  - **OpenAI TTS**: 6 voices (alloy, echo, fable, onyx, nova, shimmer) via `tts-1-hd` model
+  - Tabbed voice selector UI for easy provider switching
+  - Allowlist validation for both providers prevents TwiML injection
   - ElevenLabs still available as fallback if configured and has credits
+- ✅ **OpenAI TTS Integration** - Premium voice quality using OpenAI's `tts-1-hd` model
+  - Audio files generated server-side and served via `/api/audio/:filename` endpoint
+  - Proper caching headers for Twilio compatibility
+  - Higher quality audio for better recording capture
+  - Works with existing barge-in and infinite hold time features
