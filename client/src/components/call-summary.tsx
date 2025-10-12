@@ -1,15 +1,16 @@
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Download, Clock, MessageSquare } from "lucide-react";
+import { Download, Clock, MessageSquare, Mic } from "lucide-react";
 import type { TranscriptMessage } from "@shared/schema";
 
 interface CallSummaryProps {
   duration: number;
   transcript: TranscriptMessage[];
   onDownloadTranscript: () => void;
+  recordingUrl?: string;
 }
 
-export function CallSummary({ duration, transcript, onDownloadTranscript }: CallSummaryProps) {
+export function CallSummary({ duration, transcript, onDownloadTranscript, recordingUrl }: CallSummaryProps) {
   const formatDuration = (seconds: number) => {
     const mins = Math.floor(seconds / 60);
     const secs = seconds % 60;
@@ -66,6 +67,23 @@ export function CallSummary({ duration, transcript, onDownloadTranscript }: Call
             </p>
           </div>
         </div>
+
+        {recordingUrl && (
+          <div className="space-y-3 pt-4 border-t border-card-border">
+            <div className="flex items-center gap-2 text-muted-foreground">
+              <Mic className="w-4 h-4" />
+              <span className="text-sm font-medium">Call Recording</span>
+            </div>
+            <audio 
+              controls 
+              className="w-full" 
+              data-testid="audio-recording"
+              src={recordingUrl}
+            >
+              Your browser does not support the audio element.
+            </audio>
+          </div>
+        )}
 
         <div className="pt-4 border-t border-card-border">
           <p className="text-sm text-muted-foreground">

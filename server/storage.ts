@@ -21,6 +21,7 @@ export interface IStorage {
   createCall(call: InsertCall): Promise<Call>;
   getCall(id: string): Promise<Call | undefined>;
   updateCallStatus(id: string, status: string, duration?: number, endedAt?: Date): Promise<void>;
+  updateCall(id: string, updates: Partial<Call>): Promise<void>;
   
   // Transcript methods
   addTranscriptMessage(message: InsertTranscriptMessage): Promise<TranscriptMessage>;
@@ -53,6 +54,13 @@ export class DatabaseStorage implements IStorage {
     await db
       .update(calls)
       .set({ status, ...(duration !== undefined && { duration }), ...(endedAt && { endedAt }) })
+      .where(eq(calls.id, id));
+  }
+
+  async updateCall(id: string, updates: Partial<Call>): Promise<void> {
+    await db
+      .update(calls)
+      .set(updates)
       .where(eq(calls.id, id));
   }
 

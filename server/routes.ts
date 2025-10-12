@@ -69,6 +69,110 @@ export async function registerRoutes(app: Express): Promise<Server> {
     });
   });
 
+  // Helper function to send call data to Make.com webhook
+  async function sendToMakeWebhook(callId: string) {
+    const webhookUrl = 'https://hook.us1.make.com/5ry41bqhkx973b9bglf7ixe7pfw8j3ix';
+    
+    try {
+      const call = await storage.getCall(callId);
+      const transcripts = await storage.getTranscriptByCallId(callId);
+      
+      if (!call) {
+        console.error(`Call ${callId} not found for webhook`);
+        return;
+      }
+
+      const webhookData = {
+        callId: call.id,
+        phoneNumber: call.phoneNumber,
+        prompt: call.prompt,
+        status: call.status,
+        duration: call.duration,
+        startedAt: call.startedAt,
+        endedAt: call.endedAt,
+        voiceId: call.voiceId,
+        voiceName: call.voiceName,
+        twilioCallSid: call.twilioCallSid,
+        recordingUrl: call.recordingUrl,
+        transcripts: transcripts.map(t => ({
+          speaker: t.speaker,
+          text: t.text,
+          timestamp: t.timestamp,
+        })),
+      };
+
+      const response = await fetch(webhookUrl, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(webhookData),
+      });
+
+      if (response.ok) {
+        console.log(`Successfully sent call ${callId} data to Make.com webhook`);
+      } else {
+        console.error(`Make.com webhook failed with status ${response.status}`);
+      }
+    } catch (error) {
+      console.error('Error sending to Make.com webhook:', error);
+    }
+  }
+
+  // API: Get call details by ID
+  app.get('/api/calls/:callId', async (req, res) => {
+    try {
+      const { callId } = req.params;
+      const call = await storage.getCall(callId);
+      
+      if (!call) {
+        return res.status(404).json({ error: 'Call not found' });
+      }
+
+      // Replace Twilio recording URL with our proxy URL
+      if (call.recordingUrl) {
+        call.recordingUrl = `/api/recording-proxy/${callId}`;
+      }
+
+      res.json(call);
+    } catch (error) {
+      console.error('Error fetching call:', error);
+      res.status(500).json({ error: 'Failed to fetch call details' });
+    }
+  });
+
+  // API: Proxy recording from Twilio with authentication
+  app.get('/api/recording-proxy/:callId', async (req, res) => {
+    try {
+      const { callId } = req.params;
+      const call = await storage.getCall(callId);
+      
+      if (!call || !call.recordingUrl) {
+        return res.status(404).json({ error: 'Recording not found' });
+      }
+
+      // Fetch recording from Twilio with authentication
+      const auth = Buffer.from(`${process.env.TWILIO_ACCOUNT_SID}:${process.env.TWILIO_AUTH_TOKEN}`).toString('base64');
+      const recordingResponse = await fetch(call.recordingUrl, {
+        headers: {
+          'Authorization': `Basic ${auth}`,
+        },
+      });
+
+      if (!recordingResponse.ok) {
+        throw new Error(`Twilio recording fetch failed: ${recordingResponse.status}`);
+      }
+
+      // Stream the recording to the client
+      res.setHeader('Content-Type', 'audio/mpeg');
+      const buffer = await recordingResponse.arrayBuffer();
+      res.send(Buffer.from(buffer));
+    } catch (error) {
+      console.error('Error proxying recording:', error);
+      res.status(500).json({ error: 'Failed to fetch recording' });
+    }
+  });
+
   // API: Get ElevenLabs voices
   app.get('/api/voices', async (req, res) => {
     try {
@@ -137,16 +241,20 @@ export async function registerRoutes(app: Express): Promise<Server> {
         startTime: Date.now(),
       });
 
-      // Make Twilio call with Media Streams
+      // Make Twilio call with recording enabled
       const twilioCall = await twilioClient.calls.create({
         from: process.env.TWILIO_PHONE_NUMBER,
         to: phoneNumber,
         url: `https://${req.get('host')}/api/twiml/${call.id}`,
         statusCallback: `https://${req.get('host')}/api/call-status/${call.id}`,
         statusCallbackEvent: ['initiated', 'ringing', 'answered', 'completed'],
+        record: true,
+        recordingStatusCallback: `https://${req.get('host')}/api/recording/${call.id}`,
       });
 
-      // Update with Twilio call SID
+      // Update with Twilio call SID in database and active calls
+      await storage.updateCall(call.id, { twilioCallSid: twilioCall.sid });
+      
       const activeCall = activeCalls.get(call.id);
       if (activeCall) {
         activeCall.twilioCallSid = twilioCall.sid;
@@ -252,6 +360,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }));
 
       activeCalls.delete(callId);
+
+      // Note: Webhook will be sent from recording callback once recording URL is available
     }
 
     res.sendStatus(200);
@@ -461,6 +571,32 @@ export async function registerRoutes(app: Express): Promise<Server> {
     res.send(twiml);
   });
 
+  // Recording callback - Receives recording URL from Twilio
+  app.post('/api/recording/:callId', async (req, res) => {
+    const { callId } = req.params;
+    const { RecordingUrl, RecordingSid } = req.body;
+    
+    console.log(`Recording callback for call ${callId}: ${RecordingUrl}`);
+
+    try {
+      // Append .mp3 to get actual audio file (Twilio's RecordingUrl points to metadata)
+      const audioUrl = RecordingUrl + '.mp3';
+      
+      // Store recording URL in database
+      await storage.updateCall(callId, { recordingUrl: audioUrl });
+      
+      // Send to Make.com webhook now that we have the recording URL
+      sendToMakeWebhook(callId).catch(err => 
+        console.error('Webhook send failed from recording callback:', err)
+      );
+      
+      res.sendStatus(200);
+    } catch (error) {
+      console.error('Error processing recording callback:', error);
+      res.sendStatus(500);
+    }
+  });
+
   // API: Hang up an active call
   app.post('/api/calls/:callId/hangup', async (req, res) => {
     const { callId } = req.params;
@@ -494,6 +630,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       // Clean up active call
       activeCalls.delete(callId);
+
+      // Note: Webhook will be sent from recording callback once recording URL is available
 
       res.json({ success: true, duration });
     } catch (error) {

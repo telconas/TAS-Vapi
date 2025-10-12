@@ -22,6 +22,7 @@ export default function Dashboard() {
   const [selectedVoiceName, setSelectedVoiceName] = useState("");
   const [currentCallId, setCurrentCallId] = useState<string | null>(null);
   const [sessionId, setSessionId] = useState<string | null>(null);
+  const [recordingUrl, setRecordingUrl] = useState<string | null>(null);
   const wsRef = useRef<WebSocket | null>(null);
   const durationIntervalRef = useRef<NodeJS.Timeout | null>(null);
   const { toast } = useToast();
@@ -82,6 +83,10 @@ export default function Dashboard() {
         } else if (message.data.status === "ended") {
           stopDurationCounter();
           setIsAudioPlaying(false);
+          // Fetch call details to get recording URL
+          if (currentCallId) {
+            fetchRecordingUrl(currentCallId);
+          }
         }
         break;
 
@@ -106,6 +111,23 @@ export default function Dashboard() {
           variant: "destructive",
         });
         break;
+    }
+  };
+
+  const fetchRecordingUrl = async (callId: string) => {
+    try {
+      // Wait a bit for Twilio to process and send the recording callback
+      setTimeout(async () => {
+        const response = await fetch(`/api/calls/${callId}`);
+        if (response.ok) {
+          const call = await response.json();
+          if (call.recordingUrl) {
+            setRecordingUrl(call.recordingUrl);
+          }
+        }
+      }, 3000); // Wait 3 seconds for recording to be processed
+    } catch (error) {
+      console.error('Error fetching recording URL:', error);
     }
   };
 
@@ -297,6 +319,7 @@ export default function Dashboard() {
                 duration={duration}
                 transcript={transcript}
                 onDownloadTranscript={handleDownloadTranscript}
+                recordingUrl={recordingUrl || undefined}
               />
             )}
           </div>

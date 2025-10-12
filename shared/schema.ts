@@ -14,6 +14,8 @@ export const calls = pgTable("calls", {
   endedAt: timestamp("ended_at"),
   voiceId: text("voice_id"),
   voiceName: text("voice_name"),
+  twilioCallSid: text("twilio_call_sid"), // Twilio call identifier
+  recordingUrl: text("recording_url"), // URL to call recording
 });
 
 export const insertCallSchema = createInsertSchema(calls).omit({
