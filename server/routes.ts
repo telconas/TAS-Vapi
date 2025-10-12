@@ -77,7 +77,7 @@ AUTOMATED SYSTEM NAVIGATION:
 LIVE AGENT INTRODUCTION:
 
 When connected to a live agent, say:
-> "Hello, this is James Martin calling on behalf of [location name] regarding [brief summary of the task]."
+> "Hello, this is James Martin calling on behalf of [location name] regarding [brief summary] of the task]."
 
 Be ready to provide:
 - Account number  
@@ -736,12 +736,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
             if (activeCall.twilioCallSid) {
               try {
                 // Use playDtmf method which doesn't interrupt the call
-                await twilioClient
-                  .calls(activeCall.twilioCallSid)
-                  .update({
-                    method: "POST",
-                    url: `https://${req.get("host")}/api/dtmf/${callId}?digit=${args.digit}`,
-                  });
+                await twilioClient.calls(activeCall.twilioCallSid).update({
+                  method: "POST",
+                  url: `https://${req.get("host")}/api/dtmf/${callId}?digit=${args.digit}`,
+                });
 
                 result = {
                   success: true,
@@ -976,12 +974,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
             if (activeCall.twilioCallSid) {
               try {
-                await twilioClient
-                  .calls(activeCall.twilioCallSid)
-                  .update({
-                    method: "POST",
-                    url: `https://${req.get("host")}/api/dtmf/${callId}?digit=${args.digit}`,
-                  });
+                await twilioClient.calls(activeCall.twilioCallSid).update({
+                  method: "POST",
+                  url: `https://${req.get("host")}/api/dtmf/${callId}?digit=${args.digit}`,
+                });
 
                 result = {
                   success: true,
@@ -1086,11 +1082,30 @@ export async function registerRoutes(app: Express): Promise<Server> {
             return res.send(twiml);
           } catch (audioError) {
             console.error("Error generating audio:", audioError);
+            // Fallback to Twilio's <Say> verb when audio generation fails
+            const twiml = `<?xml version="1.0" encoding="UTF-8"?>
+<Response>
+  <Gather input="speech" timeout="60" speechTimeout="auto" action="https://${req.get("host")}/api/gather/${callId}">
+    <Say>${aiResponse}</Say>
+  </Gather>
+</Response>`;
+            res.type("text/xml");
+            return res.send(twiml);
           }
         }
+        
+        // No voiceId configured - use Twilio's <Say> as default
+        const twiml = `<?xml version="1.0" encoding="UTF-8"?>
+<Response>
+  <Gather input="speech" timeout="60" speechTimeout="auto" action="https://${req.get("host")}/api/gather/${callId}">
+    <Say>${aiResponse}</Say>
+  </Gather>
+</Response>`;
+        res.type("text/xml");
+        return res.send(twiml);
       }
 
-      // Fallback: continue gathering
+      // No AI response - just continue gathering
       const twiml = `<?xml version="1.0" encoding="UTF-8"?>
 <Response>
   <Gather input="speech" timeout="60" speechTimeout="auto" action="https://${req.get("host")}/api/gather/${callId}" />
@@ -1185,7 +1200,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       // Send to Make.com webhook with the TwiML recording
       sendToMakeWebhook(callId).catch((err) =>
-        console.error("Webhook send failed from TwiML recording callback:", err),
+        console.error(
+          "Webhook send failed from TwiML recording callback:",
+          err,
+        ),
       );
 
       res.sendStatus(200);

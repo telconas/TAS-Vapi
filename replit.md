@@ -73,7 +73,7 @@ Note: User declined Replit's Twilio integration - using manual API credentials i
   - Audio generated on-demand and cached to `/tmp/audio-cache`
   - Served via `/api/audio/:filename` endpoint with security validation
   - AI responses use selected ElevenLabs voice with interrupt capability
-  - Falls back to Twilio's `<Say>` verb if audio generation fails
+  - **Automatic fallback to Twilio's `<Say>` verb** if ElevenLabs fails (ensures AI always responds)
 - Speech recognition with `speechTimeout="auto"` for natural conversation flow
 - Extended `<Gather>` timeout to 60 seconds (max) to prevent premature call disconnection during conversations
 - Database persistence ensures call history and transcripts are saved
