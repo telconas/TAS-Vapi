@@ -295,13 +295,117 @@ export async function registerRoutes(app: Express): Promise<Server> {
         messages: [
           {
             role: "system",
-            content: activeCall.prompt + "\n\nKeep responses concise and conversational, suitable for text-to-speech.",
+            content: activeCall.prompt + "\n\nKeep responses concise and conversational, suitable for text-to-speech.\n\nIMPORTANT: If you hear a phone menu (like 'Press 1 for Sales, Press 2 for Support'), use the press_button function to navigate the menu. You can press buttons 0-9, *, or #.",
           },
           ...activeCall.openaiConversation,
         ],
+        tools: [
+          {
+            type: "function",
+            function: {
+              name: "press_button",
+              description: "Press a button (DTMF tone) on the phone keypad to navigate phone menus or IVR systems",
+              parameters: {
+                type: "object",
+                properties: {
+                  digit: {
+                    type: "string",
+                    description: "The digit or symbol to press: 0-9, *, or #",
+                    enum: ["0", "1", "2", "3", "4", "5", "6", "7", "8", "9", "*", "#"]
+                  },
+                  reason: {
+                    type: "string",
+                    description: "Brief explanation of why pressing this button (e.g., 'Selecting English language option')"
+                  }
+                },
+                required: ["digit", "reason"]
+              }
+            }
+          }
+        ],
+        tool_choice: "auto"
       });
 
-      const aiResponse = completion.choices[0]?.message?.content || "I understand.";
+      const message = completion.choices[0]?.message;
+      let aiResponse = message?.content || "";
+      
+      // Check if AI wants to press a button
+      if (message?.tool_calls && message.tool_calls.length > 0) {
+        // Add the assistant's tool call to conversation
+        activeCall.openaiConversation.push({
+          role: "assistant",
+          content: message.content || null,
+          tool_calls: message.tool_calls
+        });
+        
+        const toolResults = [];
+        
+        for (const toolCall of message.tool_calls) {
+          if (toolCall.type === 'function' && toolCall.function.name === "press_button") {
+            const args = JSON.parse(toolCall.function.arguments);
+            let result = { success: false, message: "" };
+            
+            // Send DTMF tone through Twilio
+            if (activeCall.twilioCallSid) {
+              try {
+                // Use playDtmf method which doesn't interrupt the call
+                await twilioClient.calls(activeCall.twilioCallSid)
+                  .update({ method: 'POST', url: `https://${req.get('host')}/api/dtmf/${callId}?digit=${args.digit}` });
+                
+                result = { success: true, message: `Pressed button ${args.digit} successfully` };
+                
+                // Log button press
+                const buttonMessage = `[Pressed button: ${args.digit}] ${args.reason}`;
+                await storage.addTranscriptMessage({
+                  callId,
+                  speaker: 'ai',
+                  text: buttonMessage,
+                });
+                
+                activeCall.ws.send(JSON.stringify({
+                  type: 'transcription',
+                  data: {
+                    callId,
+                    speaker: 'ai',
+                    text: buttonMessage,
+                    timestamp: Date.now(),
+                  },
+                }));
+              } catch (dtmfError) {
+                console.error('Error sending DTMF:', dtmfError);
+                result = { success: false, message: `Failed to press button: ${dtmfError}` };
+              }
+            }
+            
+            toolResults.push({
+              tool_call_id: toolCall.id,
+              role: "tool" as const,
+              content: JSON.stringify(result)
+            });
+          }
+        }
+        
+        // Add tool results to conversation
+        activeCall.openaiConversation.push(...toolResults);
+        
+        // Get follow-up response from AI after button press
+        const followUpCompletion = await openaiClient.chat.completions.create({
+          model: "gpt-4",
+          messages: [
+            {
+              role: "system",
+              content: activeCall.prompt + "\n\nKeep responses concise and conversational, suitable for text-to-speech.\n\nIMPORTANT: If you hear a phone menu (like 'Press 1 for Sales, Press 2 for Support'), use the press_button function to navigate the menu. You can press buttons 0-9, *, or #.",
+            },
+            ...activeCall.openaiConversation,
+          ],
+        });
+        
+        aiResponse = followUpCompletion.choices[0]?.message?.content || "Done.";
+      }
+      
+      if (!aiResponse) {
+        aiResponse = "I understand.";
+      }
       activeCall.openaiConversation.push({ role: "assistant", content: aiResponse });
 
       // Save AI response
@@ -338,6 +442,23 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
 
     res.sendStatus(200);
+  });
+
+  // DTMF endpoint - Sends button press tones
+  app.post('/api/dtmf/:callId', async (req, res) => {
+    const { callId } = req.params;
+    const { digit } = req.query;
+    
+    // Return TwiML that plays the DTMF tone and continues recording
+    const twiml = `<?xml version="1.0" encoding="UTF-8"?>
+<Response>
+  <Play digits="${digit}"/>
+  <Pause length="1"/>
+  <Record timeout="3" maxLength="30" playBeep="false" transcribe="true" transcribeCallback="https://${req.get('host')}/api/transcribe/${callId}" />
+</Response>`;
+    
+    res.type('text/xml');
+    res.send(twiml);
   });
 
   // API: Hang up an active call

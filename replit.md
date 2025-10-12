@@ -83,8 +83,10 @@ Note: User declined Replit's Twilio integration - using manual API credentials i
 - Added AI Instructions field for customizing what the AI does on calls
 - Added provider dropdown with 24+ carrier phone numbers (All Stream, ATT, Comcast, Spectrum, Verizon, etc.)
 - Added Hang Up button to disconnect active calls
+- Added DTMF button pressing capability (AI can press 0-9, *, #) to navigate phone menus
 - Auto-fill phone number when provider is selected
 - Manual phone entry clears provider selection
 - All inputs disabled during active calls
 - Prompt is used as OpenAI system message for personalized AI behavior
 - Hang up properly terminates Twilio calls and updates call status
+- AI uses OpenAI function calling to intelligently decide when to press buttons

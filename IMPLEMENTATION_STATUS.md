@@ -33,9 +33,12 @@
 - ✅ Twilio call initiation working
 - ✅ Twilio status callbacks implemented
 - ✅ OpenAI GPT-4 integration for conversation logic
+- ✅ OpenAI function calling for DTMF button pressing
 - ✅ ElevenLabs API for voice selection
 - ✅ ElevenLabs TTS audio generation
+- ✅ DTMF tone sending (buttons 0-9, *, #)
 - ⚠️ Audio playback to caller not implemented
+- ⚠️ DTMF may interrupt call flow (MVP limitation)
 
 ## ⚠️ Known Limitations (MVP Constraints)
 
@@ -79,6 +82,8 @@ Implementing true bidirectional audio streaming requires:
 - **Voice Selection**: ElevenLabs voices load and can be selected
 - **Status Updates**: Real-time call status reflected in UI
 - **Transcription Display**: Messages appear in chat-like interface
+- **DTMF Button Pressing**: AI can intelligently press phone buttons (0-9, *, #)
+- **AI Intelligence**: Uses OpenAI function calling to navigate phone menus
 
 ## 🚀 Production Roadmap
 
@@ -169,9 +174,42 @@ npm run dev
 - ⏭️ True bidirectional audio streaming
 - ⏭️ Continuous conversation during call
 - ⏭️ Audio playback to caller
+- ⏭️ Seamless DTMF without call interruption
 - ⏭️ Advanced error handling and resilience
 - ⏭️ Scalability for concurrent calls
 - ⏭️ Monitoring and analytics
+
+## 📞 DTMF Button Pressing Feature
+
+**How It Works:**
+1. AI receives transcription (e.g., "Press 1 for English, Press 2 for Spanish")
+2. GPT-4 analyzes the phone menu using OpenAI function calling
+3. AI decides to press button 1 and calls `press_button` function
+4. Backend sends DTMF tone through Twilio API
+5. Button press logged: `[Pressed button: 1] Selecting English language option`
+6. AI receives follow-up prompt and continues conversation
+
+**Supported Digits:**
+- Numbers: 0-9
+- Symbols: *, #
+- AI intelligently decides when and what to press
+
+**Example Usage:**
+```
+User Prompt: "You're calling customer support. Navigate the menu to reach a human agent."
+
+Call Flow:
+1. IVR: "Press 1 for English, 2 for Spanish"
+   AI: [Presses 1] → Selecting English
+2. IVR: "Press 1 for Sales, 2 for Support, 0 for Agent"
+   AI: [Presses 0] → Requesting human agent
+3. Agent answers, AI begins conversation
+```
+
+**Current Limitations:**
+- ⚠️ Button press may briefly interrupt active recording (TwiML technical limitation)
+- ⚠️ For completely seamless DTMF, would require Twilio Media Streams implementation
+- ✅ Despite limitation, button pressing works and navigates phone menus successfully
 
 ## 📚 Resources
 
