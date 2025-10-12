@@ -3,7 +3,7 @@ import { PhoneInputForm } from "@/components/phone-input-form";
 import { CallStatus } from "@/components/call-status";
 import { TranscriptionPanel } from "@/components/transcription-panel";
 import { AudioPlayer } from "@/components/audio-player";
-import { PollyVoiceSelector } from "@/components/polly-voice-selector";
+import { VoiceSelector } from "@/components/voice-selector";
 import { CallSummary } from "@/components/call-summary";
 import { InstructionInput } from "@/components/instruction-input";
 import { Card } from "@/components/ui/card";
@@ -19,7 +19,9 @@ export default function Dashboard() {
   const [duration, setDuration] = useState(0);
   const [transcript, setTranscript] = useState<TranscriptMessage[]>([]);
   const [isAudioPlaying, setIsAudioPlaying] = useState(false);
+  const [voiceProvider, setVoiceProvider] = useState<"polly" | "openai">("polly");
   const [selectedPollyVoice, setSelectedPollyVoice] = useState("Polly.Joanna");
+  const [selectedOpenAIVoice, setSelectedOpenAIVoice] = useState("alloy");
   const [currentCallId, setCurrentCallId] = useState<string | null>(null);
   const [sessionId, setSessionId] = useState<string | null>(null);
   const [recordingUrl, setRecordingUrl] = useState<string | null>(null);
@@ -202,7 +204,9 @@ export default function Dashboard() {
         body: JSON.stringify({
           phoneNumber: phone,
           prompt,
+          voiceProvider,
           pollyVoice: selectedPollyVoice,
+          openaiVoice: selectedOpenAIVoice,
           sessionId,
         }),
       });
@@ -318,7 +322,7 @@ export default function Dashboard() {
             <div>
               <h1 className="text-2xl font-bold">AI Voice Agent</h1>
               <p className="text-sm text-muted-foreground">
-                Powered by Twilio, OpenAI & Amazon Polly
+                Powered by Twilio, OpenAI GPT-4.1 & TTS Voices
               </p>
             </div>
           </div>
@@ -331,9 +335,13 @@ export default function Dashboard() {
             <Card className="p-6">
               <h2 className="text-xl font-semibold mb-6">Call Controls</h2>
               <div className="space-y-6">
-                <PollyVoiceSelector
-                  selectedVoice={selectedPollyVoice}
-                  onVoiceChange={setSelectedPollyVoice}
+                <VoiceSelector
+                  voiceProvider={voiceProvider}
+                  onVoiceProviderChange={setVoiceProvider}
+                  selectedPollyVoice={selectedPollyVoice}
+                  onPollyVoiceChange={setSelectedPollyVoice}
+                  selectedOpenAIVoice={selectedOpenAIVoice}
+                  onOpenAIVoiceChange={setSelectedOpenAIVoice}
                   disabled={isCallActive}
                 />
                 <PhoneInputForm

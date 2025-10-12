@@ -1,157 +1,142 @@
-import { useState } from "react";
-import { useQuery } from "@tanstack/react-query";
 import { Label } from "@/components/ui/label";
-import { Button } from "@/components/ui/button";
-import { Card } from "@/components/ui/card";
-import { ScrollArea } from "@/components/ui/scroll-area";
-import { Skeleton } from "@/components/ui/skeleton";
-import { Volume2, Check, Loader2 } from "lucide-react";
-import { Voice } from "@shared/schema";
-import { useToast } from "@/hooks/use-toast";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 
 interface VoiceSelectorProps {
-  selectedVoiceId: string;
-  onVoiceChange: (voiceId: string, voiceName: string) => void;
+  voiceProvider: "polly" | "openai";
+  onVoiceProviderChange: (provider: "polly" | "openai") => void;
+  selectedPollyVoice: string;
+  onPollyVoiceChange: (voice: string) => void;
+  selectedOpenAIVoice: string;
+  onOpenAIVoiceChange: (voice: string) => void;
   disabled?: boolean;
 }
 
-export function VoiceSelector({ selectedVoiceId, onVoiceChange, disabled }: VoiceSelectorProps) {
-  const [playingVoiceId, setPlayingVoiceId] = useState<string | null>(null);
-  const [audioElement, setAudioElement] = useState<HTMLAudioElement | null>(null);
-  const { toast } = useToast();
+const pollyVoices = [
+  { value: "Polly.Joanna", label: "Joanna (Female, US)" },
+  { value: "Polly.Matthew", label: "Matthew (Male, US)" },
+  { value: "Polly.Salli", label: "Salli (Female, US)" },
+  { value: "Polly.Kendra", label: "Kendra (Female, US)" },
+  { value: "Polly.Kimberly", label: "Kimberly (Female, US)" },
+  { value: "Polly.Ivy", label: "Ivy (Female Child, US)" },
+  { value: "Polly.Joey", label: "Joey (Male Child, US)" },
+  { value: "Polly.Justin", label: "Justin (Male Child, US)" },
+  { value: "Polly.Amy", label: "Amy (Female, British)" },
+  { value: "Polly.Brian", label: "Brian (Male, British)" },
+  { value: "Polly.Emma", label: "Emma (Female, British)" },
+  { value: "Polly.Aditi", label: "Aditi (Female, Indian)" },
+  { value: "Polly.Raveena", label: "Raveena (Female, Indian)" },
+  { value: "Polly.Nicole", label: "Nicole (Female, Australian)" },
+  { value: "Polly.Russell", label: "Russell (Male, Australian)" },
+];
 
-  const { data: voices, isLoading } = useQuery<Voice[]>({
-    queryKey: ["/api/voices"],
-    enabled: true,
-  });
+const openaiVoices = [
+  { value: "alloy", label: "Alloy (Neutral)" },
+  { value: "echo", label: "Echo (Male)" },
+  { value: "fable", label: "Fable (Male, British)" },
+  { value: "onyx", label: "Onyx (Male, Deep)" },
+  { value: "nova", label: "Nova (Female)" },
+  { value: "shimmer", label: "Shimmer (Female, Soft)" },
+];
 
-  const handlePlayPreview = async (voiceId: string) => {
-    // Stop currently playing audio
-    if (audioElement) {
-      audioElement.pause();
-      audioElement.src = '';
-    }
-
-    // If clicking the same voice, just stop
-    if (playingVoiceId === voiceId) {
-      setPlayingVoiceId(null);
-      setAudioElement(null);
-      return;
-    }
-
-    try {
-      setPlayingVoiceId(voiceId);
-      
-      // Create new audio element
-      const audio = new Audio(`/api/voices/${voiceId}/preview`);
-      setAudioElement(audio);
-
-      audio.onended = () => {
-        setPlayingVoiceId(null);
-        setAudioElement(null);
-      };
-
-      audio.onerror = () => {
-        setPlayingVoiceId(null);
-        setAudioElement(null);
-        toast({
-          title: "Preview Failed",
-          description: "Failed to load voice preview",
-          variant: "destructive",
-        });
-      };
-
-      await audio.play();
-    } catch (error) {
-      console.error('Error playing preview:', error);
-      setPlayingVoiceId(null);
-      setAudioElement(null);
-      toast({
-        title: "Preview Failed",
-        description: "Failed to play voice preview",
-        variant: "destructive",
-      });
-    }
-  };
-
-  const handleSelectVoice = (voiceId: string, voiceName: string) => {
-    if (!disabled) {
-      onVoiceChange(voiceId, voiceName);
-    }
-  };
-
-  if (isLoading) {
-    return (
-      <div className="space-y-3">
-        <Label>Voice Selection</Label>
-        <Skeleton className="h-[200px] w-full" />
-      </div>
-    );
-  }
-
+export function VoiceSelector({
+  voiceProvider,
+  onVoiceProviderChange,
+  selectedPollyVoice,
+  onPollyVoiceChange,
+  selectedOpenAIVoice,
+  onOpenAIVoiceChange,
+  disabled,
+}: VoiceSelectorProps) {
   return (
     <div className="space-y-3">
-      <Label className="text-base font-medium">
-        Voice Selection
-      </Label>
-      <Card className="p-2">
-        <ScrollArea className="h-[200px] pr-3">
-          <div className="space-y-1">
-            {voices?.map((voice) => {
-              const isSelected = selectedVoiceId === voice.voiceId;
-              const isPlaying = playingVoiceId === voice.voiceId;
+      <Label className="text-base font-medium">Voice</Label>
+      
+      <Tabs
+        value={voiceProvider}
+        onValueChange={(value) => onVoiceProviderChange(value as "polly" | "openai")}
+        className="w-full"
+      >
+        <TabsList className="grid w-full grid-cols-2">
+          <TabsTrigger 
+            value="polly" 
+            disabled={disabled}
+            data-testid="tab-polly"
+          >
+            Amazon Polly
+            <span className="ml-2 text-xs font-mono text-green-500 dark:text-green-400 bg-green-500/10 px-1.5 py-0.5 rounded">
+              FREE
+            </span>
+          </TabsTrigger>
+          <TabsTrigger 
+            value="openai" 
+            disabled={disabled}
+            data-testid="tab-openai"
+          >
+            OpenAI TTS
+          </TabsTrigger>
+        </TabsList>
+      </Tabs>
 
-              return (
-                <div
-                  key={voice.voiceId}
-                  className={`flex items-center gap-2 p-2 rounded-md transition-colors ${
-                    isSelected
-                      ? 'bg-primary/10 border border-primary/20'
-                      : 'hover-elevate'
-                  } ${disabled ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer'}`}
-                  onClick={() => handleSelectVoice(voice.voiceId, voice.name)}
-                  data-testid={`voice-option-${voice.voiceId}`}
+      {voiceProvider === "polly" ? (
+        <>
+          <Select
+            value={selectedPollyVoice}
+            onValueChange={onPollyVoiceChange}
+            disabled={disabled}
+          >
+            <SelectTrigger data-testid="select-polly-voice" className="w-full">
+              <SelectValue placeholder="Select a voice" />
+            </SelectTrigger>
+            <SelectContent>
+              {pollyVoices.map((voice) => (
+                <SelectItem 
+                  key={voice.value} 
+                  value={voice.value}
+                  data-testid={`voice-option-${voice.value}`}
                 >
-                  <div className="flex-1 min-w-0">
-                    <p className={`text-sm font-medium truncate ${
-                      isSelected ? 'text-primary' : 'text-foreground'
-                    }`}>
-                      {voice.name}
-                    </p>
-                  </div>
-                  
-                  <div className="flex items-center gap-2">
-                    {isSelected && (
-                      <Check className="w-4 h-4 text-primary" data-testid={`check-${voice.voiceId}`} />
-                    )}
-                    
-                    <Button
-                      size="icon"
-                      variant="ghost"
-                      className="h-8 w-8"
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        handlePlayPreview(voice.voiceId);
-                      }}
-                      disabled={disabled}
-                      data-testid={`button-preview-${voice.voiceId}`}
-                    >
-                      {isPlaying ? (
-                        <Loader2 className="w-4 h-4 animate-spin" />
-                      ) : (
-                        <Volume2 className="w-4 h-4" />
-                      )}
-                    </Button>
-                  </div>
-                </div>
-              );
-            })}
-          </div>
-        </ScrollArea>
-      </Card>
-      <p className="text-xs text-muted-foreground">
-        Click a voice to select it, or use the preview button to hear it first.
-      </p>
+                  {voice.label}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+          <p className="text-xs text-muted-foreground">
+            Amazon Polly voices are included in Twilio call costs (15 voices)
+          </p>
+        </>
+      ) : (
+        <>
+          <Select
+            value={selectedOpenAIVoice}
+            onValueChange={onOpenAIVoiceChange}
+            disabled={disabled}
+          >
+            <SelectTrigger data-testid="select-openai-voice" className="w-full">
+              <SelectValue placeholder="Select a voice" />
+            </SelectTrigger>
+            <SelectContent>
+              {openaiVoices.map((voice) => (
+                <SelectItem 
+                  key={voice.value} 
+                  value={voice.value}
+                  data-testid={`voice-option-${voice.value}`}
+                >
+                  {voice.label}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+          <p className="text-xs text-muted-foreground">
+            OpenAI TTS provides premium voices with natural prosody (6 voices)
+          </p>
+        </>
+      )}
     </div>
   );
 }
