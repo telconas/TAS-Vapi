@@ -293,7 +293,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       // Make Twilio call with recording enabled
       const twilioCall = await twilioClient.calls.create({
-        from: process.env.TWILIO_PHONE_NUMBER,
+        from: '+19134395811',
         to: phoneNumber,
         url: `https://${req.get('host')}/api/twiml/${call.id}`,
         statusCallback: `https://${req.get('host')}/api/call-status/${call.id}`,
@@ -338,17 +338,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(404).send('Call not found');
       }
 
-      const voiceId = call.voiceId || "EXAVITQu4vr4xnSDxMaL"; // Default ElevenLabs voice
-      
-      // Generate initial greeting with ElevenLabs
-      const greetingText = "Hello! I'm your AI assistant. How can I help you today?";
-      const audioFilename = `${callId}-greeting.mp3`;
-      const audioUrl = await generateAndSaveAudio(greetingText, voiceId, audioFilename);
-
-      // TwiML to play ElevenLabs audio and record response
+      // Start recording immediately - AI only speaks when asked a question
       const twiml = `<?xml version="1.0" encoding="UTF-8"?>
 <Response>
-  <Play>https://${req.get('host')}${audioUrl}</Play>
   <Record timeout="3" maxLength="30" playBeep="false" transcribe="true" transcribeCallback="https://${req.get('host')}/api/transcribe/${callId}" />
 </Response>`;
 
@@ -356,10 +348,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.send(twiml);
     } catch (error) {
       console.error('Error generating TwiML:', error);
-      // Fallback to Say verb if audio generation fails
       const twiml = `<?xml version="1.0" encoding="UTF-8"?>
 <Response>
-  <Say voice="alice">Hello! I'm your AI assistant. How can I help you today?</Say>
   <Record timeout="3" maxLength="30" playBeep="false" transcribe="true" transcribeCallback="https://${req.get('host')}/api/transcribe/${callId}" />
 </Response>`;
       res.type('text/xml');
@@ -385,26 +375,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         },
       }));
 
-      // Greeting is handled in TwiML endpoint with ElevenLabs audio
-      const greeting = "Hello! I'm your AI assistant. How can I help you today?";
-      
-      // Save transcript for UI
-      await storage.addTranscriptMessage({
-        callId,
-        speaker: 'ai',
-        text: greeting,
-      });
-
-      // Send transcription to frontend
-      activeCall.ws.send(JSON.stringify({
-        type: 'transcription',
-        data: {
-          callId,
-          speaker: 'ai',
-          text: greeting,
-          timestamp: Date.now(),
-        },
-      }));
+      // AI only speaks when asked a question - no initial greeting
 
     } else if (CallStatus === 'completed' && activeCall) {
       const duration = Math.floor((Date.now() - activeCall.startTime) / 1000);
