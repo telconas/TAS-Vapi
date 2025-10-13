@@ -330,19 +330,30 @@ export async function registerRoutes(app: Express): Promise<Server> {
     });
   });
 
+  // Helper function to get the proper public host (for Twilio callbacks)
+  function getPublicHost(req: express.Request): string {
+    // Use REPLIT_DEV_DOMAIN for public access (Twilio can reach this),
+    // fallback to host header for local development
+    return process.env.REPLIT_DEV_DOMAIN || req.get("host") || "localhost:5000";
+  }
+
   // Helper function to send call data to Make.com webhook
   async function sendToMakeWebhook(callId: string) {
     const webhookUrl =
       "https://hook.us1.make.com/qomm4skpqxiyq40jxwwxcij4d1wl1psr";
+
+    console.error(`[WEBHOOK] Attempting to send call ${callId} data to Make.com`);
 
     try {
       const call = await storage.getCall(callId);
       const transcripts = await storage.getTranscriptByCallId(callId);
 
       if (!call) {
-        console.error(`Call ${callId} not found for webhook`);
+        console.error(`[WEBHOOK ERROR] Call ${callId} not found for webhook`);
         return;
       }
+
+      console.error(`[WEBHOOK] Call ${callId} found, preparing payload...`);
 
       const webhookData = {
         callId: call.id,
@@ -365,6 +376,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
           })),
       };
 
+      console.error(`[WEBHOOK] Sending payload to ${webhookUrl}...`);
+      console.error(`[WEBHOOK] Payload includes ${Object.keys(webhookData).length} fields, ${webhookData.transcripts?.length || 0} transcripts`);
+
       const response = await fetch(webhookUrl, {
         method: "POST",
         headers: {
@@ -374,14 +388,16 @@ export async function registerRoutes(app: Express): Promise<Server> {
       });
 
       if (response.ok) {
-        console.log(
-          `Successfully sent call ${callId} data to Make.com webhook`,
+        console.error(
+          `[WEBHOOK SUCCESS] ✓ Call ${callId} data sent to Make.com webhook (status: ${response.status})`,
         );
       } else {
-        console.error(`Make.com webhook failed with status ${response.status}`);
+        const errorText = await response.text();
+        console.error(`[WEBHOOK ERROR] Make.com webhook failed with status ${response.status}`);
+        console.error(`[WEBHOOK ERROR] Response: ${errorText}`);
       }
     } catch (error) {
-      console.error("Error sending to Make.com webhook:", error);
+      console.error("[WEBHOOK ERROR] Exception sending to Make.com webhook:", error);
     }
   }
 
@@ -659,15 +675,21 @@ export async function registerRoutes(app: Express): Promise<Server> {
       });
 
       // Make Twilio call with recording enabled
+      const host = getPublicHost(req);
+      const recordingCallbackUrl = `https://${host}/api/recording/${call.id}`;
+      
+      console.error(`[CALL SETUP] Using host: ${host}`);
+      console.error(`[CALL SETUP] Recording callback URL: ${recordingCallbackUrl}`);
+      
       const twilioCall = await twilioClient.calls.create({
         from: "+19134395811",
         to: phoneNumber,
-        url: `https://${req.get("host")}/api/twiml/${call.id}`,
-        statusCallback: `https://${req.get("host")}/api/call-status/${call.id}`,
+        url: `https://${host}/api/twiml/${call.id}`,
+        statusCallback: `https://${host}/api/call-status/${call.id}`,
         statusCallbackEvent: ["initiated", "ringing", "answered", "completed"],
         record: true,
         recordingChannels: "dual",
-        recordingStatusCallback: `https://${req.get("host")}/api/recording/${call.id}`,
+        recordingStatusCallback: recordingCallbackUrl,
       });
 
       // Update with Twilio call SID in database and active calls
@@ -710,13 +732,15 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       // Start recording and gathering speech immediately - AI only speaks when asked a question
       // If gather times out, redirect back to continue listening (keeps call alive during hold)
+      const host = getPublicHost(req);
+      
       const twiml = `<?xml version="1.0" encoding="UTF-8"?>
 <Response>
   <Start>
-    <Record recordingTrack="both" recordingStatusCallback="https://${req.get("host")}/api/twiml-recording/${callId}" />
+    <Record recordingTrack="both" recordingStatusCallback="https://${host}/api/twiml-recording/${callId}" />
   </Start>
-  <Gather input="speech" timeout="60" speechTimeout="1" action="https://${req.get("host")}/api/gather/${callId}" />
-  <Redirect method="POST">https://${req.get("host")}/api/gather/${callId}</Redirect>
+  <Gather input="speech" timeout="60" speechTimeout="1" action="https://${host}/api/gather/${callId}" />
+  <Redirect method="POST">https://${host}/api/gather/${callId}</Redirect>
 </Response>`;
 
       res.type("text/xml");
@@ -725,7 +749,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       console.error("Error generating TwiML:", error);
       const twiml = `<?xml version="1.0" encoding="UTF-8"?>
 <Response>
-  <Record timeout="3" maxLength="30" playBeep="false" transcribe="true" transcribeCallback="https://${req.get("host")}/api/transcribe/${callId}" />
+  <Record timeout="3" maxLength="30" playBeep="false" transcribe="true" transcribeCallback="https://${getPublicHost(req)}/api/transcribe/${callId}" />
 </Response>`;
       res.type("text/xml");
       res.send(twiml);
@@ -894,7 +918,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
                 // Use playDtmf method which doesn't interrupt the call
                 await twilioClient.calls(activeCall.twilioCallSid).update({
                   method: "POST",
-                  url: `https://${req.get("host")}/api/dtmf/${callId}?digit=${args.digit}`,
+                  url: `https://${getPublicHost(req)}/api/dtmf/${callId}?digit=${args.digit}`,
                 });
 
                 result = {
@@ -989,7 +1013,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
           // Update call to play the AI response
           await twilioClient.calls(activeCall.twilioCallSid).update({
             method: "POST",
-            url: `https://${req.get("host")}/api/twiml-response/${callId}?audioUrl=${encodeURIComponent(audioUrl)}`,
+            url: `https://${getPublicHost(req)}/api/twiml-response/${callId}?audioUrl=${encodeURIComponent(audioUrl)}`,
           });
         } catch (audioError) {
           console.error("Error playing AI audio:", audioError);
@@ -1017,8 +1041,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
       );
       const twiml = `<?xml version="1.0" encoding="UTF-8"?>
 <Response>
-  <Gather input="speech" timeout="60" speechTimeout="1" action="https://${req.get("host")}/api/gather/${callId}" />
-  <Redirect method="POST">https://${req.get("host")}/api/gather/${callId}</Redirect>
+  <Gather input="speech" timeout="60" speechTimeout="1" action="https://${getPublicHost(req)}/api/gather/${callId}" />
+  <Redirect method="POST">https://${getPublicHost(req)}/api/gather/${callId}</Redirect>
 </Response>`;
       res.type("text/xml");
       return res.send(twiml);
@@ -1142,7 +1166,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
               try {
                 await twilioClient.calls(activeCall.twilioCallSid).update({
                   method: "POST",
-                  url: `https://${req.get("host")}/api/dtmf/${callId}?digit=${args.digit}`,
+                  url: `https://${getPublicHost(req)}/api/dtmf/${callId}?digit=${args.digit}`,
                 });
 
                 result = {
@@ -1265,10 +1289,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
             // Return TwiML to play audio with barge-in (redirect keeps call alive)
             const twiml = `<?xml version="1.0" encoding="UTF-8"?>
 <Response>
-  <Gather input="speech" timeout="60" speechTimeout="1" action="https://${req.get("host")}/api/gather/${callId}">
-    <Play>https://${req.get("host")}${audioUrl}</Play>
+  <Gather input="speech" timeout="60" speechTimeout="1" action="https://${getPublicHost(req)}/api/gather/${callId}">
+    <Play>https://${getPublicHost(req)}${audioUrl}</Play>
   </Gather>
-  <Redirect method="POST">https://${req.get("host")}/api/gather/${callId}</Redirect>
+  <Redirect method="POST">https://${getPublicHost(req)}/api/gather/${callId}</Redirect>
 </Response>`;
             console.log(
               `[LATENCY] Call ${callId}: TwiML response sent to Twilio (total pipeline: ${Date.now() - t0}ms)`,
@@ -1300,10 +1324,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
             // Return TwiML to play audio with barge-in (redirect keeps call alive)
             const twiml = `<?xml version="1.0" encoding="UTF-8"?>
 <Response>
-  <Gather input="speech" timeout="60" speechTimeout="1" action="https://${req.get("host")}/api/gather/${callId}">
-    <Play>https://${req.get("host")}${audioUrl}</Play>
+  <Gather input="speech" timeout="60" speechTimeout="1" action="https://${getPublicHost(req)}/api/gather/${callId}">
+    <Play>https://${getPublicHost(req)}${audioUrl}</Play>
   </Gather>
-  <Redirect method="POST">https://${req.get("host")}/api/gather/${callId}</Redirect>
+  <Redirect method="POST">https://${getPublicHost(req)}/api/gather/${callId}</Redirect>
 </Response>`;
             console.log(
               `[LATENCY] Call ${callId}: TwiML response sent to Twilio (total pipeline: ${Date.now() - t0}ms)`,
@@ -1328,10 +1352,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
         );
         const twiml = `<?xml version="1.0" encoding="UTF-8"?>
 <Response>
-  <Gather input="speech" timeout="60" speechTimeout="1" action="https://${req.get("host")}/api/gather/${callId}">
+  <Gather input="speech" timeout="60" speechTimeout="1" action="https://${getPublicHost(req)}/api/gather/${callId}">
     <Say${voiceAttr}>${escapeXml(aiResponse)}</Say>
   </Gather>
-  <Redirect method="POST">https://${req.get("host")}/api/gather/${callId}</Redirect>
+  <Redirect method="POST">https://${getPublicHost(req)}/api/gather/${callId}</Redirect>
 </Response>`;
         console.log(
           `[LATENCY] Call ${callId}: TwiML response sent to Twilio (total pipeline: ${Date.now() - t0}ms)`,
@@ -1343,8 +1367,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
       // No AI response - just continue gathering (keeps call alive)
       const twiml = `<?xml version="1.0" encoding="UTF-8"?>
 <Response>
-  <Gather input="speech" timeout="60" speechTimeout="1" action="https://${req.get("host")}/api/gather/${callId}" />
-  <Redirect method="POST">https://${req.get("host")}/api/gather/${callId}</Redirect>
+  <Gather input="speech" timeout="60" speechTimeout="1" action="https://${getPublicHost(req)}/api/gather/${callId}" />
+  <Redirect method="POST">https://${getPublicHost(req)}/api/gather/${callId}</Redirect>
 </Response>`;
       res.type("text/xml");
       res.send(twiml);
@@ -1353,8 +1377,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
       // Continue gathering on error (keeps call alive even during long hold times)
       const twiml = `<?xml version="1.0" encoding="UTF-8"?>
 <Response>
-  <Gather input="speech" timeout="60" speechTimeout="1" action="https://${req.get("host")}/api/gather/${callId}" />
-  <Redirect method="POST">https://${req.get("host")}/api/gather/${callId}</Redirect>
+  <Gather input="speech" timeout="60" speechTimeout="1" action="https://${getPublicHost(req)}/api/gather/${callId}" />
+  <Redirect method="POST">https://${getPublicHost(req)}/api/gather/${callId}</Redirect>
 </Response>`;
       res.type("text/xml");
       res.send(twiml);
@@ -1370,10 +1394,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
     // Redirect keeps call alive if gather times out
     const twiml = `<?xml version="1.0" encoding="UTF-8"?>
 <Response>
-  <Gather input="speech" timeout="60" speechTimeout="1" action="https://${req.get("host")}/api/gather/${callId}">
-    <Play>https://${req.get("host")}${audioUrl}</Play>
+  <Gather input="speech" timeout="60" speechTimeout="1" action="https://${getPublicHost(req)}/api/gather/${callId}">
+    <Play>https://${getPublicHost(req)}${audioUrl}</Play>
   </Gather>
-  <Redirect method="POST">https://${req.get("host")}/api/gather/${callId}</Redirect>
+  <Redirect method="POST">https://${getPublicHost(req)}/api/gather/${callId}</Redirect>
 </Response>`;
 
     res.type("text/xml");
@@ -1391,8 +1415,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
 <Response>
   <Play digits="${digit}"/>
   <Pause length="1"/>
-  <Gather input="speech" timeout="60" speechTimeout="1" action="https://${req.get("host")}/api/gather/${callId}" />
-  <Redirect method="POST">https://${req.get("host")}/api/gather/${callId}</Redirect>
+  <Gather input="speech" timeout="60" speechTimeout="1" action="https://${getPublicHost(req)}/api/gather/${callId}" />
+  <Redirect method="POST">https://${getPublicHost(req)}/api/gather/${callId}</Redirect>
 </Response>`;
 
     res.type("text/xml");
@@ -1404,7 +1428,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
     const { callId } = req.params;
     const { RecordingUrl, RecordingSid } = req.body;
 
-    console.log(`Recording callback for call ${callId}: ${RecordingUrl}`);
+    console.log(`[RECORDING CALLBACK] Received for call ${callId}`);
+    console.log(`[RECORDING CALLBACK] Recording URL: ${RecordingUrl}`);
+    console.log(`[RECORDING CALLBACK] Recording SID: ${RecordingSid}`);
 
     try {
       // Append .mp3 to get actual audio file (Twilio's RecordingUrl points to metadata)
@@ -1430,7 +1456,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
     const { callId } = req.params;
     const { RecordingUrl, RecordingSid } = req.body;
 
-    console.log(`TwiML recording callback for call ${callId}: ${RecordingUrl}`);
+    console.log(`[TWIML RECORDING CALLBACK] Received for call ${callId}`);
+    console.log(`[TWIML RECORDING CALLBACK] Recording URL: ${RecordingUrl}`);
+    console.log(`[TWIML RECORDING CALLBACK] Recording SID: ${RecordingSid}`);
 
     try {
       // Append .mp3 to get actual audio file
@@ -1451,6 +1479,21 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error) {
       console.error("Error processing TwiML recording callback:", error);
       res.sendStatus(500);
+    }
+  });
+
+  // TEST ENDPOINT: Manually trigger webhook for testing
+  app.post("/api/test-webhook/:callId", async (req, res) => {
+    const { callId } = req.params;
+
+    console.error(`[TEST] Manual webhook trigger for call ${callId}`);
+
+    try {
+      await sendToMakeWebhook(callId);
+      res.json({ success: true, message: "Webhook triggered" });
+    } catch (error) {
+      console.error("[TEST] Error triggering webhook:", error);
+      res.status(500).json({ error: "Failed to trigger webhook" });
     }
   });
 

@@ -128,3 +128,9 @@ Note: User declined Replit's Twilio integration - using manual API credentials i
   - Added detailed latency logging at each pipeline stage (speech detection, GPT call, TTS generation)
   - Logs show millisecond timing for bottleneck identification
   - Maintains infinite hold time support (timeout=60s with redirect)
+- ✅ **Webhook Callback Fix** - Fixed Make.com webhook not triggering after calls
+  - Issue: Twilio callbacks used `req.get("host")` which returned `localhost:5000` (unreachable by Twilio)
+  - Solution: Created `getPublicHost()` helper that uses `REPLIT_DEV_DOMAIN` environment variable for public URLs
+  - All Twilio callback URLs now use the proper public Replit domain
+  - Recording callbacks now successfully trigger webhook delivery to Make.com
+  - Added comprehensive logging for debugging recording callbacks and webhook delivery
