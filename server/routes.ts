@@ -205,21 +205,37 @@ async function generateAndSaveAudio(
   return `/api/audio/${filename}`;
 }
 
-// Helper function to generate and save OpenAI TTS audio
-async function generateOpenAIAudio(
+// Helper function to generate and save Deepgram Aura TTS audio
+async function generateDeepgramAudio(
   text: string,
-  voice: string, // alloy, echo, fable, onyx, nova, shimmer
+  voice: string, // aura-2-{voice}-en (e.g., aura-2-asteria-en, aura-2-orion-en)
   filename: string,
 ): Promise<string> {
-  const mp3 = await openaiClient.audio.speech.create({
-    model: "tts-1-hd", // High-definition model for better quality and recording compatibility
-    voice: voice as any,
-    input: text,
-    speed: 1.0, // Normal speed
-  });
+  const deepgramApiKey = process.env.DEEPGRAM_API_KEY;
+  if (!deepgramApiKey) {
+    throw new Error("DEEPGRAM_API_KEY environment variable not set");
+  }
 
-  // Convert response to buffer
-  const buffer = Buffer.from(await mp3.arrayBuffer());
+  const response = await fetch(
+    `https://api.deepgram.com/v1/speak?model=${voice}`,
+    {
+      method: "POST",
+      headers: {
+        "Authorization": `token ${deepgramApiKey}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({ text }),
+    }
+  );
+
+  if (!response.ok) {
+    throw new Error(
+      `Deepgram API error: ${response.status} ${response.statusText}`
+    );
+  }
+
+  const arrayBuffer = await response.arrayBuffer();
+  const buffer = Buffer.from(arrayBuffer);
 
   // Ensure audio cache directory exists
   const audioCacheDir = "/tmp/audio-cache";
@@ -231,7 +247,7 @@ async function generateOpenAIAudio(
   const audioPath = join(audioCacheDir, filename);
   writeFileSync(audioPath, buffer);
 
-  console.log(`Generated OpenAI audio: ${filename} (${buffer.length} bytes)`);
+  console.log(`Generated Deepgram audio: ${filename} (${buffer.length} bytes)`);
 
   return `/api/audio/${filename}`;
 }
@@ -574,14 +590,20 @@ export async function registerRoutes(app: Express): Promise<Server> {
     "Polly.Russell",
   ];
 
-  // Allowlist of valid OpenAI voices
-  const VALID_OPENAI_VOICES = [
-    "alloy",
-    "echo",
-    "fable",
-    "onyx",
-    "nova",
-    "shimmer",
+  // Allowlist of valid Deepgram Aura-2 voices
+  const VALID_DEEPGRAM_VOICES = [
+    "aura-2-asteria-en",
+    "aura-2-luna-en",
+    "aura-2-stella-en",
+    "aura-2-athena-en",
+    "aura-2-hera-en",
+    "aura-2-orion-en",
+    "aura-2-arcas-en",
+    "aura-2-perseus-en",
+    "aura-2-angus-en",
+    "aura-2-orpheus-en",
+    "aura-2-helios-en",
+    "aura-2-zeus-en",
   ];
 
   // API: Start a new call
@@ -591,7 +613,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         phoneNumber,
         prompt,
         pollyVoice,
-        openaiVoice,
+        deepgramVoice,
         elevenLabsVoice,
         voiceProvider,
         sessionId,
@@ -609,15 +631,15 @@ export async function registerRoutes(app: Express): Promise<Server> {
       // Determine voice provider and validate voices
       let validatedProvider = voiceProvider || "polly"; // Default to Polly
       let validatedPollyVoice: string | undefined;
-      let validatedOpenAIVoice: string | undefined;
+      let validatedDeepgramVoice: string | undefined;
       let validatedElevenLabsVoice: string | undefined;
 
-      if (validatedProvider === "openai") {
-        // Validate OpenAI voice
-        validatedOpenAIVoice =
-          openaiVoice && VALID_OPENAI_VOICES.includes(openaiVoice)
-            ? openaiVoice
-            : "alloy"; // Default to alloy
+      if (validatedProvider === "deepgram") {
+        // Validate Deepgram voice
+        validatedDeepgramVoice =
+          deepgramVoice && VALID_DEEPGRAM_VOICES.includes(deepgramVoice)
+            ? deepgramVoice
+            : "aura-2-asteria-en"; // Default to Asteria
       } else if (validatedProvider === "elevenlabs") {
         // Use ElevenLabs voice (validation happens when fetching from API)
         validatedElevenLabsVoice = elevenLabsVoice || undefined;
@@ -659,7 +681,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         status: "ringing",
         voiceProvider: validatedProvider,
         pollyVoice: validatedPollyVoice,
-        openaiVoice: validatedOpenAIVoice,
+        deepgramVoice: validatedDeepgramVoice,
         voiceId: validatedElevenLabsVoice, // ElevenLabs voice ID
         duration: 0,
       });
@@ -1264,26 +1286,26 @@ export async function registerRoutes(app: Express): Promise<Server> {
         };
 
         // Check voice provider and generate audio accordingly
-        if (call?.voiceProvider === "openai" && call?.openaiVoice) {
-          // Use OpenAI TTS
-          const safeOpenAIVoice = VALID_OPENAI_VOICES.includes(call.openaiVoice)
-            ? call.openaiVoice
-            : "alloy";
+        if (call?.voiceProvider === "deepgram" && call?.deepgramVoice) {
+          // Use Deepgram Aura TTS
+          const safeDeepgramVoice = VALID_DEEPGRAM_VOICES.includes(call.deepgramVoice)
+            ? call.deepgramVoice
+            : "aura-2-asteria-en";
 
           try {
             const t4 = Date.now();
             console.log(
-              `[LATENCY] Call ${callId}: Starting OpenAI TTS generation (+${t4 - t0}ms)`,
+              `[LATENCY] Call ${callId}: Starting Deepgram Aura TTS generation (+${t4 - t0}ms)`,
             );
             const audioFilename = `${callId}-${Date.now()}.mp3`;
-            const audioUrl = await generateOpenAIAudio(
+            const audioUrl = await generateDeepgramAudio(
               aiResponse,
-              safeOpenAIVoice,
+              safeDeepgramVoice,
               audioFilename,
             );
             const t5 = Date.now();
             console.log(
-              `[LATENCY] Call ${callId}: OpenAI TTS audio generated (+${t5 - t4}ms, total: ${t5 - t0}ms)`,
+              `[LATENCY] Call ${callId}: Deepgram Aura TTS audio generated (+${t5 - t4}ms, total: ${t5 - t0}ms)`,
             );
 
             // Return TwiML to play audio with barge-in (redirect keeps call alive)
@@ -1300,7 +1322,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
             res.type("text/xml");
             return res.send(twiml);
           } catch (audioError) {
-            console.error("Error generating OpenAI audio:", audioError);
+            console.error("Error generating Deepgram audio:", audioError);
             // Fallback to Polly voice
           }
         } else if (call?.voiceProvider === "elevenlabs" && call?.voiceId) {
