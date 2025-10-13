@@ -148,8 +148,7 @@ async function generateAndSaveAudio(
   voiceId: string,
   filename: string,
 ): Promise<string> {
-  const audioStream = await elevenLabsClient.generate({
-    voice: voiceId,
+  const audioStream = await elevenLabsClient.textToSpeech.convert(voiceId, {
     text,
     model_id: "eleven_monolingual_v1",
   });
@@ -466,9 +465,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const previewText =
         "Hello! This is a preview of my voice. I'm an AI assistant powered by ElevenLabs.";
 
-      // Generate preview audio
-      const audioStream = await elevenLabsClient.generate({
-        voice: voiceId,
+      // Generate preview audio using correct SDK method
+      const audioStream = await elevenLabsClient.textToSpeech.convert(voiceId, {
         text: previewText,
         model_id: "eleven_monolingual_v1",
       });
