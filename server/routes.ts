@@ -21,7 +21,9 @@ const openaiClient = new OpenAI({
 // Log API key status (masked for security)
 const elevenLabsApiKey = process.env.ELEVENLABS_API_KEY;
 if (elevenLabsApiKey) {
-  console.log(`ElevenLabs API key loaded: ${elevenLabsApiKey.substring(0, 8)}...${elevenLabsApiKey.substring(elevenLabsApiKey.length - 4)} (length: ${elevenLabsApiKey.length})`);
+  console.log(
+    `ElevenLabs API key loaded: ${elevenLabsApiKey.substring(0, 8)}...${elevenLabsApiKey.substring(elevenLabsApiKey.length - 4)} (length: ${elevenLabsApiKey.length})`,
+  );
 } else {
   console.log("WARNING: ElevenLabs API key not found!");
 }
@@ -53,19 +55,20 @@ Always provide:
 - Service address  
 - Account PIN  
 when verification is requested.  
-Never provide or reference the number **913-439-5811** — that number is not associated with any account.
+**913-439-5811** is not associated with any account.
 
 ------------------------------------------------------------
 CALL BEHAVIOR & SPEAKING STYLE:
 
 - Speak calmly, clearly, and professionally.  
-- Wait for the other person to finish speaking before replying.  
+- When the call is initiated, you will always be speaking with a non-human automated system. Be patient and wait for instructions during the automated system portion of the call.  During this time, use short sentences, or a few words to get instructions across. Do not ask the automated system questions like "can you confirm, xyz?" or "is this correct, xyz?"
+- Once connected to a live agent, you can then adjust your speaking style to be more human like since you are speaking with a real human at that point in the call.
+-
+- Wait for the other person or automated system to finish speaking before replying.  
 - Avoid filler words (no "um," "uh").  
 - When reading account numbers, say **two digits at a time**, pausing slightly.  
   Example: for "8506" say "eight five … zero six."  
-- Confirm details after giving them (e.g., "Can you confirm you noted the account number ending in 4878?").  
 - Stay polite and composed even if the agent is frustrated.  
-- If unresolved, politely ask: "Could I please speak with a supervisor?"  
 - When the issue is resolved, confirm next steps and end the call courteously:  
   "Thank you for your help today. Have a great day."
 
@@ -88,6 +91,14 @@ LIVE AGENT INTRODUCTION:
 
 When connected to a live agent, say:
 > "Hello, this is James Martin calling on behalf of [location name] regarding [brief summary] of the task]."
+-- If the agent asks for your name, say "James Martin."
+-- If the agent asks for your relationship to the account, say "I am a vendor for [site name]."
+-- If the agent asks for your phone number, say "913-439-5811."
+-- If the agent asks for your email, say "jay pee em at telcon associates.com, that's tee ee el, see oh en as in nancy, associates dot com."
+-- If the agent asks for your account number, say "The account number is [account number]."
+-- If the agent asks for your service address, say "The service address is [service address]."
+-- If the agent asks for your account PIN, say "The account PIN is [account PIN]."
+-- If the agent asks for a brief summary of the task or issue, say "The task or issue is [short summary from the task or issue section]."
 
 Be ready to provide:
 - Account number  
@@ -97,7 +108,7 @@ Be ready to provide:
 -You may wait on hold during this phase of the call. Only speak when asked a question, unless prompted to do otherwise.
 
 ------------------------------------------------------------
-ACCOUNT REFERENCE SECTION:
+ACCOUNT REFERENCE SECTION, SERVICE ADDRESS, CONTACT NAME AND PHONE, AND RELATED EMAIL THREAD:
 
 ${userInstructions}
 
@@ -982,7 +993,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
     try {
       const t0 = Date.now();
-      console.log(`[LATENCY] Call ${callId}: Speech received - "${SpeechResult}"`);
+      console.log(
+        `[LATENCY] Call ${callId}: Speech received - "${SpeechResult}"`,
+      );
 
       // Save caller's speech
       await storage.addTranscriptMessage({
@@ -1005,7 +1018,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
       );
 
       const t1 = Date.now();
-      console.log(`[LATENCY] Call ${callId}: Starting GPT-4.1 request (+${t1 - t0}ms)`);
+      console.log(
+        `[LATENCY] Call ${callId}: Starting GPT-4.1 request (+${t1 - t0}ms)`,
+      );
 
       // Generate AI response
       activeCall.openaiConversation.push({
@@ -1065,7 +1080,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
       });
 
       const t2 = Date.now();
-      console.log(`[LATENCY] Call ${callId}: GPT-4.1 response received (+${t2 - t1}ms, total: ${t2 - t0}ms)`);
+      console.log(
+        `[LATENCY] Call ${callId}: GPT-4.1 response received (+${t2 - t1}ms, total: ${t2 - t0}ms)`,
+      );
 
       const message = completion.choices[0]?.message;
       let aiResponse = message?.content || "";
@@ -1198,7 +1215,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
           try {
             const t4 = Date.now();
-            console.log(`[LATENCY] Call ${callId}: Starting OpenAI TTS generation (+${t4 - t0}ms)`);
+            console.log(
+              `[LATENCY] Call ${callId}: Starting OpenAI TTS generation (+${t4 - t0}ms)`,
+            );
             const audioFilename = `${callId}-${Date.now()}.mp3`;
             const audioUrl = await generateOpenAIAudio(
               aiResponse,
@@ -1206,7 +1225,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
               audioFilename,
             );
             const t5 = Date.now();
-            console.log(`[LATENCY] Call ${callId}: OpenAI TTS audio generated (+${t5 - t4}ms, total: ${t5 - t0}ms)`);
+            console.log(
+              `[LATENCY] Call ${callId}: OpenAI TTS audio generated (+${t5 - t4}ms, total: ${t5 - t0}ms)`,
+            );
 
             // Return TwiML to play audio with barge-in (redirect keeps call alive)
             const twiml = `<?xml version="1.0" encoding="UTF-8"?>
@@ -1216,7 +1237,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
   </Gather>
   <Redirect method="POST">https://${req.get("host")}/api/gather/${callId}</Redirect>
 </Response>`;
-            console.log(`[LATENCY] Call ${callId}: TwiML response sent to Twilio (total pipeline: ${Date.now() - t0}ms)`);
+            console.log(
+              `[LATENCY] Call ${callId}: TwiML response sent to Twilio (total pipeline: ${Date.now() - t0}ms)`,
+            );
             res.type("text/xml");
             return res.send(twiml);
           } catch (audioError) {
@@ -1227,7 +1250,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
           // Use ElevenLabs TTS
           try {
             const t4 = Date.now();
-            console.log(`[LATENCY] Call ${callId}: Starting ElevenLabs TTS generation (+${t4 - t0}ms)`);
+            console.log(
+              `[LATENCY] Call ${callId}: Starting ElevenLabs TTS generation (+${t4 - t0}ms)`,
+            );
             const audioFilename = `${callId}-${Date.now()}.mp3`;
             const audioUrl = await generateAndSaveAudio(
               aiResponse,
@@ -1235,7 +1260,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
               audioFilename,
             );
             const t5 = Date.now();
-            console.log(`[LATENCY] Call ${callId}: ElevenLabs TTS audio generated (+${t5 - t4}ms, total: ${t5 - t0}ms)`);
+            console.log(
+              `[LATENCY] Call ${callId}: ElevenLabs TTS audio generated (+${t5 - t4}ms, total: ${t5 - t0}ms)`,
+            );
 
             // Return TwiML to play audio with barge-in (redirect keeps call alive)
             const twiml = `<?xml version="1.0" encoding="UTF-8"?>
@@ -1245,7 +1272,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
   </Gather>
   <Redirect method="POST">https://${req.get("host")}/api/gather/${callId}</Redirect>
 </Response>`;
-            console.log(`[LATENCY] Call ${callId}: TwiML response sent to Twilio (total pipeline: ${Date.now() - t0}ms)`);
+            console.log(
+              `[LATENCY] Call ${callId}: TwiML response sent to Twilio (total pipeline: ${Date.now() - t0}ms)`,
+            );
             res.type("text/xml");
             return res.send(twiml);
           } catch (audioError) {
@@ -1261,7 +1290,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
             ? call.pollyVoice
             : "Polly.Joanna";
         const voiceAttr = ` voice="${safeVoice}"`;
-        console.log(`[LATENCY] Call ${callId}: Using Polly voice (no TTS generation needed) - total: ${Date.now() - t0}ms`);
+        console.log(
+          `[LATENCY] Call ${callId}: Using Polly voice (no TTS generation needed) - total: ${Date.now() - t0}ms`,
+        );
         const twiml = `<?xml version="1.0" encoding="UTF-8"?>
 <Response>
   <Gather input="speech" timeout="60" speechTimeout="1" action="https://${req.get("host")}/api/gather/${callId}">
@@ -1269,7 +1300,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
   </Gather>
   <Redirect method="POST">https://${req.get("host")}/api/gather/${callId}</Redirect>
 </Response>`;
-        console.log(`[LATENCY] Call ${callId}: TwiML response sent to Twilio (total pipeline: ${Date.now() - t0}ms)`);
+        console.log(
+          `[LATENCY] Call ${callId}: TwiML response sent to Twilio (total pipeline: ${Date.now() - t0}ms)`,
+        );
         res.type("text/xml");
         return res.send(twiml);
       }
