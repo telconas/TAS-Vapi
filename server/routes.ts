@@ -180,11 +180,13 @@ async function generateAndSaveAudio(
         text,
         model_id: "eleven_monolingual_v1",
       }),
-    }
+    },
   );
 
   if (!response.ok) {
-    throw new Error(`ElevenLabs API error: ${response.status} ${response.statusText}`);
+    throw new Error(
+      `ElevenLabs API error: ${response.status} ${response.statusText}`,
+    );
   }
 
   const arrayBuffer = await response.arrayBuffer();
@@ -493,10 +495,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       const { voiceId } = req.params;
       const previewText =
-        "Hello! This is a preview of my voice. I'm an AI assistant powered by ElevenLabs.";
+        "Hello! My name is James Martin and I am calling about an issue we are having at Avalon Bellevue. I was wondering if you could help troubleshoot the internet being down.";
 
       const apiKey = process.env.ELEVENLABS_API_KEY;
-      console.log(`Preview request - API key exists: ${!!apiKey}, length: ${apiKey?.length}, first 8: ${apiKey?.substring(0, 8)}`);
+      console.log(
+        `Preview request - API key exists: ${!!apiKey}, length: ${apiKey?.length}, first 8: ${apiKey?.substring(0, 8)}`,
+      );
 
       // Use REST API directly instead of SDK
       const response = await fetch(
@@ -511,7 +515,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
             text: previewText,
             model_id: "eleven_monolingual_v1",
           }),
-        }
+        },
       );
 
       console.log(`ElevenLabs API response status: ${response.status}`);
@@ -519,7 +523,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
       if (!response.ok) {
         const errorText = await response.text();
         console.log(`ElevenLabs API error body: ${errorText}`);
-        throw new Error(`ElevenLabs API error: ${response.status} ${response.statusText}`);
+        throw new Error(
+          `ElevenLabs API error: ${response.status} ${response.statusText}`,
+        );
       }
 
       const buffer = await response.arrayBuffer();
