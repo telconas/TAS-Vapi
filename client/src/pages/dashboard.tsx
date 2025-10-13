@@ -29,7 +29,8 @@ export default function Dashboard() {
     "polly" | "deepgram" | "elevenlabs"
   >("polly");
   const [selectedPollyVoice, setSelectedPollyVoice] = useState("Polly.Joanna");
-  const [selectedDeepgramVoice, setSelectedDeepgramVoice] = useState("aura-2-asteria-en");
+  const [selectedDeepgramVoice, setSelectedDeepgramVoice] =
+    useState("aura-2-asteria-en");
   const [selectedElevenLabsVoice, setSelectedElevenLabsVoice] = useState("");
   const [elevenLabsVoices, setElevenLabsVoices] = useState<Voice[]>([]);
   const [currentCallId, setCurrentCallId] = useState<string | null>(null);
@@ -362,7 +363,7 @@ export default function Dashboard() {
             <div>
               <h1 className="text-2xl font-bold">TAS AI Agent</h1>
               <p className="text-sm text-muted-foreground">
-                Powered by Twilio, OpenAI GPT-4.1 & TTS Voices
+                Powered by Twilio, DeepGram, Vapi and ElevenLabs
               </p>
             </div>
           </div>

@@ -19,7 +19,9 @@ interface Voice {
 
 interface VoiceSelectorProps {
   voiceProvider: "polly" | "deepgram" | "elevenlabs";
-  onVoiceProviderChange: (provider: "polly" | "deepgram" | "elevenlabs") => void;
+  onVoiceProviderChange: (
+    provider: "polly" | "deepgram" | "elevenlabs",
+  ) => void;
   selectedPollyVoice: string;
   onPollyVoiceChange: (voice: string) => void;
   selectedDeepgramVoice: string;
@@ -126,9 +128,7 @@ export function VoiceSelector({
             data-testid="tab-polly"
           >
             Amazon
-            <span className="ml-2 text-xs font-mono text-green-500 dark:text-green-400 bg-green-500/10 px-1.5 py-0.5 rounded">
-              FREE
-            </span>
+            <span className="ml-2 text-xs font-mono text-green-500 dark:text-green-400 bg-green-500/10 px-1.5 py-0.5 rounded"></span>
           </TabsTrigger>
           <TabsTrigger
             value="deepgram"
@@ -136,9 +136,7 @@ export function VoiceSelector({
             data-testid="tab-deepgram"
           >
             Deepgram
-            <span className="ml-2 text-xs font-mono text-blue-500 dark:text-blue-400 bg-blue-500/10 px-1.5 py-0.5 rounded">
-              FAST
-            </span>
+            <span className="ml-2 text-xs font-mono text-blue-500 dark:text-blue-400 bg-blue-500/10 px-1.5 py-0.5 rounded"></span>
           </TabsTrigger>
           <TabsTrigger
             value="elevenlabs"
@@ -181,7 +179,10 @@ export function VoiceSelector({
             onValueChange={onDeepgramVoiceChange}
             disabled={disabled}
           >
-            <SelectTrigger data-testid="select-deepgram-voice" className="w-full">
+            <SelectTrigger
+              data-testid="select-deepgram-voice"
+              className="w-full"
+            >
               <SelectValue placeholder="Select a voice" />
             </SelectTrigger>
             <SelectContent>
@@ -197,7 +198,8 @@ export function VoiceSelector({
             </SelectContent>
           </Select>
           <p className="text-xs text-muted-foreground">
-            Deepgram Aura-2: Ultra-low latency (~100ms) enterprise TTS (12 voices)
+            Deepgram Aura-2: Ultra-low latency (~100ms) enterprise TTS (12
+            voices)
           </p>
         </TabsContent>
 
