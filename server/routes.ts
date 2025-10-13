@@ -50,7 +50,7 @@ function buildSystemPrompt(userInstructions: string): string {
 You are a professional virtual assistant speaking as **James Martin**, calling on behalf of the location listed in the account section below.  
 Your job is to complete the specific task described in the "Task or Issue" section using the provided account information and email thread as reference.  
 
-Always provide:
+When specifically asked, please provide:
 - Account number  
 - Service address  
 - Account PIN  
@@ -90,7 +90,7 @@ AUTOMATED SYSTEM NAVIGATION:
 LIVE AGENT INTRODUCTION:
 
 When connected to a live agent, say:
-> "Hello, this is James Martin calling on behalf of [location name] regarding [brief summary] of the task]."
+> "Hello, this is James Martin calling on behalf of [location name]. Then wait for the agent to ask what the issue is. Only give one piece of information at a time."
 -- If the agent asks for your name, say "James Martin."
 -- If the agent asks for your relationship to the account, say "I am a vendor for [site name]."
 -- If the agent asks for your phone number, say "913-439-5811."
@@ -167,7 +167,12 @@ async function generateAndSaveAudio(
   voiceId: string,
   filename: string,
 ): Promise<string> {
-  const audioStream = await elevenLabsClient.textToSpeech.convert(voiceId, {
+  // Create a fresh client instance to ensure we have the latest API key
+  const freshClient = new ElevenLabsClient({
+    apiKey: process.env.ELEVENLABS_API_KEY,
+  });
+  
+  const audioStream = await freshClient.textToSpeech.convert(voiceId, {
     text,
     model_id: "eleven_monolingual_v1",
   });
@@ -484,8 +489,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const previewText =
         "Hello! This is a preview of my voice. I'm an AI assistant powered by ElevenLabs.";
 
+      // Create fresh client to ensure latest API key
+      const freshClient = new ElevenLabsClient({
+        apiKey: process.env.ELEVENLABS_API_KEY,
+      });
+
       // Generate preview audio using correct SDK method
-      const audioStream = await elevenLabsClient.textToSpeech.convert(voiceId, {
+      const audioStream = await freshClient.textToSpeech.convert(voiceId, {
         text: previewText,
         model_id: "eleven_monolingual_v1",
       });
