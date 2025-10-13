@@ -526,6 +526,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         prompt,
         pollyVoice,
         openaiVoice,
+        elevenLabsVoice,
         voiceProvider,
         sessionId,
       } = req.body;
@@ -543,6 +544,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       let validatedProvider = voiceProvider || "polly"; // Default to Polly
       let validatedPollyVoice: string | undefined;
       let validatedOpenAIVoice: string | undefined;
+      let validatedElevenLabsVoice: string | undefined;
 
       if (validatedProvider === "openai") {
         // Validate OpenAI voice
@@ -550,6 +552,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
           openaiVoice && VALID_OPENAI_VOICES.includes(openaiVoice)
             ? openaiVoice
             : "alloy"; // Default to alloy
+      } else if (validatedProvider === "elevenlabs") {
+        // Use ElevenLabs voice (validation happens when fetching from API)
+        validatedElevenLabsVoice = elevenLabsVoice || undefined;
       } else {
         // Default to or validate Polly voice
         validatedProvider = "polly";
@@ -589,6 +594,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         voiceProvider: validatedProvider,
         pollyVoice: validatedPollyVoice,
         openaiVoice: validatedOpenAIVoice,
+        voiceId: validatedElevenLabsVoice, // ElevenLabs voice ID
         duration: 0,
       });
 
@@ -1211,8 +1217,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
             console.error("Error generating OpenAI audio:", audioError);
             // Fallback to Polly voice
           }
-        } else if (call?.voiceId) {
-          // Try ElevenLabs if voiceId is configured
+        } else if (call?.voiceProvider === "elevenlabs" && call?.voiceId) {
+          // Use ElevenLabs TTS
           try {
             const t4 = Date.now();
             console.log(`[LATENCY] Call ${callId}: Starting ElevenLabs TTS generation (+${t4 - t0}ms)`);

@@ -7,14 +7,26 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
+import { Button } from "@/components/ui/button";
+import { Volume2, Loader2 } from "lucide-react";
+import { useState } from "react";
+
+interface Voice {
+  voiceId: string;
+  name: string;
+  previewUrl?: string;
+}
 
 interface VoiceSelectorProps {
-  voiceProvider: "polly" | "openai";
-  onVoiceProviderChange: (provider: "polly" | "openai") => void;
+  voiceProvider: "polly" | "openai" | "elevenlabs";
+  onVoiceProviderChange: (provider: "polly" | "openai" | "elevenlabs") => void;
   selectedPollyVoice: string;
   onPollyVoiceChange: (voice: string) => void;
   selectedOpenAIVoice: string;
   onOpenAIVoiceChange: (voice: string) => void;
+  selectedElevenLabsVoice: string;
+  onElevenLabsVoiceChange: (voice: string) => void;
+  elevenLabsVoices: Voice[];
   disabled?: boolean;
 }
 
@@ -52,18 +64,52 @@ export function VoiceSelector({
   onPollyVoiceChange,
   selectedOpenAIVoice,
   onOpenAIVoiceChange,
+  selectedElevenLabsVoice,
+  onElevenLabsVoiceChange,
+  elevenLabsVoices,
   disabled,
 }: VoiceSelectorProps) {
+  const [previewingVoice, setPreviewingVoice] = useState<string | null>(null);
+  const [audioElement, setAudioElement] = useState<HTMLAudioElement | null>(null);
+
+  const playVoicePreview = async (voiceId: string) => {
+    try {
+      // Stop any currently playing audio
+      if (audioElement) {
+        audioElement.pause();
+        audioElement.currentTime = 0;
+      }
+
+      setPreviewingVoice(voiceId);
+      
+      const audio = new Audio(`/api/voices/${voiceId}/preview`);
+      setAudioElement(audio);
+      
+      audio.onended = () => {
+        setPreviewingVoice(null);
+      };
+      
+      audio.onerror = () => {
+        setPreviewingVoice(null);
+      };
+      
+      await audio.play();
+    } catch (error) {
+      console.error('Error playing voice preview:', error);
+      setPreviewingVoice(null);
+    }
+  };
+
   return (
     <div className="space-y-3">
       <Label className="text-base font-medium">Voice</Label>
       
       <Tabs
         value={voiceProvider}
-        onValueChange={(value) => onVoiceProviderChange(value as "polly" | "openai")}
+        onValueChange={(value) => onVoiceProviderChange(value as "polly" | "openai" | "elevenlabs")}
         className="w-full"
       >
-        <TabsList className="grid w-full grid-cols-2">
+        <TabsList className="grid w-full grid-cols-3">
           <TabsTrigger 
             value="polly" 
             disabled={disabled}
@@ -80,6 +126,13 @@ export function VoiceSelector({
             data-testid="tab-openai"
           >
             OpenAI TTS
+          </TabsTrigger>
+          <TabsTrigger 
+            value="elevenlabs" 
+            disabled={disabled}
+            data-testid="tab-elevenlabs"
+          >
+            ElevenLabs
           </TabsTrigger>
         </TabsList>
         
@@ -133,6 +186,58 @@ export function VoiceSelector({
           <p className="text-xs text-muted-foreground">
             OpenAI TTS provides premium voices with natural prosody (6 voices)
           </p>
+        </TabsContent>
+
+        <TabsContent value="elevenlabs" className="space-y-3 mt-3">
+          {elevenLabsVoices.length > 0 ? (
+            <>
+              <div className="space-y-2">
+                {elevenLabsVoices.map((voice) => (
+                  <div 
+                    key={voice.voiceId} 
+                    className="flex items-center gap-2 p-2 rounded-md border bg-card hover-elevate"
+                  >
+                    <input
+                      type="radio"
+                      id={`voice-${voice.voiceId}`}
+                      name="elevenlabs-voice"
+                      value={voice.voiceId}
+                      checked={selectedElevenLabsVoice === voice.voiceId}
+                      onChange={() => onElevenLabsVoiceChange(voice.voiceId)}
+                      disabled={disabled}
+                      className="cursor-pointer"
+                      data-testid={`radio-voice-${voice.voiceId}`}
+                    />
+                    <label 
+                      htmlFor={`voice-${voice.voiceId}`}
+                      className="flex-1 cursor-pointer text-sm"
+                    >
+                      {voice.name}
+                    </label>
+                    <Button
+                      type="button"
+                      size="sm"
+                      variant="ghost"
+                      onClick={() => playVoicePreview(voice.voiceId)}
+                      disabled={disabled || previewingVoice === voice.voiceId}
+                      data-testid={`button-preview-${voice.voiceId}`}
+                    >
+                      {previewingVoice === voice.voiceId ? (
+                        <Loader2 className="h-4 w-4 animate-spin" />
+                      ) : (
+                        <Volume2 className="h-4 w-4" />
+                      )}
+                    </Button>
+                  </div>
+                ))}
+              </div>
+              <p className="text-xs text-muted-foreground">
+                ElevenLabs voices with natural intonation and emotion ({elevenLabsVoices.length} voices)
+              </p>
+            </>
+          ) : (
+            <p className="text-sm text-muted-foreground">Loading voices...</p>
+          )}
         </TabsContent>
       </Tabs>
     </div>

@@ -13,15 +13,23 @@ import { Phone } from "lucide-react";
 
 type CallStatus = "idle" | "ringing" | "connected" | "ended";
 
+interface Voice {
+  voiceId: string;
+  name: string;
+  previewUrl?: string;
+}
+
 export default function Dashboard() {
   const [callStatus, setCallStatus] = useState<CallStatus>("idle");
   const [phoneNumber, setPhoneNumber] = useState("");
   const [duration, setDuration] = useState(0);
   const [transcript, setTranscript] = useState<TranscriptMessage[]>([]);
   const [isAudioPlaying, setIsAudioPlaying] = useState(false);
-  const [voiceProvider, setVoiceProvider] = useState<"polly" | "openai">("polly");
+  const [voiceProvider, setVoiceProvider] = useState<"polly" | "openai" | "elevenlabs">("polly");
   const [selectedPollyVoice, setSelectedPollyVoice] = useState("Polly.Joanna");
   const [selectedOpenAIVoice, setSelectedOpenAIVoice] = useState("alloy");
+  const [selectedElevenLabsVoice, setSelectedElevenLabsVoice] = useState("");
+  const [elevenLabsVoices, setElevenLabsVoices] = useState<Voice[]>([]);
   const [currentCallId, setCurrentCallId] = useState<string | null>(null);
   const [sessionId, setSessionId] = useState<string | null>(null);
   const [recordingUrl, setRecordingUrl] = useState<string | null>(null);
@@ -29,6 +37,27 @@ export default function Dashboard() {
   const durationIntervalRef = useRef<NodeJS.Timeout | null>(null);
   const reconnectTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const { toast } = useToast();
+
+  // Fetch ElevenLabs voices on mount
+  useEffect(() => {
+    const fetchVoices = async () => {
+      try {
+        const response = await fetch("/api/voices");
+        if (response.ok) {
+          const voices = await response.json();
+          setElevenLabsVoices(voices);
+          // Set first voice as default if available
+          if (voices.length > 0) {
+            setSelectedElevenLabsVoice(voices[0].voiceId);
+          }
+        }
+      } catch (error) {
+        console.error("Error fetching voices:", error);
+      }
+    };
+    
+    fetchVoices();
+  }, []);
 
   // Initialize WebSocket connection with auto-reconnect
   useEffect(() => {
@@ -207,6 +236,7 @@ export default function Dashboard() {
           voiceProvider,
           pollyVoice: selectedPollyVoice,
           openaiVoice: selectedOpenAIVoice,
+          elevenLabsVoice: selectedElevenLabsVoice,
           sessionId,
         }),
       });
@@ -342,6 +372,9 @@ export default function Dashboard() {
                   onPollyVoiceChange={setSelectedPollyVoice}
                   selectedOpenAIVoice={selectedOpenAIVoice}
                   onOpenAIVoiceChange={setSelectedOpenAIVoice}
+                  selectedElevenLabsVoice={selectedElevenLabsVoice}
+                  onElevenLabsVoiceChange={setSelectedElevenLabsVoice}
+                  elevenLabsVoices={elevenLabsVoices}
                   disabled={isCallActive}
                 />
                 <PhoneInputForm
