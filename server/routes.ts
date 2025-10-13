@@ -18,8 +18,16 @@ const openaiClient = new OpenAI({
   apiKey: process.env.OPENAI_API_KEY,
 });
 
+// Log API key status (masked for security)
+const elevenLabsApiKey = process.env.ELEVENLABS_API_KEY;
+if (elevenLabsApiKey) {
+  console.log(`ElevenLabs API key loaded: ${elevenLabsApiKey.substring(0, 8)}...${elevenLabsApiKey.substring(elevenLabsApiKey.length - 4)} (length: ${elevenLabsApiKey.length})`);
+} else {
+  console.log("WARNING: ElevenLabs API key not found!");
+}
+
 const elevenLabsClient = new ElevenLabsClient({
-  apiKey: process.env.ELEVENLABS_API_KEY,
+  apiKey: elevenLabsApiKey,
 });
 
 interface ActiveCall {
