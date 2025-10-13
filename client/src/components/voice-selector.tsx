@@ -18,12 +18,12 @@ interface Voice {
 }
 
 interface VoiceSelectorProps {
-  voiceProvider: "polly" | "openai" | "elevenlabs";
-  onVoiceProviderChange: (provider: "polly" | "openai" | "elevenlabs") => void;
+  voiceProvider: "polly" | "deepgram" | "elevenlabs";
+  onVoiceProviderChange: (provider: "polly" | "deepgram" | "elevenlabs") => void;
   selectedPollyVoice: string;
   onPollyVoiceChange: (voice: string) => void;
-  selectedOpenAIVoice: string;
-  onOpenAIVoiceChange: (voice: string) => void;
+  selectedDeepgramVoice: string;
+  onDeepgramVoiceChange: (voice: string) => void;
   selectedElevenLabsVoice: string;
   onElevenLabsVoiceChange: (voice: string) => void;
   elevenLabsVoices: Voice[];
@@ -48,13 +48,19 @@ const pollyVoices = [
   { value: "Polly.Russell", label: "Russell (Male, Australian)" },
 ];
 
-const openaiVoices = [
-  { value: "alloy", label: "Alloy (Neutral)" },
-  { value: "echo", label: "Echo (Male)" },
-  { value: "fable", label: "Fable (Male, British)" },
-  { value: "onyx", label: "Onyx (Male, Deep)" },
-  { value: "nova", label: "Nova (Female)" },
-  { value: "shimmer", label: "Shimmer (Female, Soft)" },
+const deepgramVoices = [
+  { value: "aura-2-asteria-en", label: "Asteria (Female)" },
+  { value: "aura-2-luna-en", label: "Luna (Female)" },
+  { value: "aura-2-stella-en", label: "Stella (Female)" },
+  { value: "aura-2-athena-en", label: "Athena (Female)" },
+  { value: "aura-2-hera-en", label: "Hera (Female)" },
+  { value: "aura-2-orion-en", label: "Orion (Male)" },
+  { value: "aura-2-arcas-en", label: "Arcas (Male)" },
+  { value: "aura-2-perseus-en", label: "Perseus (Male)" },
+  { value: "aura-2-angus-en", label: "Angus (Male)" },
+  { value: "aura-2-orpheus-en", label: "Orpheus (Male)" },
+  { value: "aura-2-helios-en", label: "Helios (Male)" },
+  { value: "aura-2-zeus-en", label: "Zeus (Male)" },
 ];
 
 export function VoiceSelector({
@@ -62,8 +68,8 @@ export function VoiceSelector({
   onVoiceProviderChange,
   selectedPollyVoice,
   onPollyVoiceChange,
-  selectedOpenAIVoice,
-  onOpenAIVoiceChange,
+  selectedDeepgramVoice,
+  onDeepgramVoiceChange,
   selectedElevenLabsVoice,
   onElevenLabsVoiceChange,
   elevenLabsVoices,
@@ -109,7 +115,7 @@ export function VoiceSelector({
       <Tabs
         value={voiceProvider}
         onValueChange={(value) =>
-          onVoiceProviderChange(value as "polly" | "openai" | "elevenlabs")
+          onVoiceProviderChange(value as "polly" | "deepgram" | "elevenlabs")
         }
         className="w-full"
       >
@@ -125,11 +131,14 @@ export function VoiceSelector({
             </span>
           </TabsTrigger>
           <TabsTrigger
-            value="openai"
+            value="deepgram"
             disabled={disabled}
-            data-testid="tab-openai"
+            data-testid="tab-deepgram"
           >
-            OpenAI
+            Deepgram
+            <span className="ml-2 text-xs font-mono text-blue-500 dark:text-blue-400 bg-blue-500/10 px-1.5 py-0.5 rounded">
+              FAST
+            </span>
           </TabsTrigger>
           <TabsTrigger
             value="elevenlabs"
@@ -166,17 +175,17 @@ export function VoiceSelector({
           </p>
         </TabsContent>
 
-        <TabsContent value="openai" className="space-y-3 mt-3">
+        <TabsContent value="deepgram" className="space-y-3 mt-3">
           <Select
-            value={selectedOpenAIVoice}
-            onValueChange={onOpenAIVoiceChange}
+            value={selectedDeepgramVoice}
+            onValueChange={onDeepgramVoiceChange}
             disabled={disabled}
           >
-            <SelectTrigger data-testid="select-openai-voice" className="w-full">
+            <SelectTrigger data-testid="select-deepgram-voice" className="w-full">
               <SelectValue placeholder="Select a voice" />
             </SelectTrigger>
             <SelectContent>
-              {openaiVoices.map((voice) => (
+              {deepgramVoices.map((voice) => (
                 <SelectItem
                   key={voice.value}
                   value={voice.value}
@@ -188,7 +197,7 @@ export function VoiceSelector({
             </SelectContent>
           </Select>
           <p className="text-xs text-muted-foreground">
-            OpenAI TTS provides premium voices with natural prosody (6 voices)
+            Deepgram Aura-2: Ultra-low latency (~100ms) enterprise TTS (12 voices)
           </p>
         </TabsContent>
 

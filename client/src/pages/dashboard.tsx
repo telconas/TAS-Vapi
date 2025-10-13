@@ -26,10 +26,10 @@ export default function Dashboard() {
   const [transcript, setTranscript] = useState<TranscriptMessage[]>([]);
   const [isAudioPlaying, setIsAudioPlaying] = useState(false);
   const [voiceProvider, setVoiceProvider] = useState<
-    "polly" | "openai" | "elevenlabs"
+    "polly" | "deepgram" | "elevenlabs"
   >("polly");
   const [selectedPollyVoice, setSelectedPollyVoice] = useState("Polly.Joanna");
-  const [selectedOpenAIVoice, setSelectedOpenAIVoice] = useState("alloy");
+  const [selectedDeepgramVoice, setSelectedDeepgramVoice] = useState("aura-2-asteria-en");
   const [selectedElevenLabsVoice, setSelectedElevenLabsVoice] = useState("");
   const [elevenLabsVoices, setElevenLabsVoices] = useState<Voice[]>([]);
   const [currentCallId, setCurrentCallId] = useState<string | null>(null);
@@ -240,7 +240,7 @@ export default function Dashboard() {
           prompt,
           voiceProvider,
           pollyVoice: selectedPollyVoice,
-          openaiVoice: selectedOpenAIVoice,
+          deepgramVoice: selectedDeepgramVoice,
           elevenLabsVoice: selectedElevenLabsVoice,
           sessionId,
         }),
@@ -380,8 +380,8 @@ export default function Dashboard() {
                   onVoiceProviderChange={setVoiceProvider}
                   selectedPollyVoice={selectedPollyVoice}
                   onPollyVoiceChange={setSelectedPollyVoice}
-                  selectedOpenAIVoice={selectedOpenAIVoice}
-                  onOpenAIVoiceChange={setSelectedOpenAIVoice}
+                  selectedDeepgramVoice={selectedDeepgramVoice}
+                  onDeepgramVoiceChange={setSelectedDeepgramVoice}
                   selectedElevenLabsVoice={selectedElevenLabsVoice}
                   onElevenLabsVoiceChange={setSelectedElevenLabsVoice}
                   elevenLabsVoices={elevenLabsVoices}
