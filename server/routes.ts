@@ -167,22 +167,28 @@ async function generateAndSaveAudio(
   voiceId: string,
   filename: string,
 ): Promise<string> {
-  // Create a fresh client instance to ensure we have the latest API key
-  const freshClient = new ElevenLabsClient({
-    apiKey: process.env.ELEVENLABS_API_KEY,
-  });
-  
-  const audioStream = await freshClient.textToSpeech.convert(voiceId, {
-    text,
-    model_id: "eleven_monolingual_v1",
-  });
+  // Use REST API directly instead of buggy SDK
+  const response = await fetch(
+    `https://api.elevenlabs.io/v1/text-to-speech/${voiceId}`,
+    {
+      method: "POST",
+      headers: {
+        "xi-api-key": process.env.ELEVENLABS_API_KEY || "",
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        text,
+        model_id: "eleven_monolingual_v1",
+      }),
+    }
+  );
 
-  // Convert stream to buffer
-  const chunks: Buffer[] = [];
-  for await (const chunk of audioStream) {
-    chunks.push(chunk);
+  if (!response.ok) {
+    throw new Error(`ElevenLabs API error: ${response.status} ${response.statusText}`);
   }
-  const buffer = Buffer.concat(chunks);
+
+  const arrayBuffer = await response.arrayBuffer();
+  const buffer = Buffer.from(arrayBuffer);
 
   // Ensure audio cache directory exists
   const audioCacheDir = "/tmp/audio-cache";
@@ -489,27 +495,31 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const previewText =
         "Hello! This is a preview of my voice. I'm an AI assistant powered by ElevenLabs.";
 
-      // Create fresh client to ensure latest API key
-      const freshClient = new ElevenLabsClient({
-        apiKey: process.env.ELEVENLABS_API_KEY,
-      });
+      // Use REST API directly instead of SDK
+      const response = await fetch(
+        `https://api.elevenlabs.io/v1/text-to-speech/${voiceId}`,
+        {
+          method: "POST",
+          headers: {
+            "xi-api-key": process.env.ELEVENLABS_API_KEY || "",
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            text: previewText,
+            model_id: "eleven_monolingual_v1",
+          }),
+        }
+      );
 
-      // Generate preview audio using correct SDK method
-      const audioStream = await freshClient.textToSpeech.convert(voiceId, {
-        text: previewText,
-        model_id: "eleven_monolingual_v1",
-      });
-
-      // Convert stream to buffer
-      const chunks: Buffer[] = [];
-      for await (const chunk of audioStream) {
-        chunks.push(chunk);
+      if (!response.ok) {
+        throw new Error(`ElevenLabs API error: ${response.status} ${response.statusText}`);
       }
-      const buffer = Buffer.concat(chunks);
+
+      const buffer = await response.arrayBuffer();
 
       // Send as audio response
       res.setHeader("Content-Type", "audio/mpeg");
-      res.send(buffer);
+      res.send(Buffer.from(buffer));
     } catch (error) {
       console.error("Error generating voice preview:", error);
       res.status(500).json({ error: "Failed to generate voice preview" });

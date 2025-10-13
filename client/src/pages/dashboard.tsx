@@ -25,7 +25,9 @@ export default function Dashboard() {
   const [duration, setDuration] = useState(0);
   const [transcript, setTranscript] = useState<TranscriptMessage[]>([]);
   const [isAudioPlaying, setIsAudioPlaying] = useState(false);
-  const [voiceProvider, setVoiceProvider] = useState<"polly" | "openai" | "elevenlabs">("polly");
+  const [voiceProvider, setVoiceProvider] = useState<
+    "polly" | "openai" | "elevenlabs"
+  >("polly");
   const [selectedPollyVoice, setSelectedPollyVoice] = useState("Polly.Joanna");
   const [selectedOpenAIVoice, setSelectedOpenAIVoice] = useState("alloy");
   const [selectedElevenLabsVoice, setSelectedElevenLabsVoice] = useState("");
@@ -55,7 +57,7 @@ export default function Dashboard() {
         console.error("Error fetching voices:", error);
       }
     };
-    
+
     fetchVoices();
   }, []);
 
@@ -66,7 +68,7 @@ export default function Dashboard() {
     const connectWebSocket = () => {
       const protocol = window.location.protocol === "https:" ? "wss:" : "ws:";
       const wsUrl = `${protocol}//${window.location.host}/ws`;
-      
+
       const ws = new WebSocket(wsUrl);
       wsRef.current = ws;
 
@@ -76,14 +78,14 @@ export default function Dashboard() {
 
       ws.onmessage = (event) => {
         const message = JSON.parse(event.data);
-        
+
         // Handle session ID
-        if (message.type === 'session') {
+        if (message.type === "session") {
           setSessionId(message.data.sessionId);
           console.log("Session ID received:", message.data.sessionId);
           return;
         }
-        
+
         handleWebSocketMessage(message);
       };
 
@@ -95,7 +97,7 @@ export default function Dashboard() {
         console.log("WebSocket disconnected");
         wsRef.current = null;
         setSessionId(null);
-        
+
         // Auto-reconnect after 2 seconds if component is still mounted
         if (isComponentMounted) {
           reconnectTimeoutRef.current = setTimeout(() => {
@@ -158,7 +160,8 @@ export default function Dashboard() {
         } else {
           toast({
             title: "Instruction Failed",
-            description: message.data.message || "Failed to send instruction to AI agent",
+            description:
+              message.data.message || "Failed to send instruction to AI agent",
             variant: "destructive",
           });
         }
@@ -171,7 +174,8 @@ export default function Dashboard() {
       case "error":
         toast({
           title: "Error",
-          description: message.data.message || "An error occurred during the call",
+          description:
+            message.data.message || "An error occurred during the call",
           variant: "destructive",
         });
         break;
@@ -191,7 +195,7 @@ export default function Dashboard() {
         }
       }, 3000); // Wait 3 seconds for recording to be processed
     } catch (error) {
-      console.error('Error fetching recording URL:', error);
+      console.error("Error fetching recording URL:", error);
     }
   };
 
@@ -216,7 +220,8 @@ export default function Dashboard() {
       if (!sessionId) {
         toast({
           title: "Connection Error",
-          description: "WebSocket session not ready. Please wait and try again.",
+          description:
+            "WebSocket session not ready. Please wait and try again.",
           variant: "destructive",
         });
         return;
@@ -266,7 +271,10 @@ export default function Dashboard() {
   const handleDownloadTranscript = () => {
     const text = transcript
       .map((msg) => {
-        const date = msg.timestamp instanceof Date ? msg.timestamp : new Date(msg.timestamp as any);
+        const date =
+          msg.timestamp instanceof Date
+            ? msg.timestamp
+            : new Date(msg.timestamp as any);
         const time = date.toLocaleTimeString();
         const speaker = msg.speaker === "ai" ? "AI Assistant" : "Caller";
         return `[${time}] ${speaker}: ${msg.text}`;
@@ -323,13 +331,15 @@ export default function Dashboard() {
 
   const handleSendInstruction = (instruction: string) => {
     if (wsRef.current?.readyState === WebSocket.OPEN && currentCallId) {
-      wsRef.current.send(JSON.stringify({
-        type: 'instruction',
-        data: {
-          callId: currentCallId,
-          instruction,
-        },
-      }));
+      wsRef.current.send(
+        JSON.stringify({
+          type: "instruction",
+          data: {
+            callId: currentCallId,
+            instruction,
+          },
+        }),
+      );
     } else {
       toast({
         title: "Connection Error",
@@ -350,7 +360,7 @@ export default function Dashboard() {
               <Phone className="w-6 h-6 text-primary-foreground" />
             </div>
             <div>
-              <h1 className="text-2xl font-bold">AI Voice Agent</h1>
+              <h1 className="text-2xl font-bold">TAS AI Agent</h1>
               <p className="text-sm text-muted-foreground">
                 Powered by Twilio, OpenAI GPT-4.1 & TTS Voices
               </p>

@@ -31,13 +31,15 @@ const pollyVoices = [
   { value: "Polly.Russell", label: "Russell (Male, Australian)" },
 ];
 
-export function PollyVoiceSelector({ selectedVoice, onVoiceChange, disabled }: PollyVoiceSelectorProps) {
+export function PollyVoiceSelector({
+  selectedVoice,
+  onVoiceChange,
+  disabled,
+}: PollyVoiceSelectorProps) {
   return (
     <div className="space-y-3">
       <div className="flex items-center justify-between">
-        <Label className="text-base font-medium">
-          Voice (Amazon Polly)
-        </Label>
+        <Label className="text-base font-medium">Voice (Amazon)</Label>
         <span className="text-xs font-mono text-green-500 dark:text-green-400 bg-green-500/10 px-2 py-1 rounded">
           FREE
         </span>
@@ -52,8 +54,8 @@ export function PollyVoiceSelector({ selectedVoice, onVoiceChange, disabled }: P
         </SelectTrigger>
         <SelectContent>
           {pollyVoices.map((voice) => (
-            <SelectItem 
-              key={voice.value} 
+            <SelectItem
+              key={voice.value}
               value={voice.value}
               data-testid={`voice-option-${voice.value}`}
             >

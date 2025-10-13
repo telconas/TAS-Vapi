@@ -70,7 +70,9 @@ export function VoiceSelector({
   disabled,
 }: VoiceSelectorProps) {
   const [previewingVoice, setPreviewingVoice] = useState<string | null>(null);
-  const [audioElement, setAudioElement] = useState<HTMLAudioElement | null>(null);
+  const [audioElement, setAudioElement] = useState<HTMLAudioElement | null>(
+    null,
+  );
 
   const playVoicePreview = async (voiceId: string) => {
     try {
@@ -81,21 +83,21 @@ export function VoiceSelector({
       }
 
       setPreviewingVoice(voiceId);
-      
+
       const audio = new Audio(`/api/voices/${voiceId}/preview`);
       setAudioElement(audio);
-      
+
       audio.onended = () => {
         setPreviewingVoice(null);
       };
-      
+
       audio.onerror = () => {
         setPreviewingVoice(null);
       };
-      
+
       await audio.play();
     } catch (error) {
-      console.error('Error playing voice preview:', error);
+      console.error("Error playing voice preview:", error);
       setPreviewingVoice(null);
     }
   };
@@ -103,39 +105,41 @@ export function VoiceSelector({
   return (
     <div className="space-y-3">
       <Label className="text-base font-medium">Voice</Label>
-      
+
       <Tabs
         value={voiceProvider}
-        onValueChange={(value) => onVoiceProviderChange(value as "polly" | "openai" | "elevenlabs")}
+        onValueChange={(value) =>
+          onVoiceProviderChange(value as "polly" | "openai" | "elevenlabs")
+        }
         className="w-full"
       >
         <TabsList className="grid w-full grid-cols-3">
-          <TabsTrigger 
-            value="polly" 
+          <TabsTrigger
+            value="polly"
             disabled={disabled}
             data-testid="tab-polly"
           >
-            Amazon Polly
+            Amazon
             <span className="ml-2 text-xs font-mono text-green-500 dark:text-green-400 bg-green-500/10 px-1.5 py-0.5 rounded">
               FREE
             </span>
           </TabsTrigger>
-          <TabsTrigger 
-            value="openai" 
+          <TabsTrigger
+            value="openai"
             disabled={disabled}
             data-testid="tab-openai"
           >
-            OpenAI TTS
+            OpenAI
           </TabsTrigger>
-          <TabsTrigger 
-            value="elevenlabs" 
+          <TabsTrigger
+            value="elevenlabs"
             disabled={disabled}
             data-testid="tab-elevenlabs"
           >
             ElevenLabs
           </TabsTrigger>
         </TabsList>
-        
+
         <TabsContent value="polly" className="space-y-3 mt-3">
           <Select
             value={selectedPollyVoice}
@@ -147,8 +151,8 @@ export function VoiceSelector({
             </SelectTrigger>
             <SelectContent>
               {pollyVoices.map((voice) => (
-                <SelectItem 
-                  key={voice.value} 
+                <SelectItem
+                  key={voice.value}
                   value={voice.value}
                   data-testid={`voice-option-${voice.value}`}
                 >
@@ -161,7 +165,7 @@ export function VoiceSelector({
             Amazon Polly voices are included in Twilio call costs (15 voices)
           </p>
         </TabsContent>
-        
+
         <TabsContent value="openai" className="space-y-3 mt-3">
           <Select
             value={selectedOpenAIVoice}
@@ -173,8 +177,8 @@ export function VoiceSelector({
             </SelectTrigger>
             <SelectContent>
               {openaiVoices.map((voice) => (
-                <SelectItem 
-                  key={voice.value} 
+                <SelectItem
+                  key={voice.value}
                   value={voice.value}
                   data-testid={`voice-option-${voice.value}`}
                 >
@@ -193,8 +197,8 @@ export function VoiceSelector({
             <>
               <div className="space-y-2">
                 {elevenLabsVoices.map((voice) => (
-                  <div 
-                    key={voice.voiceId} 
+                  <div
+                    key={voice.voiceId}
                     className="flex items-center gap-2 p-2 rounded-md border bg-card hover-elevate"
                   >
                     <input
@@ -208,7 +212,7 @@ export function VoiceSelector({
                       className="cursor-pointer"
                       data-testid={`radio-voice-${voice.voiceId}`}
                     />
-                    <label 
+                    <label
                       htmlFor={`voice-${voice.voiceId}`}
                       className="flex-1 cursor-pointer text-sm"
                     >
@@ -232,7 +236,8 @@ export function VoiceSelector({
                 ))}
               </div>
               <p className="text-xs text-muted-foreground">
-                ElevenLabs voices with natural intonation and emotion ({elevenLabsVoices.length} voices)
+                ElevenLabs voices with natural intonation and emotion (
+                {elevenLabsVoices.length} voices)
               </p>
             </>
           ) : (
