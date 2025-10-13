@@ -495,13 +495,16 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const previewText =
         "Hello! This is a preview of my voice. I'm an AI assistant powered by ElevenLabs.";
 
+      const apiKey = process.env.ELEVENLABS_API_KEY;
+      console.log(`Preview request - API key exists: ${!!apiKey}, length: ${apiKey?.length}, first 8: ${apiKey?.substring(0, 8)}`);
+
       // Use REST API directly instead of SDK
       const response = await fetch(
         `https://api.elevenlabs.io/v1/text-to-speech/${voiceId}`,
         {
           method: "POST",
           headers: {
-            "xi-api-key": process.env.ELEVENLABS_API_KEY || "",
+            "xi-api-key": apiKey || "",
             "Content-Type": "application/json",
           },
           body: JSON.stringify({
@@ -511,7 +514,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
         }
       );
 
+      console.log(`ElevenLabs API response status: ${response.status}`);
+
       if (!response.ok) {
+        const errorText = await response.text();
+        console.log(`ElevenLabs API error body: ${errorText}`);
         throw new Error(`ElevenLabs API error: ${response.status} ${response.statusText}`);
       }
 
