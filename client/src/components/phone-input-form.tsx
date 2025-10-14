@@ -7,7 +7,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Phone, PhoneOff } from "lucide-react";
 
 interface PhoneInputFormProps {
-  onStartCall: (phoneNumber: string, prompt: string) => void;
+  onStartCall: (phoneNumber: string, prompt: string, email?: string) => void;
   onHangUp: () => void;
   isCallActive: boolean;
 }
@@ -55,6 +55,7 @@ export function PhoneInputForm({ onStartCall, onHangUp, isCallActive }: PhoneInp
   const [phoneNumber, setPhoneNumber] = useState("");
   const [selectedProvider, setSelectedProvider] = useState("");
   const [prompt, setPrompt] = useState("");
+  const [email, setEmail] = useState("");
 
   const handleProviderSelect = (value: string) => {
     setSelectedProvider(value);
@@ -70,7 +71,7 @@ export function PhoneInputForm({ onStartCall, onHangUp, isCallActive }: PhoneInp
 
   const handleStartCall = () => {
     const fullNumber = `${countryCode}${phoneNumber}`;
-    onStartCall(fullNumber, prompt);
+    onStartCall(fullNumber, prompt, email || undefined);
   };
 
   const isValid = phoneNumber.length >= 10 && prompt.trim().length > 0;
@@ -159,6 +160,25 @@ export function PhoneInputForm({ onStartCall, onHangUp, isCallActive }: PhoneInp
             data-testid="input-phone-number"
           />
         </div>
+      </div>
+
+      <div className="space-y-3">
+        <Label htmlFor="email" className="text-base font-medium">
+          Email for Summary (Optional)
+        </Label>
+        <Input
+          id="email"
+          type="email"
+          placeholder="your@email.com"
+          value={email}
+          onChange={(e) => setEmail(e.target.value)}
+          className="bg-card border-card-border"
+          disabled={isCallActive}
+          data-testid="input-email"
+        />
+        <p className="text-sm text-muted-foreground">
+          Receive an AI-generated call summary via email after the call
+        </p>
       </div>
 
       {isCallActive ? (

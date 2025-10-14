@@ -253,7 +253,7 @@ export default function Dashboard() {
     }
   };
 
-  const handleStartCall = async (phone: string, prompt: string) => {
+  const handleStartCall = async (phone: string, prompt: string, email?: string) => {
     try {
       if (!sessionId) {
         toast({
@@ -283,6 +283,7 @@ export default function Dashboard() {
           deepgramVoice: selectedDeepgramVoice,
           elevenLabsVoice: selectedElevenLabsVoice,
           sessionId,
+          emailRecipient: email,
         }),
       });
 

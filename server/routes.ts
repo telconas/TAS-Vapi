@@ -6,6 +6,7 @@ import twilio from "twilio";
 import OpenAI from "openai";
 import { ElevenLabsClient } from "elevenlabs";
 import { randomUUID } from "crypto";
+import { sendCallSummaryEmail } from "./sendgrid";
 import { writeFileSync, mkdirSync, existsSync } from "fs";
 import { join, basename } from "path";
 
@@ -405,6 +406,18 @@ ${cleanTranscripts}`;
         // Store summary in database
         await storage.updateCall(callId, { summary });
         console.error(`[SUMMARY SUCCESS] ✓ Summary generated and saved for call ${callId}`);
+
+        // Send email if recipient is specified
+        if (call.emailRecipient) {
+          console.error(`[EMAIL] Attempting to send summary to ${call.emailRecipient}`);
+          await sendCallSummaryEmail(
+            call.emailRecipient,
+            call.phoneNumber,
+            summary,
+            call.duration || 0,
+            call.recordingUrl || undefined
+          );
+        }
       } else {
         console.error(`[SUMMARY ERROR] No summary generated for call ${callId}`);
       }
@@ -616,6 +629,7 @@ ${cleanTranscripts}`;
         elevenLabsVoice,
         voiceProvider,
         sessionId,
+        emailRecipient,
       } = req.body;
 
       // Validate request
@@ -683,6 +697,7 @@ ${cleanTranscripts}`;
         deepgramVoice: validatedDeepgramVoice,
         voiceId: validatedElevenLabsVoice, // ElevenLabs voice ID
         duration: 0,
+        emailRecipient: emailRecipient || undefined,
       });
 
       // Store active call info
