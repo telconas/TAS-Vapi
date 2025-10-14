@@ -1,7 +1,9 @@
 # AI Voice Agent Dashboard
 
 ## Overview
-A full-stack web application that enables outbound AI voice calls using Twilio for telephony, OpenAI GPT-4.1 for conversational AI, and three voice providers: Amazon Polly (15 free voices), Deepgram Aura (12 ultra-fast voices at ~100ms latency), and ElevenLabs (with voice preview capability). Features real-time transcription display with cleaned output, AI-generated call summaries with one-click copy and optional email delivery via SendGrid, post-call recordings, hard-coded professional system prompt, DTMF button pressing for IVR navigation, silent operator instructions, barge-in capability, automatic zip code entry, and infinite hold time support. Modern dark-themed UI with #219ebc accent color. Calls originate from 913-439-5811, AI only speaks when asked questions.
+A full-stack web application that enables outbound AI voice calls using **Vapi.ai platform** for ultra-low latency voice AI (<1 second response time). Features real-time transcription display, AI-generated call summaries with one-click copy and optional email delivery via SendGrid, post-call recordings, professional system prompt, DTMF button pressing for IVR navigation, call transfer capability, and barge-in support. Supports Deepgram Aura (ultra-fast, ~100ms latency) and ElevenLabs voice providers. Modern dark-themed UI with #219ebc accent color. Calls originate from 913-439-5811, AI only speaks when asked questions.
+
+**Migration Note**: Successfully migrated from direct Twilio+TwiML architecture to Vapi.ai platform (October 2025) for real-time streaming, sub-second latency, and simplified voice AI orchestration.
 
 ## Current State
 **Phase 1: Schema & Frontend** ✅ Completed
@@ -45,29 +47,46 @@ A full-stack web application that enables outbound AI voice calls using Twilio f
 ## Tech Stack
 - **Frontend**: React, Tailwind CSS, Wouter (routing), TanStack Query
 - **Backend**: Node.js, Express, WebSocket (ws package)
-- **External APIs**: Twilio (calls), OpenAI GPT-4.1 (AI logic), Deepgram Aura (TTS), Amazon Polly (TTS), ElevenLabs (TTS)
-- **Real-time**: WebSocket for live transcription and audio streaming
-- **Voice Providers**: Amazon Polly (15 free voices), Deepgram Aura (12 ultra-fast voices), ElevenLabs (natural voices with preview)
+- **Voice AI Platform**: Vapi.ai (orchestrates STT, LLM, TTS pipeline)
+- **External APIs**: Vapi.ai (voice orchestration), OpenAI GPT-4.1 (call summaries), SendGrid (email delivery)
+- **Real-time**: WebSocket for UI updates, Vapi webhooks for call events
+- **Voice Providers**: Deepgram Aura (12 ultra-fast voices, ~100ms latency), ElevenLabs (natural voices with emotion)
 
 ## Environment Variables
 The following secrets are configured and available:
-- `TWILIO_ACCOUNT_SID` - Twilio Account SID
-- `TWILIO_AUTH_TOKEN` - Twilio Auth Token  
-- `TWILIO_PHONE_NUMBER` - Twilio phone number for outbound calls
-- `OPENAI_API_KEY` - OpenAI API key for GPT-4.1 conversational AI
-- `DEEPGRAM_API_KEY` - Deepgram API key for ultra-fast Aura TTS
-- `ELEVENLABS_API_KEY` - ElevenLabs API key
+- `VAPI_API_KEY` - Vapi.ai API key for voice AI orchestration ✅
+- `PHONE_NUMBER_ID` - Vapi phone number ID for outbound calls (required)
+- `OPENAI_API_KEY` - OpenAI API key for GPT-4.1 call summaries
+- `ELEVENLABS_API_KEY` - ElevenLabs API key (optional, for voice preview)
 - SendGrid API credentials via Replit connector for email delivery
 
-Note: User declined Replit's Twilio integration - using manual API credentials instead (documented for future reference).
+**Legacy (Twilio-based system, kept for reference)**:
+- `TWILIO_ACCOUNT_SID` - Twilio Account SID (legacy)
+- `TWILIO_AUTH_TOKEN` - Twilio Auth Token (legacy)
+- `TWILIO_PHONE_NUMBER` - Twilio phone number (legacy)
+- `DEEPGRAM_API_KEY` - Deepgram API key (legacy, Vapi handles this now)
 
 ## Architecture Notes
-- WebSocket server runs on `/ws` path to avoid conflicts with Vite HMR
+**Vapi.ai Integration** (October 2025):
+- Vapi.ai handles complete voice AI pipeline: STT (Deepgram) → LLM (GPT-4.1) → TTS (Deepgram/ElevenLabs)
+- Real-time streaming with sub-second latency (~500-800ms end-to-end)
+- Webhooks for transcripts, status updates, and end-of-call reports
+- Function calling support for DTMF button pressing and call transfers
+- Automatic barge-in handling (AI stops speaking when interrupted)
+- Assistant-waits-for-user mode (AI only speaks when asked)
+
+**Legacy Architecture** (pre-October 2025):
+- Direct Twilio+TwiML integration with `<Gather>` for speech recognition
+- OpenAI GPT-4.1 for conversation logic
+- Manual TTS generation (Polly, Deepgram, ElevenLabs)
+- Higher latency (~2-4 seconds response time)
+
+**Preserved Features**:
+- WebSocket server on `/ws` path for real-time UI updates
 - Session-based WebSocket client management for multi-user support
-- Twilio integration uses `<Gather>` with speech recognition for **barge-in support** (AI stops speaking when interrupted)
-- Real-time speech recognition via Twilio's `<Gather>` verb with `speechTimeout="auto"`
-- OpenAI GPT-4.1 for conversational AI logic
-- ElevenLabs TTS generates audio responses from AI text
+- PostgreSQL database for call history and transcripts
+- OpenAI GPT-4.1 for AI-generated call summaries (separate from Vapi)
+- SendGrid email delivery for call summaries
 
 ## Implementation Notes
 - **Hard-coded System Prompt**: Professional virtual assistant "James Martin" prompt with call behavior guidelines, IVR navigation rules, task patterns, and call etiquette. User's AI Instructions are injected into the "ACCOUNT REFERENCE SECTION" placeholder.
