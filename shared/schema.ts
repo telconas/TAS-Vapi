@@ -21,6 +21,8 @@ export const calls = pgTable("calls", {
   recordingUrl: text("recording_url"), // URL to call recording
   summary: text("summary"), // OpenAI-generated call summary
   emailRecipient: text("email_recipient"), // Email address to send summary to (optional)
+  listenUrl: text("listen_url"), // Vapi WebSocket URL for live audio streaming
+  controlUrl: text("control_url"), // Vapi HTTP URL for live call control
 });
 
 export const insertCallSchema = createInsertSchema(calls).omit({
