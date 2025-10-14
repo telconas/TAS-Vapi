@@ -148,3 +148,11 @@ Note: User declined Replit's Twilio integration - using manual API credentials i
   - Email sent automatically after summary generation (if email address provided)
   - Email includes call details: phone number, duration, recording link, and full AI-generated summary
   - Professional HTML formatting with clear layout and branding
+  - Default email: jpm@telconassociates.com (pre-filled in form)
+- ✅ **Call Transfer** - Transfer active calls to another number with one click
+  - "Transfer Call" button appears during active calls alongside "Hang Up" button
+  - Hardcoded transfer destination: 616-617-0915
+  - Cold transfer: Caller is immediately connected to transfer number, AI drops from call
+  - TwiML `<Dial>` verb redirects active call seamlessly
+  - Call status updates to "transferred" with proper UI indication
+  - Transfer endpoint: POST /api/calls/:callId/transfer
