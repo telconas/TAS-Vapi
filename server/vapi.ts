@@ -1,17 +1,17 @@
-import axios from 'axios';
+import axios from "axios";
 
 const VAPI_API_KEY = process.env.VAPI_API_KEY;
-const VAPI_BASE_URL = 'https://api.vapi.ai';
+const VAPI_BASE_URL = "https://api.vapi.ai";
 
 if (!VAPI_API_KEY) {
-  console.error('WARNING: VAPI_API_KEY environment variable not set!');
+  console.error("WARNING: VAPI_API_KEY environment variable not set!");
 }
 
 const vapiClient = axios.create({
   baseURL: VAPI_BASE_URL,
   headers: {
-    'Authorization': `Bearer ${VAPI_API_KEY}`,
-    'Content-Type': 'application/json',
+    Authorization: `Bearer ${VAPI_API_KEY}`,
+    "Content-Type": "application/json",
   },
 });
 
@@ -90,6 +90,15 @@ Be ready to provide:
 -You may wait on hold during this phase of the call. Only speak when asked a question, unless prompted to do otherwise.
 
 ------------------------------------------------------------
+HANDLING DOCUSIGN
+
+-Docusigns with Comcast will always be sent to jay pee em at telcon associates.com, that's tee ee el, see oh en as in nancy, associates dot com.
+- If you are asked to sign a document, say "I will sign the document and send it to jay pee em at telcon associates.com, that's tee ee el, see oh en as in nancy, associates dot com."
+- If you are asked to sign a document and you are not sure who to send it to, say "I will sign the document and send it to jay pee em at telcon associates.com, that's tee ee el, see oh en as in nancy, associates dot com.
+
+
+-------------------------------------------------------------
+
 ACCOUNT REFERENCE SECTION, SERVICE ADDRESS, CONTACT NAME AND PHONE, AND RELATED EMAIL THREAD:
 
 ${userInstructions}
@@ -145,35 +154,37 @@ ZIP CODE ENTRY: If asked for a zip code, look in the account section above for t
 
 // Voice provider configuration
 interface VoiceConfig {
-  provider: '11labs' | 'deepgram' | 'azure';
+  provider: "11labs" | "deepgram" | "azure";
   voiceId: string;
 }
 
 function getVoiceConfig(voiceProvider: string, voice: string): VoiceConfig {
   switch (voiceProvider) {
-    case 'elevenlabs':
+    case "elevenlabs":
       return {
-        provider: '11labs', // Vapi uses "11labs" not "elevenlabs"
+        provider: "11labs", // Vapi uses "11labs" not "elevenlabs"
         voiceId: voice, // ElevenLabs voice ID
       };
-    case 'deepgram':
+    case "deepgram":
       // Extract voice name from Deepgram format (aura-2-asteria-en → asteria)
-      const voiceName = voice.replace(/^aura-2?-/, '').replace(/-en$/, '');
+      const voiceName = voice.replace(/^aura-2?-/, "").replace(/-en$/, "");
       return {
-        provider: 'deepgram',
+        provider: "deepgram",
         voiceId: voiceName, // Just the voice name (e.g., "asteria")
       };
-    case 'polly':
+    case "polly":
       // Vapi doesn't support Polly directly, fall back to Deepgram
-      console.warn('Polly not supported by Vapi, using Deepgram Asteria instead');
+      console.warn(
+        "Polly not supported by Vapi, using Deepgram Asteria instead",
+      );
       return {
-        provider: 'deepgram',
-        voiceId: 'asteria',
+        provider: "deepgram",
+        voiceId: "asteria",
       };
     default:
       return {
-        provider: 'deepgram',
-        voiceId: 'asteria',
+        provider: "deepgram",
+        voiceId: "asteria",
       };
   }
 }
@@ -184,74 +195,93 @@ export async function createVapiAssistant(params: {
   systemPrompt: string;
   voiceProvider: string;
   voice: string;
-  firstMessageMode?: 'assistant-waits-for-user' | 'assistant-speaks-first';
+  firstMessageMode?: "assistant-waits-for-user" | "assistant-speaks-first";
 }): Promise<string> {
   const voiceConfig = getVoiceConfig(params.voiceProvider, params.voice);
-  
-  const webhookUrl = getPublicWebhookUrl('/api/vapi/webhook');
-  
+
+  const webhookUrl = getPublicWebhookUrl("/api/vapi/webhook");
+
   const assistantPayload = {
     name: params.name,
-    firstMessageMode: params.firstMessageMode || 'assistant-waits-for-user', // AI only speaks when asked
+    firstMessageMode: params.firstMessageMode || "assistant-waits-for-user", // AI only speaks when asked
     model: {
-      provider: 'openai',
-      model: 'gpt-4-1106-preview', // GPT-4 Turbo
+      provider: "openai",
+      model: "gpt-4-1106-preview", // GPT-4 Turbo
       messages: [
         {
-          role: 'system',
+          role: "system",
           content: params.systemPrompt,
         },
       ],
       tools: [
         // DTMF button pressing tool
         {
-          type: 'dtmf',
+          type: "dtmf",
           async: false,
           function: {
-            name: 'press_button',
-            description: 'Press a button on the phone keypad to navigate IVR menus or enter digits. Use this when you hear a phone menu (e.g., "Press 1 for Sales"). You can press digits 0-9, *, or #.',
+            name: "press_button",
+            description:
+              'Press a button on the phone keypad to navigate IVR menus or enter digits. Use this when you hear a phone menu (e.g., "Press 1 for Sales"). You can press digits 0-9, *, or #.',
             parameters: {
-              type: 'object',
+              type: "object",
               properties: {
                 digit: {
-                  type: 'string',
-                  description: 'The digit to press (0-9, *, or #)',
-                  enum: ['0', '1', '2', '3', '4', '5', '6', '7', '8', '9', '*', '#'],
+                  type: "string",
+                  description: "The digit to press (0-9, *, or #)",
+                  enum: [
+                    "0",
+                    "1",
+                    "2",
+                    "3",
+                    "4",
+                    "5",
+                    "6",
+                    "7",
+                    "8",
+                    "9",
+                    "*",
+                    "#",
+                  ],
                 },
               },
-              required: ['digit'],
+              required: ["digit"],
             },
           },
         },
         // Call transfer tool
         {
-          type: 'transferCall',
+          type: "transferCall",
           destinations: [
             {
-              type: 'number',
-              number: '+16166170915', // Hardcoded transfer destination
-              message: 'Transferring your call now. Please hold.',
-              description: 'Transfer to support line',
+              type: "number",
+              number: "+16166170915", // Hardcoded transfer destination
+              message: "Transferring your call now. Please hold.",
+              description: "Transfer to support line",
             },
           ],
           function: {
-            name: 'transfer_call',
-            description: 'Transfer the call to another number',
+            name: "transfer_call",
+            description: "Transfer the call to another number",
           },
         },
       ],
     },
     voice: voiceConfig,
     transcriber: {
-      provider: 'deepgram',
-      model: 'nova-2',
-      language: 'en-US',
+      provider: "deepgram",
+      model: "nova-2",
+      language: "en-US",
     },
     // Configure webhooks for real-time updates
-    serverMessages: ['transcript', 'status-update', 'end-of-call-report', 'function-call'],
+    serverMessages: [
+      "transcript",
+      "status-update",
+      "end-of-call-report",
+      "function-call",
+    ],
     serverUrl: webhookUrl,
     recordingEnabled: true, // Enable call recording
-    endCallMessage: 'Thank you for your time. Goodbye.',
+    endCallMessage: "Thank you for your time. Goodbye.",
     // Enable live monitoring for real-time audio streaming
     monitorPlan: {
       listenEnabled: true, // Enable WebSocket audio streaming
@@ -259,7 +289,7 @@ export async function createVapiAssistant(params: {
     },
   };
 
-  const response = await vapiClient.post('/assistant', assistantPayload);
+  const response = await vapiClient.post("/assistant", assistantPayload);
   return response.data.id;
 }
 
@@ -268,8 +298,8 @@ export async function makeVapiCall(params: {
   assistantId: string;
   phoneNumber: string;
   customerName?: string;
-}): Promise<{ 
-  callId: string; 
+}): Promise<{
+  callId: string;
   vapiCallId: string;
   listenUrl?: string;
   controlUrl?: string;
@@ -283,8 +313,8 @@ export async function makeVapiCall(params: {
     },
   };
 
-  const response = await vapiClient.post('/call/phone', callPayload);
-  
+  const response = await vapiClient.post("/call/phone", callPayload);
+
   return {
     callId: response.data.id,
     vapiCallId: response.data.id,
@@ -305,11 +335,14 @@ export async function endVapiCall(vapiCallId: string): Promise<void> {
 }
 
 // Send message to active call (operator instructions)
-export async function sendVapiMessage(vapiCallId: string, message: string): Promise<void> {
+export async function sendVapiMessage(
+  vapiCallId: string,
+  message: string,
+): Promise<void> {
   await vapiClient.post(`/call/${vapiCallId}/message`, {
-    type: 'assistant-message',
+    type: "assistant-message",
     message: {
-      role: 'system',
+      role: "system",
       content: message,
     },
   });
