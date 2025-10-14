@@ -55,7 +55,7 @@ export function PhoneInputForm({ onStartCall, onHangUp, isCallActive }: PhoneInp
   const [phoneNumber, setPhoneNumber] = useState("");
   const [selectedProvider, setSelectedProvider] = useState("");
   const [prompt, setPrompt] = useState("");
-  const [email, setEmail] = useState("");
+  const [email, setEmail] = useState("jpm@telconassociates.com");
 
   const handleProviderSelect = (value: string) => {
     setSelectedProvider(value);
