@@ -44,6 +44,8 @@ interface ActiveCall {
   openaiConversation: any[];
   ws: WebSocket;
   startTime: number;
+  listenUrl?: string; // Vapi WebSocket URL for live audio monitoring
+  controlUrl?: string; // Vapi HTTP URL for live call control
 }
 
 const activeCalls = new Map<string, ActiveCall>();
@@ -715,11 +717,21 @@ ${cleanTranscripts}`;
       });
 
       // Make Vapi call
-      const { vapiCallId } = await makeVapiCall({
+      const { vapiCallId, listenUrl, controlUrl } = await makeVapiCall({
         assistantId,
         phoneNumber,
         customerName: 'Customer',
       });
+
+      // Update call record with monitoring URLs
+      if (listenUrl || controlUrl) {
+        await storage.updateCall(call.id, { 
+          listenUrl: listenUrl || undefined,
+          controlUrl: controlUrl || undefined,
+        });
+        
+        console.log(`[VAPI] Monitoring URLs for call ${call.id}:`, { listenUrl, controlUrl });
+      }
 
       // Store active call info
       activeCalls.set(call.id, {
@@ -731,6 +743,8 @@ ${cleanTranscripts}`;
         openaiConversation: [],
         ws: wsClient,
         startTime: Date.now(),
+        listenUrl,
+        controlUrl,
       });
 
       // Send status update via WebSocket
