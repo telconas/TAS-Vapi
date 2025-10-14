@@ -77,41 +77,67 @@ export async function sendCallSummaryEmail(
       }
 
       // First check if the text already has natural line breaks (likely from AI formatting)
-      if (text.includes('\n')) {
+      if (text.includes("\n")) {
         return text
-          .split('\n')
-          .map(s => s.trim())
-          .filter(s => s.length > 0);
+          .split("\n")
+          .map((s) => s.trim())
+          .filter((s) => s.length > 0);
       }
 
       // Common abbreviations to avoid splitting on
-      const abbreviations = ['Mr', 'Mrs', 'Ms', 'Dr', 'Prof', 'Sr', 'Jr', 'St', 'Ave', 'Blvd', 'Rd', 'Inc', 'Ltd', 'Co', 'Corp', 'etc', 'vs', 'e.g', 'i.e', 'U.S', 'U.K', 'p.m', 'a.m', 'Ph.D', 'M.D'];
-      
+      const abbreviations = [
+        "Mr",
+        "Mrs",
+        "Ms",
+        "Dr",
+        "Prof",
+        "Sr",
+        "Jr",
+        "St",
+        "Ave",
+        "Blvd",
+        "Rd",
+        "Inc",
+        "Ltd",
+        "Co",
+        "Corp",
+        "etc",
+        "vs",
+        "e.g",
+        "i.e",
+        "U.S",
+        "U.K",
+        "p.m",
+        "a.m",
+        "Ph.D",
+        "M.D",
+      ];
+
       // Protect abbreviations by replacing them temporarily
       let protectedText = text;
-      abbreviations.forEach(abbr => {
-        const regex = new RegExp(`\\b${abbr.replace(/\./g, '\\.')}\\.`, 'gi');
+      abbreviations.forEach((abbr) => {
+        const regex = new RegExp(`\\b${abbr.replace(/\./g, "\\.")}\\.`, "gi");
         protectedText = protectedText.replace(regex, `${abbr}<!PERIOD!>`);
       });
-      
+
       // Also protect single-letter abbreviations (like initials: A.B.C.)
-      protectedText = protectedText.replace(/\b([A-Z])\./g, '$1<!PERIOD!>');
-      
+      protectedText = protectedText.replace(/\b([A-Z])\./g, "$1<!PERIOD!>");
+
       // Split on sentence-ending punctuation [.!?] followed by space and capital letter, or end of string
       const sentences = protectedText
-        .replace(/([.!?])\s+(?=[A-Z])/g, '$1|SPLIT|')
-        .replace(/([.!?])$/g, '$1|SPLIT|')
-        .split('|SPLIT|')
-        .map(s => s.trim())
-        .filter(s => s.length > 0)
-        .map(s => s.replace(/<!PERIOD!>/g, '.'));  // Restore periods
-      
+        .replace(/([.!?])\s+(?=[A-Z])/g, "$1|SPLIT|")
+        .replace(/([.!?])$/g, "$1|SPLIT|")
+        .split("|SPLIT|")
+        .map((s) => s.trim())
+        .filter((s) => s.length > 0)
+        .map((s) => s.replace(/<!PERIOD!>/g, ".")); // Restore periods
+
       return sentences;
     };
 
     const sentences = formatSummaryAsBullets(summary);
-    const bulletListHtml = sentences.map(s => `<li>${s}</li>`).join('');
-    const bulletListText = sentences.map(s => `• ${s}`).join('\n');
+    const bulletListHtml = sentences.map((s) => `<li>${s}</li>`).join("");
+    const bulletListText = sentences.map((s) => `• ${s}`).join("\n");
 
     const emailHtml = `
       <!DOCTYPE html>
@@ -133,13 +159,13 @@ export async function sendCallSummaryEmail(
       <body>
         <div class="container">
           <div class="header">
-            <h1>📞 Call Summary</h1>
+            <h1>📞 TAS Call Summary</h1>
           </div>
           <div class="content">
             <p class="meta"><strong>Phone Number:</strong> ${phoneNumber}</p>
             <p class="meta"><strong>Duration:</strong> ${formatDuration(duration)}</p>
             
-            <h2>Summary of Call</h2>
+            <h2>Summary of TAS Call</h2>
             <div class="summary">
               <ul>
                 ${bulletListHtml}
