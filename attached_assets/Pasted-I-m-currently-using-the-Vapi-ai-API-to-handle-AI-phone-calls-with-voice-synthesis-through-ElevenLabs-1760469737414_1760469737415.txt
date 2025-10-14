@@ -1,0 +1,43 @@
+I’m currently using the Vapi.ai API to handle AI phone calls with voice synthesis through ElevenLabs and transcription via Deepgram.
+
+However, live audio streaming is not working properly — the “listen” audio feed has high latency or fails to stream in real time.
+
+Please fix the implementation so that the voice agent can both respond and be monitored with minimal delay.
+
+Here’s what I need you to do:
+
+1. **Enable true real-time audio streaming**:
+   - Replace or supplement the current `monitorPlan` configuration with Vapi’s Realtime Voice model.
+   - This should use WebRTC-based streaming instead of the HTTP/axios `listenUrl` buffer.
+   - If needed, use a websocket relay server that keeps a persistent connection open between Vapi and the monitoring client.
+
+2. **Move ElevenLabs to the streaming TTS API**:
+   - Use `https://api.elevenlabs.io/v1/text-to-speech/{voice_id}/stream` instead of the regular REST synthesis.
+   - Feed the returned PCM data directly into Vapi’s audio output channel (or your local stream) so the AI speaks in near real-time instead of waiting for the full audio clip.
+
+3. **Replace the Replit listen endpoint**:
+   - Replit’s built-in networking is slow for binary WebSocket traffic.
+   - Deploy the live audio relay to a platform that supports persistent WebSockets (e.g., Fly.io, Render, or Cloudflare Workers).
+   - Keep the rest of the logic (axios, assistant creation, and webhook handling) in Replit.
+
+4. **Add a low-latency monitoring dashboard**:
+   - Use the `listenUrl` returned by Vapi but connect to it via a small Node/React dashboard that plays the stream using the Web Audio API.
+   - Buffer only a few hundred milliseconds, not several seconds.
+
+5. **Set Deepgram’s transcriber to realtime mode**:
+   - Confirm that Vapi is configured for `transcriber: { provider: "deepgram", model: "nova-2", realtime: true }`.
+   - This ensures incoming audio is transcribed and sent to the model continuously.
+
+6. **Keep Replit environment lightweight**:
+   - Offload all continuous audio WebSocket traffic to an external relay service (e.g. a tiny Deno Deploy or Fly.io websocket server).
+   - Replit should only handle webhook logic and OpenAI prompts.
+
+The goal is to have:
+- < 500ms latency between when the user stops speaking and when the AI begins its reply.
+- Continuous, live audio monitoring for debugging or operator listening.
+- Stable long-running WebSocket sessions without timeout.
+
+When complete, show me:
+- The updated assistant creation payload (including realtime config).
+- The new streaming handler (for ElevenLabs streaming audio).
+- Example of how to play the `listenUrl` live in a browser dashboard with <1 second latency.
