@@ -1,7 +1,7 @@
 # AI Voice Agent Dashboard
 
 ## Overview
-A full-stack web application that enables outbound AI voice calls using Twilio for telephony, OpenAI GPT-4.1 for conversational AI, and three voice providers: Amazon Polly (15 free voices), Deepgram Aura (12 ultra-fast voices at ~100ms latency), and ElevenLabs (with voice preview capability). Features real-time transcription display with cleaned output, post-call recordings with webhook delivery to Make.com, hard-coded professional system prompt, DTMF button pressing for IVR navigation, silent operator instructions, barge-in capability, automatic zip code entry, and infinite hold time support. Modern dark-themed UI with #219ebc accent color. Calls originate from 913-439-5811, AI only speaks when asked questions.
+A full-stack web application that enables outbound AI voice calls using Twilio for telephony, OpenAI GPT-4.1 for conversational AI, and three voice providers: Amazon Polly (15 free voices), Deepgram Aura (12 ultra-fast voices at ~100ms latency), and ElevenLabs (with voice preview capability). Features real-time transcription display with cleaned output, AI-generated call summaries with one-click copy, post-call recordings, hard-coded professional system prompt, DTMF button pressing for IVR navigation, silent operator instructions, barge-in capability, automatic zip code entry, and infinite hold time support. Modern dark-themed UI with #219ebc accent color. Calls originate from 913-439-5811, AI only speaks when asked questions.
 
 ## Current State
 **Phase 1: Schema & Frontend** ✅ Completed
@@ -110,7 +110,11 @@ Note: User declined Replit's Twilio integration - using manual API credentials i
 - ✅ **AI only speaks when asked** - No initial greeting, call starts with silence until caller speaks
 - ✅ **Silent operator instructions** - Send real-time guidance to AI during calls that caller never hears
 - ✅ **GPT-4.1 upgrade** - Upgraded from GPT-4o to GPT-4.1 (21.4% better coding, 10.5% better instruction following, 20% cost reduction)
-- ✅ **Make.com webhook** - Completed calls now send data to https://hook.us1.make.com/qomm4skpqxiyq40jxwwxcij4d1wl1psr
+- ✅ **AI Call Summarization** - OpenAI GPT-4.1 generates copyable call summaries after each call
+  - Custom prompt: Caller referred to as "JPM" (Jim Martin), representative name extraction, bullet-point format
+  - Includes account numbers, PINs, service addresses, phone numbers when mentioned
+  - Displayed in copyable summary window with one-click clipboard copy
+  - Auto-polling frontend fetches summary once generated (up to 30 seconds)
 - ✅ **Barge-in support** - AI stops speaking immediately when service rep/caller starts talking (switched from `<Record>` to `<Gather>` with speech recognition)
 - ✅ **Triple Voice Providers** - Support for Amazon Polly (FREE), Deepgram Aura (FAST), and ElevenLabs
   - **Amazon Polly**: 15 voices via Twilio's `<Say voice="Polly.Joanna">` (included in call costs, fastest response)
@@ -131,9 +135,9 @@ Note: User declined Replit's Twilio integration - using manual API credentials i
   - Added detailed latency logging at each pipeline stage (speech detection, GPT call, TTS generation)
   - Logs show millisecond timing for bottleneck identification
   - Maintains infinite hold time support (timeout=60s with redirect)
-- ✅ **Webhook Callback Fix** - Fixed Make.com webhook not triggering after calls
+- ✅ **Webhook Callback Fix** - Fixed Twilio callbacks to use public domain
   - Issue: Twilio callbacks used `req.get("host")` which returned `localhost:5000` (unreachable by Twilio)
   - Solution: Created `getPublicHost()` helper that uses `REPLIT_DEV_DOMAIN` environment variable for public URLs
   - All Twilio callback URLs now use the proper public Replit domain
-  - Recording callbacks now successfully trigger webhook delivery to Make.com
-  - Added comprehensive logging for debugging recording callbacks and webhook delivery
+  - Recording callbacks now successfully trigger summary generation
+  - Added comprehensive logging for debugging recording callbacks and summary generation

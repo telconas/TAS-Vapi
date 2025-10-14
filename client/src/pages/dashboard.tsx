@@ -36,6 +36,7 @@ export default function Dashboard() {
   const [currentCallId, setCurrentCallId] = useState<string | null>(null);
   const [sessionId, setSessionId] = useState<string | null>(null);
   const [recordingUrl, setRecordingUrl] = useState<string | null>(null);
+  const [callSummary, setCallSummary] = useState<string | null>(null);
   const wsRef = useRef<WebSocket | null>(null);
   const durationIntervalRef = useRef<NodeJS.Timeout | null>(null);
   const reconnectTimeoutRef = useRef<NodeJS.Timeout | null>(null);
@@ -193,11 +194,47 @@ export default function Dashboard() {
           if (call.recordingUrl) {
             setRecordingUrl(call.recordingUrl);
           }
+          // Also fetch summary (may take a few seconds to generate)
+          if (call.summary) {
+            setCallSummary(call.summary);
+          } else {
+            // If summary not ready yet, poll for it
+            pollForSummary(callId);
+          }
         }
       }, 3000); // Wait 3 seconds for recording to be processed
     } catch (error) {
       console.error("Error fetching recording URL:", error);
     }
+  };
+
+  const pollForSummary = async (callId: string) => {
+    // Poll for summary up to 30 seconds (10 attempts at 3 second intervals)
+    let attempts = 0;
+    const maxAttempts = 10;
+    
+    const poll = async () => {
+      attempts++;
+      try {
+        const response = await fetch(`/api/calls/${callId}`);
+        if (response.ok) {
+          const call = await response.json();
+          if (call.summary) {
+            setCallSummary(call.summary);
+            return; // Stop polling
+          }
+        }
+        
+        if (attempts < maxAttempts) {
+          setTimeout(poll, 3000); // Try again in 3 seconds
+        }
+      } catch (error) {
+        console.error("Error polling for summary:", error);
+      }
+    };
+    
+    // Start first poll after 5 seconds (give OpenAI time to generate)
+    setTimeout(poll, 5000);
   };
 
   const startDurationCounter = () => {
@@ -232,6 +269,8 @@ export default function Dashboard() {
       setCallStatus("ringing");
       setDuration(0);
       setTranscript([]);
+      setRecordingUrl(null);
+      setCallSummary(null);
 
       const response = await fetch("/api/calls/start", {
         method: "POST",
@@ -421,6 +460,7 @@ export default function Dashboard() {
                 transcript={transcript}
                 onDownloadTranscript={handleDownloadTranscript}
                 recordingUrl={recordingUrl || undefined}
+                summary={callSummary || undefined}
               />
             )}
           </div>

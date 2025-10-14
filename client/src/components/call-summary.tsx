@@ -1,20 +1,46 @@
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Download, Clock, MessageSquare, Mic } from "lucide-react";
+import { Download, Clock, MessageSquare, Mic, Copy, Check } from "lucide-react";
 import type { TranscriptMessage } from "@shared/schema";
+import { useState } from "react";
+import { useToast } from "@/hooks/use-toast";
 
 interface CallSummaryProps {
   duration: number;
   transcript: TranscriptMessage[];
   onDownloadTranscript: () => void;
   recordingUrl?: string;
+  summary?: string;
 }
 
-export function CallSummary({ duration, transcript, onDownloadTranscript, recordingUrl }: CallSummaryProps) {
+export function CallSummary({ duration, transcript, onDownloadTranscript, recordingUrl, summary }: CallSummaryProps) {
+  const [copied, setCopied] = useState(false);
+  const { toast } = useToast();
+
   const formatDuration = (seconds: number) => {
     const mins = Math.floor(seconds / 60);
     const secs = seconds % 60;
     return `${mins}m ${secs}s`;
+  };
+
+  const handleCopySummary = async () => {
+    if (!summary) return;
+    
+    try {
+      await navigator.clipboard.writeText(summary);
+      setCopied(true);
+      toast({
+        title: "Summary Copied",
+        description: "Call summary copied to clipboard",
+      });
+      setTimeout(() => setCopied(false), 2000);
+    } catch (error) {
+      toast({
+        title: "Copy Failed",
+        description: "Failed to copy summary to clipboard",
+        variant: "destructive",
+      });
+    }
   };
 
   const messageCount = transcript.length;
@@ -67,6 +93,36 @@ export function CallSummary({ duration, transcript, onDownloadTranscript, record
             </p>
           </div>
         </div>
+
+        {summary && (
+          <div className="space-y-3 pt-4 border-t border-card-border">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2 text-muted-foreground">
+                <MessageSquare className="w-4 h-4" />
+                <span className="text-sm font-medium">AI-Generated Summary</span>
+              </div>
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={handleCopySummary}
+                data-testid="button-copy-summary"
+              >
+                {copied ? (
+                  <Check className="w-4 h-4 mr-2" />
+                ) : (
+                  <Copy className="w-4 h-4 mr-2" />
+                )}
+                {copied ? "Copied!" : "Copy"}
+              </Button>
+            </div>
+            <div 
+              className="bg-muted/30 p-4 rounded-md whitespace-pre-wrap text-sm"
+              data-testid="text-call-summary"
+            >
+              {summary}
+            </div>
+          </div>
+        )}
 
         {recordingUrl && (
           <div className="space-y-3 pt-4 border-t border-card-border">
