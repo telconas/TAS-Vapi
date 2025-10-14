@@ -126,7 +126,7 @@ The following secrets are configured and available:
 - Prompt is used as OpenAI system message for personalized AI behavior
 - Hang up properly terminates Twilio calls and updates call status
 - AI uses OpenAI function calling to intelligently decide when to press buttons
-- ✅ **Caller ID set to 913-439-5811** - All outbound calls use this phone number
+- ✅ **Caller ID set to 913-300-9959** - All outbound calls use this phone number
 - ✅ **AI only speaks when asked** - No initial greeting, call starts with silence until caller speaks
 - ✅ **Silent operator instructions** - Send real-time guidance to AI during calls that caller never hears
 - ✅ **GPT-4.1 upgrade** - Upgraded from GPT-4o to GPT-4.1 (21.4% better coding, 10.5% better instruction following, 20% cost reduction)
