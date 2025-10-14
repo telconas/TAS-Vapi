@@ -6,42 +6,33 @@ A full-stack web application that enables outbound AI voice calls using **Vapi.a
 **Migration Note**: Successfully migrated from direct Twilio+TwiML architecture to Vapi.ai platform (October 2025) for real-time streaming, sub-second latency, and simplified voice AI orchestration.
 
 ## Current State
-**Phase 1: Schema & Frontend** ✅ Completed
-- Data models defined in `shared/schema.ts` for calls, transcripts, and voice configuration
-- Design tokens configured with Inter font and JetBrains Mono for phone numbers
-- All React components built with stunning dark theme (#219ebc accent):
-  - Phone input form with country code selector and provider dropdown (24+ carriers)
-  - Call status display with animated indicators
-  - Real-time transcription panel with message bubbles
-  - Audio player with waveform visualization
-  - Voice selector dropdown (ElevenLabs voices)
-  - Post-call summary card
-  - Main dashboard page with responsive layout
+**Phase 1-3: Core Vapi Integration** ✅ Completed
+- Successfully migrated from Twilio+TwiML to Vapi.ai platform (October 2025)
+- Vapi assistant creation with GPT-4.1, Deepgram transcription, and Deepgram/ElevenLabs voices
+- Voice ID format corrected: Extracts voice name from "aura-2-asteria-en" → "asteria"
+- PHONE_NUMBER_ID configured: 4d110284-3f5e-4035-a9c4-3335ec4c6ff1
+- Outbound calls working via POST /api/calls/start
+- Real-time WebSocket updates for transcripts and status
+- OpenAI GPT-4.1 call summarization
+- SendGrid email delivery for call summaries
 
-**Phase 2: Backend** ✅ Completed
-- PostgreSQL database created and schema pushed successfully
-- Database storage interface implemented with methods for calls, transcripts, and voices
-- Twilio integration implemented for outbound calls with transcription
-- OpenAI GPT-4 integration for conversation logic
-- ElevenLabs API integration for TTS with voice selection
-- WebSocket server set up on /ws path for real-time communication
-- Session management implemented for WebSocket clients
-- API endpoints created:
-  - GET /api/voices - Fetch ElevenLabs voices
-  - POST /api/calls/start - Initiate outbound call
-  - POST /api/twiml/:callId - TwiML response for Twilio
-  - POST /api/call-status/:callId - Call status callbacks
-  - POST /api/transcribe/:callId - Transcription callbacks
-- Request validation and environment variable checks added
+**Phase 4: Live Audio Monitoring** 🔄 Partial Implementation
+- ✅ Vapi assistant configured with monitorPlan (listenEnabled, controlEnabled)
+- ✅ Database schema enhanced with listenUrl and controlUrl fields
+- ✅ Backend captures monitoring URLs from Vapi responses
+- ✅ LiveAudioMonitor component with mu-law decoding and Web Audio API playback
+- ✅ UI integration: Monitor card appears during active calls
+- ⚠️ **Known Issue**: Vapi WebSocket listenUrl returns 500 error during handshake
+  - URL format: wss://phone-call-websocket.aws-us-west-2-backend-production1.vapi.ai/.../listen
+  - Possible causes: Authentication tokens, CORS/upgrade headers, or Vapi monitoring service configuration
+  - Requires further investigation with Vapi API documentation or support
 
-**Phase 3: Integration & Testing** ✅ Completed
-- Frontend successfully integrated with backend via WebSocket
-- Session-based client management working correctly
-- Real-time status updates flowing to UI
-- Transcription display working as expected
-- Database persistence verified
-- All API endpoints functional
-- Application runs without errors
+**Phase 5: Testing & Refinement** 🔄 In Progress
+- Vapi call initiation: ✅ Working
+- Voice configuration: ✅ Fixed (voice name extraction)
+- Live monitoring UI: ✅ Appears correctly
+- WebSocket audio streaming: ⚠️ Connection fails (Vapi-side issue)
+- Call summaries: ⚠️ Not displaying in UI
 - See IMPLEMENTATION_STATUS.md for detailed feature status and known limitations
 
 ## Tech Stack

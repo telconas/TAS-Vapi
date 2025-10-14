@@ -157,21 +157,23 @@ function getVoiceConfig(voiceProvider: string, voice: string): VoiceConfig {
         voiceId: voice, // ElevenLabs voice ID
       };
     case 'deepgram':
+      // Extract voice name from Deepgram format (aura-2-asteria-en → asteria)
+      const voiceName = voice.replace(/^aura-2?-/, '').replace(/-en$/, '');
       return {
         provider: 'deepgram',
-        voiceId: voice, // e.g., "aura-asteria-en"
+        voiceId: voiceName, // Just the voice name (e.g., "asteria")
       };
     case 'polly':
-      // Vapi doesn't support Polly directly, fall back to Deepgram Aura-2
-      console.warn('Polly not supported by Vapi, using Deepgram Aura-2 Asteria instead');
+      // Vapi doesn't support Polly directly, fall back to Deepgram
+      console.warn('Polly not supported by Vapi, using Deepgram Asteria instead');
       return {
         provider: 'deepgram',
-        voiceId: 'aura-2-asteria-en',
+        voiceId: 'asteria',
       };
     default:
       return {
         provider: 'deepgram',
-        voiceId: 'aura-2-asteria-en',
+        voiceId: 'asteria',
       };
   }
 }

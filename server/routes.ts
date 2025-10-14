@@ -718,10 +718,10 @@ ${cleanTranscripts}`;
       // Build system prompt for Vapi assistant
       const systemPrompt = buildVapiSystemPrompt(prompt);
 
-      // Determine voice for Vapi
+      // Determine voice for Vapi (Deepgram voices will be converted to just the name in getVoiceConfig)
       const voice = validatedProvider === 'elevenlabs' 
         ? validatedElevenLabsVoice || '21m00Tcm4TlvDq8ikWAM' // Default ElevenLabs voice
-        : validatedDeepgramVoice || 'aura-2-asteria-en';
+        : validatedDeepgramVoice || 'aura-2-asteria-en'; // Will be converted to 'asteria'
 
       // Create Vapi assistant
       const assistantId = await createVapiAssistant({
