@@ -1,7 +1,7 @@
 # AI Voice Agent Dashboard
 
 ## Overview
-A full-stack web application that enables outbound AI voice calls using Twilio for telephony, OpenAI for conversation logic, and ElevenLabs for text-to-speech. Features real-time transcription, live audio monitoring, and beautiful dark-themed UI.
+A full-stack web application that enables outbound AI voice calls using Twilio for telephony, OpenAI GPT-4.1 for conversational AI, and three voice providers: Amazon Polly (15 free voices), Deepgram Aura (12 ultra-fast voices at ~100ms latency), and ElevenLabs (with voice preview capability). Features real-time transcription display with cleaned output, post-call recordings with webhook delivery to Make.com, hard-coded professional system prompt, DTMF button pressing for IVR navigation, silent operator instructions, barge-in capability, automatic zip code entry, and infinite hold time support. Modern dark-themed UI with #219ebc accent color. Calls originate from 913-439-5811, AI only speaks when asked questions.
 
 ## Current State
 **Phase 1: Schema & Frontend** ✅ Completed
@@ -45,16 +45,17 @@ A full-stack web application that enables outbound AI voice calls using Twilio f
 ## Tech Stack
 - **Frontend**: React, Tailwind CSS, Wouter (routing), TanStack Query
 - **Backend**: Node.js, Express, WebSocket (ws package)
-- **External APIs**: Twilio (calls), OpenAI GPT-4.1 (AI logic + TTS), Amazon Polly (TTS), ElevenLabs (TTS)
+- **External APIs**: Twilio (calls), OpenAI GPT-4.1 (AI logic), Deepgram Aura (TTS), Amazon Polly (TTS), ElevenLabs (TTS)
 - **Real-time**: WebSocket for live transcription and audio streaming
-- **Voice Providers**: Amazon Polly (15 free voices), OpenAI TTS (6 premium voices), ElevenLabs (natural voices with preview)
+- **Voice Providers**: Amazon Polly (15 free voices), Deepgram Aura (12 ultra-fast voices), ElevenLabs (natural voices with preview)
 
 ## Environment Variables
 The following secrets are configured and available:
 - `TWILIO_ACCOUNT_SID` - Twilio Account SID
 - `TWILIO_AUTH_TOKEN` - Twilio Auth Token  
 - `TWILIO_PHONE_NUMBER` - Twilio phone number for outbound calls
-- `OPENAI_API_KEY` - OpenAI API key
+- `OPENAI_API_KEY` - OpenAI API key for GPT-4.1 conversational AI
+- `DEEPGRAM_API_KEY` - Deepgram API key for ultra-fast Aura TTS
 - `ELEVENLABS_API_KEY` - ElevenLabs API key
 
 Note: User declined Replit's Twilio integration - using manual API credentials instead (documented for future reference).
@@ -111,18 +112,20 @@ Note: User declined Replit's Twilio integration - using manual API credentials i
 - ✅ **GPT-4.1 upgrade** - Upgraded from GPT-4o to GPT-4.1 (21.4% better coding, 10.5% better instruction following, 20% cost reduction)
 - ✅ **Make.com webhook** - Completed calls now send data to https://hook.us1.make.com/qomm4skpqxiyq40jxwwxcij4d1wl1psr
 - ✅ **Barge-in support** - AI stops speaking immediately when service rep/caller starts talking (switched from `<Record>` to `<Gather>` with speech recognition)
-- ✅ **Triple Voice Providers** - Support for Amazon Polly (FREE), OpenAI TTS (premium), and ElevenLabs
+- ✅ **Triple Voice Providers** - Support for Amazon Polly (FREE), Deepgram Aura (FAST), and ElevenLabs
   - **Amazon Polly**: 15 voices via Twilio's `<Say voice="Polly.Joanna">` (included in call costs, fastest response)
-  - **OpenAI TTS**: 6 voices (alloy, echo, fable, onyx, nova, shimmer) via `tts-1-hd` model (premium quality)
+  - **Deepgram Aura**: 12 ultra-fast voices (~100ms latency, 5-10x faster than previous OpenAI TTS)
   - **ElevenLabs**: Natural voices with emotion and intonation, includes voice preview feature
   - Tabbed voice selector UI for easy provider switching
   - Voice preview playback for ElevenLabs voices (click speaker icon to hear samples)
-  - Allowlist validation for Polly and OpenAI prevents TwiML injection
-- ✅ **OpenAI TTS Integration** - Premium voice quality using OpenAI's `tts-1-hd` model
-  - Audio files generated server-side and served via `/api/audio/:filename` endpoint
+  - Allowlist validation for Polly and Deepgram prevents TwiML injection
+- ✅ **Deepgram Aura TTS Integration** - Ultra-low latency voice synthesis (replaced OpenAI TTS)
+  - ~100ms response time vs 500-1000ms with OpenAI TTS (5-10x performance improvement)
+  - 12 high-quality Aura-2 voices (Asteria, Luna, Stella, Athena, Hera, Orion, Arcas, Perseus, Angus, Orpheus, Helios, Zeus)
+  - Audio files generated server-side via Deepgram API and served through `/api/audio/:filename` endpoint
   - Proper caching headers for Twilio compatibility
-  - Higher quality audio for better recording capture
   - Works with existing barge-in and infinite hold time features
+  - Detailed latency logging for performance monitoring
 - ✅ **Latency Optimizations** - Reduced AI response time delay
   - Changed speechTimeout from "auto" (2-4s delay) to "1" second for faster response
   - Added detailed latency logging at each pipeline stage (speech detection, GPT call, TTS generation)
