@@ -816,9 +816,11 @@ ${cleanTranscripts}`;
       switch (message.type) {
         case 'transcript': {
           // Real-time transcription
-          const { transcript, role } = message;
+          const { transcript, role, transcriptType } = message;
           
-          if (activeCall && transcript) {
+          // Only process final transcripts, not partial updates
+          // Vapi sends many partial updates as speech recognition refines
+          if (activeCall && transcript && transcriptType === 'final') {
             const speaker = role === 'assistant' ? 'ai' : 'caller';
             
             // Save to database
