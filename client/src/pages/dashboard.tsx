@@ -28,7 +28,7 @@ export default function Dashboard() {
   const [isAudioPlaying, setIsAudioPlaying] = useState(false);
   const [voiceProvider, setVoiceProvider] = useState<
     "polly" | "deepgram" | "elevenlabs"
-  >("polly");
+  >("deepgram");
   const [selectedPollyVoice, setSelectedPollyVoice] = useState("Polly.Joanna");
   const [selectedDeepgramVoice, setSelectedDeepgramVoice] =
     useState("aura-2-asteria-en");
