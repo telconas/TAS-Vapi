@@ -1537,6 +1537,75 @@ ${cleanTranscripts}`;
     }
   });
 
+  // TwiML endpoint for call transfer
+  app.post("/api/transfer-twiml/:callId", async (req, res) => {
+    const { callId } = req.params;
+    
+    console.error(`[TRANSFER] Generating transfer TwiML for call ${callId}`);
+    
+    // TwiML to dial the transfer number (616-617-0915)
+    const twiml = `<?xml version="1.0" encoding="UTF-8"?>
+<Response>
+  <Dial>+16166170915</Dial>
+</Response>`;
+    
+    res.type("text/xml");
+    res.send(twiml);
+  });
+
+  // API: Transfer an active call to 616-617-0915
+  app.post("/api/calls/:callId/transfer", async (req, res) => {
+    const { callId } = req.params;
+    const activeCall = activeCalls.get(callId);
+
+    if (!activeCall) {
+      return res.status(404).json({ error: "Call not found" });
+    }
+
+    try {
+      // Transfer the call by updating the TwiML URL
+      if (activeCall.twilioCallSid) {
+        const host = getPublicHost(req);
+        await twilioClient
+          .calls(activeCall.twilioCallSid)
+          .update({
+            url: `https://${host}/api/transfer-twiml/${callId}`,
+            method: "POST",
+          });
+
+        console.error(`[TRANSFER] Call ${callId} transferred to +16166170915`);
+
+        // Calculate duration at transfer time
+        const duration = Math.floor((Date.now() - activeCall.startTime) / 1000);
+
+        // Update call status in database
+        await storage.updateCallStatus(callId, "transferred", duration, new Date());
+
+        // Send WebSocket update
+        activeCall.ws.send(
+          JSON.stringify({
+            type: "call_status",
+            data: {
+              callId,
+              status: "transferred",
+              duration,
+            },
+          }),
+        );
+
+        // Clean up active call
+        activeCalls.delete(callId);
+
+        res.json({ success: true, transferredTo: "+16166170915", duration });
+      } else {
+        res.status(400).json({ error: "No Twilio call SID available" });
+      }
+    } catch (error) {
+      console.error("Error transferring call:", error);
+      res.status(500).json({ error: "Failed to transfer call" });
+    }
+  });
+
   // API: Hang up an active call
   app.post("/api/calls/:callId/hangup", async (req, res) => {
     const { callId } = req.params;
