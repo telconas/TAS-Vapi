@@ -61,6 +61,8 @@ when verification is requested.
 CALL BEHAVIOR & SPEAKING STYLE:
 
 - Speak calmly, clearly, and professionally.  
+-Your goal is to use a few words as possible to get your point across.
+-When waiting on hold, do not speak until you are connected with a live agent.
 - When the call is initiated, you will always be speaking with a non-human automated system. Be patient and wait for instructions during the automated system portion of the call.  During this time, use short sentences, or a few words to get instructions across. Do not ask the automated system questions like "can you confirm, xyz?" or "is this correct, xyz?"
 - Once connected to a live agent, you can then adjust your speaking style to be more human like since you are speaking with a real human at that point in the call.
 -
@@ -221,16 +223,16 @@ async function generateDeepgramAudio(
     {
       method: "POST",
       headers: {
-        "Authorization": `token ${deepgramApiKey}`,
+        Authorization: `token ${deepgramApiKey}`,
         "Content-Type": "application/json",
       },
       body: JSON.stringify({ text }),
-    }
+    },
   );
 
   if (!response.ok) {
     throw new Error(
-      `Deepgram API error: ${response.status} ${response.statusText}`
+      `Deepgram API error: ${response.status} ${response.statusText}`,
     );
   }
 
@@ -358,7 +360,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
     const webhookUrl =
       "https://hook.us1.make.com/qomm4skpqxiyq40jxwwxcij4d1wl1psr";
 
-    console.error(`[WEBHOOK] Attempting to send call ${callId} data to Make.com`);
+    console.error(
+      `[WEBHOOK] Attempting to send call ${callId} data to Make.com`,
+    );
 
     try {
       const call = await storage.getCall(callId);
@@ -393,7 +397,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
       };
 
       console.error(`[WEBHOOK] Sending payload to ${webhookUrl}...`);
-      console.error(`[WEBHOOK] Payload includes ${Object.keys(webhookData).length} fields, ${webhookData.transcripts?.length || 0} transcripts`);
+      console.error(
+        `[WEBHOOK] Payload includes ${Object.keys(webhookData).length} fields, ${webhookData.transcripts?.length || 0} transcripts`,
+      );
 
       const response = await fetch(webhookUrl, {
         method: "POST",
@@ -409,11 +415,16 @@ export async function registerRoutes(app: Express): Promise<Server> {
         );
       } else {
         const errorText = await response.text();
-        console.error(`[WEBHOOK ERROR] Make.com webhook failed with status ${response.status}`);
+        console.error(
+          `[WEBHOOK ERROR] Make.com webhook failed with status ${response.status}`,
+        );
         console.error(`[WEBHOOK ERROR] Response: ${errorText}`);
       }
     } catch (error) {
-      console.error("[WEBHOOK ERROR] Exception sending to Make.com webhook:", error);
+      console.error(
+        "[WEBHOOK ERROR] Exception sending to Make.com webhook:",
+        error,
+      );
     }
   }
 
@@ -699,10 +710,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
       // Make Twilio call with recording enabled
       const host = getPublicHost(req);
       const recordingCallbackUrl = `https://${host}/api/recording/${call.id}`;
-      
+
       console.error(`[CALL SETUP] Using host: ${host}`);
-      console.error(`[CALL SETUP] Recording callback URL: ${recordingCallbackUrl}`);
-      
+      console.error(
+        `[CALL SETUP] Recording callback URL: ${recordingCallbackUrl}`,
+      );
+
       const twilioCall = await twilioClient.calls.create({
         from: "+19134395811",
         to: phoneNumber,
@@ -755,7 +768,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       // Start recording and gathering speech immediately - AI only speaks when asked a question
       // If gather times out, redirect back to continue listening (keeps call alive during hold)
       const host = getPublicHost(req);
-      
+
       const twiml = `<?xml version="1.0" encoding="UTF-8"?>
 <Response>
   <Start>
@@ -1288,7 +1301,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
         // Check voice provider and generate audio accordingly
         if (call?.voiceProvider === "deepgram" && call?.deepgramVoice) {
           // Use Deepgram Aura TTS
-          const safeDeepgramVoice = VALID_DEEPGRAM_VOICES.includes(call.deepgramVoice)
+          const safeDeepgramVoice = VALID_DEEPGRAM_VOICES.includes(
+            call.deepgramVoice,
+          )
             ? call.deepgramVoice
             : "aura-2-asteria-en";
 
