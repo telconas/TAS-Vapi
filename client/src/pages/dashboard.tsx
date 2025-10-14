@@ -492,12 +492,14 @@ export default function Dashboard() {
               />
             )}
 
+            {/* Live audio monitoring disabled due to Vapi WebSocket issues
             {(callStatus === "connected" || callStatus === "ringing") && listenUrl && (
               <LiveAudioMonitor
                 listenUrl={listenUrl}
                 callStatus={callStatus}
               />
             )}
+            */}
           </div>
 
           <div className="lg:col-span-3 space-y-6">
