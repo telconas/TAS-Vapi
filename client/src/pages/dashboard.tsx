@@ -370,6 +370,40 @@ export default function Dashboard() {
     }
   };
 
+  const handleTransfer = async () => {
+    if (!currentCallId) {
+      return;
+    }
+
+    try {
+      const response = await fetch(`/api/calls/${currentCallId}/transfer`, {
+        method: "POST",
+      });
+
+      if (!response.ok) {
+        throw new Error("Failed to transfer call");
+      }
+
+      const data = await response.json();
+
+      toast({
+        title: "Call Transferred",
+        description: `The call has been transferred to ${data.transferredTo}`,
+      });
+
+      setCallStatus("ended");
+      stopDurationCounter();
+      setIsAudioPlaying(false);
+    } catch (error) {
+      console.error("Error transferring call:", error);
+      toast({
+        title: "Error",
+        description: "Failed to transfer the call. Please try again.",
+        variant: "destructive",
+      });
+    }
+  };
+
   const handleSendInstruction = (instruction: string) => {
     if (wsRef.current?.readyState === WebSocket.OPEN && currentCallId) {
       wsRef.current.send(
@@ -431,6 +465,7 @@ export default function Dashboard() {
                 <PhoneInputForm
                   onStartCall={handleStartCall}
                   onHangUp={handleHangUp}
+                  onTransfer={handleTransfer}
                   isCallActive={isCallActive}
                 />
                 <CallStatus status={callStatus} duration={duration} />
