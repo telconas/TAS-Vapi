@@ -273,8 +273,8 @@ export async function createVapiAssistant(params: {
       language: "en-US",
     },
     // Silence timeout configuration - prevents call drops during hold
-    silenceTimeoutSeconds: 600, // 10 minutes of silence before ending call
-    maxDurationSeconds: 1800, // Maximum call duration: 30 minutes
+    silenceTimeoutSeconds: 1200, // 20 minutes of silence before ending call
+    maxDurationSeconds: 3600, // Maximum call duration: 60 minutes
     // Configure webhooks for real-time updates
     serverMessages: [
       "transcript",
