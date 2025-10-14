@@ -9,6 +9,7 @@ import { randomUUID } from "crypto";
 import { sendCallSummaryEmail } from "./sendgrid";
 import { writeFileSync, mkdirSync, existsSync } from "fs";
 import { join, basename } from "path";
+import { createVapiAssistant, makeVapiCall, getVapiCall, endVapiCall, sendVapiMessage, buildSystemPrompt as buildVapiSystemPrompt } from "./vapi";
 
 const twilioClient = twilio(
   process.env.TWILIO_ACCOUNT_SID,
@@ -38,6 +39,8 @@ interface ActiveCall {
   phoneNumber: string;
   prompt: string;
   twilioCallSid?: string;
+  vapiCallId?: string; // Vapi call identifier
+  vapiAssistantId?: string; // Vapi assistant identifier
   openaiConversation: any[];
   ws: WebSocket;
   startTime: number;
@@ -618,7 +621,7 @@ ${cleanTranscripts}`;
     "aura-2-zeus-en",
   ];
 
-  // API: Start a new call
+  // API: Start a new call (using Vapi.ai)
   app.post("/api/calls/start", async (req, res) => {
     try {
       const {
@@ -642,38 +645,32 @@ ${cleanTranscripts}`;
       }
 
       // Determine voice provider and validate voices
-      let validatedProvider = voiceProvider || "polly"; // Default to Polly
-      let validatedPollyVoice: string | undefined;
+      let validatedProvider = voiceProvider || "deepgram"; // Default to Deepgram for Vapi
       let validatedDeepgramVoice: string | undefined;
       let validatedElevenLabsVoice: string | undefined;
 
       if (validatedProvider === "deepgram") {
-        // Validate Deepgram voice
+        // Validate Deepgram voice (convert aura-2-X-en to aura-X-en format for Vapi)
+        const deepgramVoiceNormalized = deepgramVoice?.replace('aura-2-', 'aura-');
         validatedDeepgramVoice =
-          deepgramVoice && VALID_DEEPGRAM_VOICES.includes(deepgramVoice)
-            ? deepgramVoice
-            : "aura-2-asteria-en"; // Default to Asteria
+          deepgramVoiceNormalized && deepgramVoiceNormalized.startsWith('aura-')
+            ? deepgramVoiceNormalized
+            : "aura-asteria-en"; // Default to Asteria
       } else if (validatedProvider === "elevenlabs") {
         // Use ElevenLabs voice (validation happens when fetching from API)
         validatedElevenLabsVoice = elevenLabsVoice || undefined;
-      } else {
-        // Default to or validate Polly voice
-        validatedProvider = "polly";
-        validatedPollyVoice =
-          pollyVoice && VALID_POLLY_VOICES.includes(pollyVoice)
-            ? pollyVoice
-            : "Polly.Joanna"; // Default to Joanna
+      } else if (validatedProvider === "polly") {
+        // Polly not supported by Vapi, fall back to Deepgram
+        console.warn('Polly not supported by Vapi, using Deepgram Asteria instead');
+        validatedProvider = "deepgram";
+        validatedDeepgramVoice = "aura-asteria-en";
       }
 
       // Validate environment variables
-      if (
-        !process.env.TWILIO_ACCOUNT_SID ||
-        !process.env.TWILIO_AUTH_TOKEN ||
-        !process.env.TWILIO_PHONE_NUMBER
-      ) {
+      if (!process.env.VAPI_API_KEY) {
         return res
           .status(500)
-          .json({ error: "Twilio credentials not configured" });
+          .json({ error: "Vapi API key not configured" });
       }
 
       // Get WebSocket client for this session
@@ -693,11 +690,35 @@ ${cleanTranscripts}`;
         prompt,
         status: "ringing",
         voiceProvider: validatedProvider,
-        pollyVoice: validatedPollyVoice,
+        pollyVoice: undefined, // Polly not used with Vapi
         deepgramVoice: validatedDeepgramVoice,
         voiceId: validatedElevenLabsVoice, // ElevenLabs voice ID
         duration: 0,
         emailRecipient: emailRecipient || undefined,
+      });
+
+      // Build system prompt for Vapi assistant
+      const systemPrompt = buildVapiSystemPrompt(prompt);
+
+      // Determine voice for Vapi
+      const voice = validatedProvider === 'elevenlabs' 
+        ? validatedElevenLabsVoice || '21m00Tcm4TlvDq8ikWAM' // Default ElevenLabs voice
+        : validatedDeepgramVoice || 'aura-asteria-en';
+
+      // Create Vapi assistant
+      const assistantId = await createVapiAssistant({
+        name: `Call ${call.id.substring(0, 8)}`,
+        systemPrompt,
+        voiceProvider: validatedProvider,
+        voice,
+        firstMessageMode: 'assistant-waits-for-user', // AI only speaks when asked
+      });
+
+      // Make Vapi call
+      const { vapiCallId } = await makeVapiCall({
+        assistantId,
+        phoneNumber,
+        customerName: 'Customer',
       });
 
       // Store active call info
@@ -705,38 +726,12 @@ ${cleanTranscripts}`;
         callId: call.id,
         phoneNumber,
         prompt,
+        vapiCallId,
+        vapiAssistantId: assistantId,
         openaiConversation: [],
         ws: wsClient,
         startTime: Date.now(),
       });
-
-      // Make Twilio call with recording enabled
-      const host = getPublicHost(req);
-      const recordingCallbackUrl = `https://${host}/api/recording/${call.id}`;
-
-      console.error(`[CALL SETUP] Using host: ${host}`);
-      console.error(
-        `[CALL SETUP] Recording callback URL: ${recordingCallbackUrl}`,
-      );
-
-      const twilioCall = await twilioClient.calls.create({
-        from: "+19134395811",
-        to: phoneNumber,
-        url: `https://${host}/api/twiml/${call.id}`,
-        statusCallback: `https://${host}/api/call-status/${call.id}`,
-        statusCallbackEvent: ["initiated", "ringing", "answered", "completed"],
-        record: true,
-        recordingChannels: "dual",
-        recordingStatusCallback: recordingCallbackUrl,
-      });
-
-      // Update with Twilio call SID in database and active calls
-      await storage.updateCall(call.id, { twilioCallSid: twilioCall.sid });
-
-      const activeCall = activeCalls.get(call.id);
-      if (activeCall) {
-        activeCall.twilioCallSid = twilioCall.sid;
-      }
 
       // Send status update via WebSocket
       wsClient.send(
@@ -749,7 +744,9 @@ ${cleanTranscripts}`;
         }),
       );
 
-      res.json({ callId: call.id, twilioCallSid: twilioCall.sid });
+      console.log(`[VAPI] Started call ${call.id} with Vapi call ID: ${vapiCallId}`);
+
+      res.json({ callId: call.id, vapiCallId });
     } catch (error) {
       console.error("Error starting call:", error);
       res.status(500).json({ error: "Failed to start call" });
