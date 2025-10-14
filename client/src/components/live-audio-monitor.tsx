@@ -10,6 +10,30 @@ interface LiveAudioMonitorProps {
   onClose?: () => void;
 }
 
+// mu-law decoder lookup table
+const MULAW_DECODE_TABLE = (() => {
+  const table = new Int16Array(256);
+  for (let i = 0; i < 256; i++) {
+    const mulaw = ~i;
+    const sign = mulaw & 0x80;
+    const exponent = (mulaw >> 4) & 0x07;
+    const mantissa = mulaw & 0x0F;
+    let sample = ((mantissa << 3) + 0x84) << exponent;
+    if (sign !== 0) sample = -sample;
+    table[i] = sample;
+  }
+  return table;
+})();
+
+function decodeMuLaw(mulawData: Uint8Array): Float32Array {
+  const pcmData = new Float32Array(mulawData.length);
+  for (let i = 0; i < mulawData.length; i++) {
+    // Decode mu-law to PCM Int16, then normalize to Float32 [-1, 1]
+    pcmData[i] = MULAW_DECODE_TABLE[mulawData[i]] / 32768.0;
+  }
+  return pcmData;
+}
+
 export function LiveAudioMonitor({ listenUrl, callStatus, onClose }: LiveAudioMonitorProps) {
   const [isMonitoring, setIsMonitoring] = useState(false);
   const [isMuted, setIsMuted] = useState(false);
@@ -38,8 +62,8 @@ export function LiveAudioMonitor({ listenUrl, callStatus, onClose }: LiveAudioMo
     if (!listenUrl || isMonitoring) return;
 
     try {
-      // Initialize Web Audio API
-      audioContextRef.current = new AudioContext({ sampleRate: 16000 }); // Vapi uses 16kHz
+      // Initialize Web Audio API with correct sample rate for Vapi (8kHz mu-law)
+      audioContextRef.current = new AudioContext({ sampleRate: 8000 });
       gainNodeRef.current = audioContextRef.current.createGain();
       analyserRef.current = audioContextRef.current.createAnalyser();
       analyserRef.current.fftSize = 256;
@@ -52,20 +76,24 @@ export function LiveAudioMonitor({ listenUrl, callStatus, onClose }: LiveAudioMo
       wsRef.current.binaryType = 'arraybuffer';
 
       wsRef.current.onopen = () => {
-        console.log('[LIVE MONITOR] Connected to audio stream');
+        console.log('[LIVE MONITOR] Connected to audio stream (8kHz mu-law)');
         setIsMonitoring(true);
         setError(null);
       };
 
       wsRef.current.onmessage = (event) => {
         if (event.data instanceof ArrayBuffer) {
-          const audioData = new Float32Array(event.data.byteLength / 4);
-          const view = new DataView(event.data);
-          
-          // Convert Int16 PCM to Float32
-          for (let i = 0; i < audioData.length; i++) {
-            audioData[i] = view.getInt16(i * 2, true) / 32768.0;
+          // Validate that we received data
+          if (event.data.byteLength === 0) {
+            console.warn('[LIVE MONITOR] Received empty audio chunk');
+            return;
           }
+
+          // Vapi sends 8-bit mu-law PCM, decode to Float32
+          const mulawData = new Uint8Array(event.data);
+          const audioData = decodeMuLaw(mulawData);
+
+          console.log(`[LIVE MONITOR] Decoded ${mulawData.length} mu-law bytes to ${audioData.length} PCM samples`);
 
           // Add to queue
           audioQueueRef.current.push(audioData);
@@ -214,7 +242,7 @@ export function LiveAudioMonitor({ listenUrl, callStatus, onClose }: LiveAudioMo
 
         {isMonitoring && (
           <div className="text-xs text-muted-foreground text-center" data-testid="text-monitoring-status">
-            Monitoring live audio stream...
+            Monitoring live audio stream (8kHz mu-law)
           </div>
         )}
       </CardContent>
