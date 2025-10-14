@@ -206,7 +206,7 @@ export async function createVapiAssistant(params: {
     firstMessageMode: params.firstMessageMode || "assistant-waits-for-user", // AI only speaks when asked
     model: {
       provider: "openai",
-      model: "gpt-4-1106-preview", // GPT-4 Turbo
+      model: "gpt-4o", // GPT-4 Omni - latest and fastest
       messages: [
         {
           role: "system",
