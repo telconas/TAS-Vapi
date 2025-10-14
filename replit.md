@@ -1,7 +1,7 @@
 # AI Voice Agent Dashboard
 
 ## Overview
-A full-stack web application that enables outbound AI voice calls using Twilio for telephony, OpenAI GPT-4.1 for conversational AI, and three voice providers: Amazon Polly (15 free voices), Deepgram Aura (12 ultra-fast voices at ~100ms latency), and ElevenLabs (with voice preview capability). Features real-time transcription display with cleaned output, AI-generated call summaries with one-click copy, post-call recordings, hard-coded professional system prompt, DTMF button pressing for IVR navigation, silent operator instructions, barge-in capability, automatic zip code entry, and infinite hold time support. Modern dark-themed UI with #219ebc accent color. Calls originate from 913-439-5811, AI only speaks when asked questions.
+A full-stack web application that enables outbound AI voice calls using Twilio for telephony, OpenAI GPT-4.1 for conversational AI, and three voice providers: Amazon Polly (15 free voices), Deepgram Aura (12 ultra-fast voices at ~100ms latency), and ElevenLabs (with voice preview capability). Features real-time transcription display with cleaned output, AI-generated call summaries with one-click copy and optional email delivery via SendGrid, post-call recordings, hard-coded professional system prompt, DTMF button pressing for IVR navigation, silent operator instructions, barge-in capability, automatic zip code entry, and infinite hold time support. Modern dark-themed UI with #219ebc accent color. Calls originate from 913-439-5811, AI only speaks when asked questions.
 
 ## Current State
 **Phase 1: Schema & Frontend** ✅ Completed
@@ -57,6 +57,7 @@ The following secrets are configured and available:
 - `OPENAI_API_KEY` - OpenAI API key for GPT-4.1 conversational AI
 - `DEEPGRAM_API_KEY` - Deepgram API key for ultra-fast Aura TTS
 - `ELEVENLABS_API_KEY` - ElevenLabs API key
+- SendGrid API credentials via Replit connector for email delivery
 
 Note: User declined Replit's Twilio integration - using manual API credentials instead (documented for future reference).
 
@@ -141,3 +142,9 @@ Note: User declined Replit's Twilio integration - using manual API credentials i
   - All Twilio callback URLs now use the proper public Replit domain
   - Recording callbacks now successfully trigger summary generation
   - Added comprehensive logging for debugging recording callbacks and summary generation
+- ✅ **Email Summary Delivery** - SendGrid integration for optional email delivery of call summaries
+  - Optional email field in call form - users can provide an email address to receive summaries
+  - SendGrid integration via Replit connector for secure API key management
+  - Email sent automatically after summary generation (if email address provided)
+  - Email includes call details: phone number, duration, recording link, and full AI-generated summary
+  - Professional HTML formatting with clear layout and branding
