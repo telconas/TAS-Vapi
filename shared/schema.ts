@@ -19,6 +19,7 @@ export const calls = pgTable("calls", {
   deepgramVoice: text("deepgram_voice"), // Deepgram Aura-2 voice (e.g., aura-2-asteria-en)
   twilioCallSid: text("twilio_call_sid"), // Twilio call identifier
   recordingUrl: text("recording_url"), // URL to call recording
+  summary: text("summary"), // OpenAI-generated call summary
 });
 
 export const insertCallSchema = createInsertSchema(calls).omit({
