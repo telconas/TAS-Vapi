@@ -1393,7 +1393,7 @@ ${cleanTranscripts}`;
         const twiml = `<?xml version="1.0" encoding="UTF-8"?>
 <Response>
   <Gather input="speech" timeout="60" speechTimeout="1" action="https://${getPublicHost(req)}/api/gather/${callId}">
-    <Say${voiceAttr}>${escapeXml(aiResponse)}</Say>
+    <Say${voiceAttr}><Prosody volume="x-loud">${escapeXml(aiResponse)}</Prosody></Say>
   </Gather>
   <Redirect method="POST">https://${getPublicHost(req)}/api/gather/${callId}</Redirect>
 </Response>`;
