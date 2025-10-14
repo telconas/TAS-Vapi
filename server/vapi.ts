@@ -272,6 +272,9 @@ export async function createVapiAssistant(params: {
       model: "nova-2",
       language: "en-US",
     },
+    // Silence timeout configuration - prevents call drops during hold
+    silenceTimeoutSeconds: 600, // 10 minutes of silence before ending call
+    maxDurationSeconds: 1800, // Maximum call duration: 30 minutes
     // Configure webhooks for real-time updates
     serverMessages: [
       "transcript",
