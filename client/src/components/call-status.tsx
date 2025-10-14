@@ -1,8 +1,8 @@
 import { Badge } from "@/components/ui/badge";
-import { Phone, PhoneCall, PhoneOff } from "lucide-react";
+import { Phone, PhoneCall, PhoneOff, PhoneForwarded } from "lucide-react";
 
 interface CallStatusProps {
-  status: "idle" | "ringing" | "connected" | "ended";
+  status: "idle" | "ringing" | "connected" | "ended" | "transferred";
   duration?: number;
 }
 
@@ -31,6 +31,12 @@ export function CallStatus({ status, duration }: CallStatusProps) {
       icon: PhoneOff,
       color: "bg-destructive/20 text-destructive border-destructive/30",
       dotColor: "bg-destructive",
+    },
+    transferred: {
+      label: "Call Transferred",
+      icon: PhoneForwarded,
+      color: "bg-primary/20 text-primary border-primary/30",
+      dotColor: "bg-primary",
     },
   };
 

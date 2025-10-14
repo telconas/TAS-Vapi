@@ -1,4 +1,4 @@
-import type { Express } from "express";
+import type { Express, Request } from "express";
 import { createServer, type Server } from "http";
 import { WebSocketServer, WebSocket } from "ws";
 import { storage } from "./storage";
@@ -350,7 +350,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Helper function to get the proper public host (for Twilio callbacks)
-  function getPublicHost(req: express.Request): string {
+  function getPublicHost(req: Request): string {
     // Use REPLIT_DEV_DOMAIN for public access (Twilio can reach this),
     // fallback to host header for local development
     return process.env.REPLIT_DEV_DOMAIN || req.get("host") || "localhost:5000";

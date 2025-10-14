@@ -11,7 +11,7 @@ import { useToast } from "@/hooks/use-toast";
 import type { TranscriptMessage } from "@shared/schema";
 import { Phone } from "lucide-react";
 
-type CallStatus = "idle" | "ringing" | "connected" | "ended";
+type CallStatus = "idle" | "ringing" | "connected" | "ended" | "transferred";
 
 interface Voice {
   voiceId: string;
@@ -133,7 +133,7 @@ export default function Dashboard() {
         if (message.data.status === "connected") {
           startDurationCounter();
           setIsAudioPlaying(true);
-        } else if (message.data.status === "ended") {
+        } else if (message.data.status === "ended" || message.data.status === "transferred") {
           stopDurationCounter();
           setIsAudioPlaying(false);
           // Fetch call details to get recording URL
