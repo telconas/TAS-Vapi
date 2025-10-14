@@ -76,7 +76,11 @@ export function LiveAudioMonitor({ listenUrl, callStatus, onClose }: LiveAudioMo
       wsRef.current.binaryType = 'arraybuffer';
 
       wsRef.current.onopen = () => {
-        console.log('[LIVE MONITOR] Connected to audio stream (8kHz mu-law)');
+        const actualRate = audioContextRef.current?.sampleRate || 8000;
+        console.log(`[LIVE MONITOR] Connected to audio stream (8kHz mu-law, AudioContext: ${actualRate}Hz)`);
+        if (actualRate !== 8000) {
+          console.warn(`[LIVE MONITOR] AudioContext using ${actualRate}Hz instead of 8000Hz - will resample`);
+        }
         setIsMonitoring(true);
         setError(null);
       };
@@ -92,8 +96,6 @@ export function LiveAudioMonitor({ listenUrl, callStatus, onClose }: LiveAudioMo
           // Vapi sends 8-bit mu-law PCM, decode to Float32
           const mulawData = new Uint8Array(event.data);
           const audioData = decodeMuLaw(mulawData);
-
-          console.log(`[LIVE MONITOR] Decoded ${mulawData.length} mu-law bytes to ${audioData.length} PCM samples`);
 
           // Add to queue
           audioQueueRef.current.push(audioData);
@@ -132,10 +134,12 @@ export function LiveAudioMonitor({ listenUrl, callStatus, onClose }: LiveAudioMo
     isPlayingRef.current = true;
     const audioData = audioQueueRef.current.shift()!;
 
+    // Create buffer at the actual source sample rate (8000 Hz), not the context rate
+    // This ensures correct playback speed even if browser uses 44100/48000 Hz context
     const audioBuffer = audioContextRef.current.createBuffer(
       1,
       audioData.length,
-      audioContextRef.current.sampleRate
+      8000  // Vapi stream is always 8kHz
     );
     
     audioBuffer.copyToChannel(audioData, 0);
