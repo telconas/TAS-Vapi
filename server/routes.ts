@@ -623,6 +623,23 @@ ${cleanTranscripts}`;
     "aura-2-zeus-en",
   ];
 
+  // API: Get call details by ID
+  app.get("/api/calls/:id", async (req, res) => {
+    try {
+      const { id } = req.params;
+      const call = await storage.getCall(id);
+
+      if (!call) {
+        return res.status(404).json({ error: "Call not found" });
+      }
+
+      res.json(call);
+    } catch (error) {
+      console.error("Error fetching call:", error);
+      res.status(500).json({ error: "Failed to fetch call details" });
+    }
+  });
+
   // API: Start a new call (using Vapi.ai)
   app.post("/api/calls/start", async (req, res) => {
     try {

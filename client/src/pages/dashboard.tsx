@@ -6,6 +6,7 @@ import { AudioPlayer } from "@/components/audio-player";
 import { VoiceSelector } from "@/components/voice-selector";
 import { CallSummary } from "@/components/call-summary";
 import { InstructionInput } from "@/components/instruction-input";
+import { LiveAudioMonitor } from "@/components/live-audio-monitor";
 import { Card } from "@/components/ui/card";
 import { useToast } from "@/hooks/use-toast";
 import type { TranscriptMessage } from "@shared/schema";
@@ -37,6 +38,7 @@ export default function Dashboard() {
   const [sessionId, setSessionId] = useState<string | null>(null);
   const [recordingUrl, setRecordingUrl] = useState<string | null>(null);
   const [callSummary, setCallSummary] = useState<string | null>(null);
+  const [listenUrl, setListenUrl] = useState<string | null>(null);
   const wsRef = useRef<WebSocket | null>(null);
   const durationIntervalRef = useRef<NodeJS.Timeout | null>(null);
   const reconnectTimeoutRef = useRef<NodeJS.Timeout | null>(null);
@@ -271,6 +273,7 @@ export default function Dashboard() {
       setTranscript([]);
       setRecordingUrl(null);
       setCallSummary(null);
+      setListenUrl(null);
 
       const response = await fetch("/api/calls/start", {
         method: "POST",
@@ -293,6 +296,16 @@ export default function Dashboard() {
 
       const data = await response.json();
       setCurrentCallId(data.callId);
+
+      // Fetch call details to get listenUrl for live monitoring
+      const callDetailsResponse = await fetch(`/api/calls/${data.callId}`);
+      if (callDetailsResponse.ok) {
+        const callDetails = await callDetailsResponse.json();
+        if (callDetails.listenUrl) {
+          setListenUrl(callDetails.listenUrl);
+          console.log('Live monitoring URL available:', callDetails.listenUrl);
+        }
+      }
 
       toast({
         title: "Call Initiated",
@@ -476,6 +489,13 @@ export default function Dashboard() {
               <AudioPlayer
                 isPlaying={isAudioPlaying}
                 onPlayPause={() => setIsAudioPlaying(!isAudioPlaying)}
+              />
+            )}
+
+            {(callStatus === "connected" || callStatus === "ringing") && listenUrl && (
+              <LiveAudioMonitor
+                listenUrl={listenUrl}
+                callStatus={callStatus}
               />
             )}
           </div>
