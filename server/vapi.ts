@@ -250,6 +250,11 @@ export async function createVapiAssistant(params: {
     serverUrl: webhookUrl,
     recordingEnabled: true, // Enable call recording
     endCallMessage: 'Thank you for your time. Goodbye.',
+    // Enable live monitoring for real-time audio streaming
+    monitorPlan: {
+      listenEnabled: true, // Enable WebSocket audio streaming
+      controlEnabled: true, // Enable live call control
+    },
   };
 
   const response = await vapiClient.post('/assistant', assistantPayload);
@@ -261,7 +266,12 @@ export async function makeVapiCall(params: {
   assistantId: string;
   phoneNumber: string;
   customerName?: string;
-}): Promise<{ callId: string; vapiCallId: string }> {
+}): Promise<{ 
+  callId: string; 
+  vapiCallId: string;
+  listenUrl?: string;
+  controlUrl?: string;
+}> {
   const callPayload = {
     assistantId: params.assistantId,
     phoneNumberId: process.env.PHONE_NUMBER_ID, // Vapi phone number ID
@@ -276,6 +286,8 @@ export async function makeVapiCall(params: {
   return {
     callId: response.data.id,
     vapiCallId: response.data.id,
+    listenUrl: response.data.monitor?.listenUrl,
+    controlUrl: response.data.monitor?.controlUrl,
   };
 }
 
