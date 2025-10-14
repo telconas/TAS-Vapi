@@ -149,6 +149,10 @@ Note: User declined Replit's Twilio integration - using manual API credentials i
   - Email includes call details: phone number, duration, recording link, and full AI-generated summary
   - Professional HTML formatting with clear layout and branding
   - Default email: jpm@telconassociates.com (pre-filled in form)
+  - **Bullet-point formatting**: Each sentence displayed as separate bullet point for easy copying
+    - Handles natural line breaks from AI-generated summaries
+    - Protects common abbreviations (Mr., Dr., U.S., Ph.D., etc.) from incorrect splits
+    - Preserves original punctuation (periods, exclamation marks, question marks)
 - ✅ **Call Transfer** - Transfer active calls to another number with one click
   - "Transfer Call" button appears during active calls alongside "Hang Up" button
   - Hardcoded transfer destination: 616-617-0915
