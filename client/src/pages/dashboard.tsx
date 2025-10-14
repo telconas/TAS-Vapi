@@ -281,12 +281,12 @@ export default function Dashboard() {
         body: JSON.stringify({
           phoneNumber: phone,
           prompt,
+          emailRecipient: email,
           voiceProvider,
           pollyVoice: selectedPollyVoice,
           deepgramVoice: selectedDeepgramVoice,
           elevenLabsVoice: selectedElevenLabsVoice,
           sessionId,
-          emailRecipient: email,
         }),
       });
 
