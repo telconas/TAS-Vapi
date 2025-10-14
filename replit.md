@@ -1,7 +1,7 @@
 # AI Voice Agent Dashboard
 
 ## Overview
-A full-stack web application that enables outbound AI voice calls using **Vapi.ai platform** for ultra-low latency voice AI (<1 second response time). Features real-time transcription display, AI-generated call summaries with one-click copy and optional email delivery via SendGrid, post-call recordings, professional system prompt, DTMF button pressing for IVR navigation, call transfer capability, and barge-in support. Supports Deepgram Aura (ultra-fast, ~100ms latency) and ElevenLabs voice providers. Modern dark-themed UI with #219ebc accent color. Calls originate from 913-439-5811, AI only speaks when asked questions.
+A full-stack web application that enables outbound AI voice calls using **Vapi.ai platform** for ultra-low latency voice AI (<1 second response time). Features real-time transcription display, AI-generated call summaries with one-click copy and optional email delivery via SendGrid, post-call recordings, professional system prompt, DTMF button pressing for IVR navigation, call transfer capability, and barge-in support. Supports Deepgram Aura (ultra-fast, ~100ms latency) and ElevenLabs voice providers. Modern dark-themed UI with #219ebc accent color. Calls originate from 913-300-9959, AI only speaks when asked questions.
 
 **Migration Note**: Successfully migrated from direct Twilio+TwiML architecture to Vapi.ai platform (October 2025) for real-time streaming, sub-second latency, and simplified voice AI orchestration.
 
