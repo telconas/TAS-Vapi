@@ -355,74 +355,62 @@ export async function registerRoutes(app: Express): Promise<Server> {
     return process.env.REPLIT_DEV_DOMAIN || req.get("host") || "localhost:5000";
   }
 
-  // Helper function to send call data to Make.com webhook
-  async function sendToMakeWebhook(callId: string) {
-    const webhookUrl =
-      "https://hook.us1.make.com/qomm4skpqxiyq40jxwwxcij4d1wl1psr";
-
-    console.error(
-      `[WEBHOOK] Attempting to send call ${callId} data to Make.com`,
-    );
+  // Helper function to generate call summary using OpenAI
+  async function generateCallSummary(callId: string) {
+    console.error(`[SUMMARY] Generating summary for call ${callId}`);
 
     try {
       const call = await storage.getCall(callId);
       const transcripts = await storage.getTranscriptByCallId(callId);
 
       if (!call) {
-        console.error(`[WEBHOOK ERROR] Call ${callId} not found for webhook`);
+        console.error(`[SUMMARY ERROR] Call ${callId} not found`);
         return;
       }
 
-      console.error(`[WEBHOOK] Call ${callId} found, preparing payload...`);
+      // Filter out internal messages and format transcript
+      const cleanTranscripts = transcripts
+        .filter((t) => !t.text.startsWith("[INTERNAL:"))
+        .map((t) => `${t.speaker === 'ai' ? 'JPM' : 'Representative'}: ${t.text}`)
+        .join('\n');
 
-      const webhookData = {
-        callId: call.id,
-        phoneNumber: call.phoneNumber,
-        prompt: call.prompt,
-        status: call.status,
-        duration: call.duration,
-        startedAt: call.startedAt,
-        endedAt: call.endedAt,
-        voiceId: call.voiceId,
-        voiceName: call.voiceName,
-        twilioCallSid: call.twilioCallSid,
-        recordingUrl: call.recordingUrl,
-        transcripts: transcripts
-          .filter((t) => !t.text.startsWith("[INTERNAL:")) // Filter out internal audit messages
-          .map((t) => ({
-            speaker: t.speaker,
-            text: t.text,
-            timestamp: t.timestamp,
-          })),
-      };
+      if (!cleanTranscripts || cleanTranscripts.trim().length === 0) {
+        console.error(`[SUMMARY] No transcript content for call ${callId}`);
+        return;
+      }
 
-      console.error(`[WEBHOOK] Sending payload to ${webhookUrl}...`);
-      console.error(
-        `[WEBHOOK] Payload includes ${Object.keys(webhookData).length} fields, ${webhookData.transcripts?.length || 0} transcripts`,
-      );
+      console.error(`[SUMMARY] Processing ${transcripts.length} transcript messages`);
 
-      const response = await fetch(webhookUrl, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify(webhookData),
+      // Generate summary using OpenAI
+      const summaryPrompt = `You are an AI assistant tasked with summarizing phone call transcripts. The caller is Jim Martin, referred to as JPM when summarizing. Summarize the contents of the call using bullet points for what transpires. Always get the name of the representative. The customer will always be referred to as JPM. Use full sentences, but do not use dashes to delineate sentences. Always include any account numbers, PIN numbers, service addresses, and phone numbers if mentioned on the call. No need to add things like: "the two parties exchanged pleasantries and the call ended". Stay to the main points of the call when summarizing.
+
+Here is the transcript:
+
+${cleanTranscripts}`;
+
+      const completion = await openaiClient.chat.completions.create({
+        model: "gpt-4.1",
+        messages: [
+          {
+            role: "user",
+            content: summaryPrompt,
+          },
+        ],
+        temperature: 0.3,
       });
 
-      if (response.ok) {
-        console.error(
-          `[WEBHOOK SUCCESS] ✓ Call ${callId} data sent to Make.com webhook (status: ${response.status})`,
-        );
+      const summary = completion.choices[0]?.message?.content || "";
+
+      if (summary) {
+        // Store summary in database
+        await storage.updateCall(callId, { summary });
+        console.error(`[SUMMARY SUCCESS] ✓ Summary generated and saved for call ${callId}`);
       } else {
-        const errorText = await response.text();
-        console.error(
-          `[WEBHOOK ERROR] Make.com webhook failed with status ${response.status}`,
-        );
-        console.error(`[WEBHOOK ERROR] Response: ${errorText}`);
+        console.error(`[SUMMARY ERROR] No summary generated for call ${callId}`);
       }
     } catch (error) {
       console.error(
-        "[WEBHOOK ERROR] Exception sending to Make.com webhook:",
+        "[SUMMARY ERROR] Exception generating call summary:",
         error,
       );
     }
@@ -1476,9 +1464,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
       // Store recording URL in database
       await storage.updateCall(callId, { recordingUrl: audioUrl });
 
-      // Send to Make.com webhook now that we have the recording URL
-      sendToMakeWebhook(callId).catch((err) =>
-        console.error("Webhook send failed from recording callback:", err),
+      // Generate call summary using OpenAI
+      generateCallSummary(callId).catch((err) =>
+        console.error("Summary generation failed from recording callback:", err),
       );
 
       res.sendStatus(200);
@@ -1504,10 +1492,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
       // Update recording URL in database (this will override any call-level recording)
       await storage.updateCall(callId, { recordingUrl: audioUrl });
 
-      // Send to Make.com webhook with the TwiML recording
-      sendToMakeWebhook(callId).catch((err) =>
+      // Generate call summary using OpenAI
+      generateCallSummary(callId).catch((err) =>
         console.error(
-          "Webhook send failed from TwiML recording callback:",
+          "Summary generation failed from TwiML recording callback:",
           err,
         ),
       );
@@ -1519,18 +1507,18 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // TEST ENDPOINT: Manually trigger webhook for testing
-  app.post("/api/test-webhook/:callId", async (req, res) => {
+  // TEST ENDPOINT: Manually trigger summary generation for testing
+  app.post("/api/test-summary/:callId", async (req, res) => {
     const { callId } = req.params;
 
-    console.error(`[TEST] Manual webhook trigger for call ${callId}`);
+    console.error(`[TEST] Manual summary generation trigger for call ${callId}`);
 
     try {
-      await sendToMakeWebhook(callId);
-      res.json({ success: true, message: "Webhook triggered" });
+      await generateCallSummary(callId);
+      res.json({ success: true, message: "Summary generation triggered" });
     } catch (error) {
-      console.error("[TEST] Error triggering webhook:", error);
-      res.status(500).json({ error: "Failed to trigger webhook" });
+      console.error("[TEST] Error triggering summary generation:", error);
+      res.status(500).json({ error: "Failed to trigger summary generation" });
     }
   });
 
@@ -1572,7 +1560,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       // Clean up active call
       activeCalls.delete(callId);
 
-      // Note: Webhook will be sent from recording callback once recording URL is available
+      // Note: Call summary will be generated from recording callback once recording URL is available
 
       res.json({ success: true, duration });
     } catch (error) {
