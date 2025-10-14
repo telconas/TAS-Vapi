@@ -669,20 +669,19 @@ ${cleanTranscripts}`;
       let validatedElevenLabsVoice: string | undefined;
 
       if (validatedProvider === "deepgram") {
-        // Validate Deepgram voice (convert aura-2-X-en to aura-X-en format for Vapi)
-        const deepgramVoiceNormalized = deepgramVoice?.replace('aura-2-', 'aura-');
+        // Validate Deepgram voice (Vapi expects full aura-2-X-en format)
         validatedDeepgramVoice =
-          deepgramVoiceNormalized && deepgramVoiceNormalized.startsWith('aura-')
-            ? deepgramVoiceNormalized
-            : "aura-asteria-en"; // Default to Asteria
+          deepgramVoice && (deepgramVoice.startsWith('aura-2-') || deepgramVoice.startsWith('aura-'))
+            ? deepgramVoice
+            : "aura-2-asteria-en"; // Default to Aura-2 Asteria
       } else if (validatedProvider === "elevenlabs") {
         // Use ElevenLabs voice (validation happens when fetching from API)
         validatedElevenLabsVoice = elevenLabsVoice || undefined;
       } else if (validatedProvider === "polly") {
-        // Polly not supported by Vapi, fall back to Deepgram
-        console.warn('Polly not supported by Vapi, using Deepgram Asteria instead');
+        // Polly not supported by Vapi, fall back to Deepgram Aura-2
+        console.warn('Polly not supported by Vapi, using Deepgram Aura-2 Asteria instead');
         validatedProvider = "deepgram";
-        validatedDeepgramVoice = "aura-asteria-en";
+        validatedDeepgramVoice = "aura-2-asteria-en";
       }
 
       // Validate environment variables
@@ -722,7 +721,7 @@ ${cleanTranscripts}`;
       // Determine voice for Vapi
       const voice = validatedProvider === 'elevenlabs' 
         ? validatedElevenLabsVoice || '21m00Tcm4TlvDq8ikWAM' // Default ElevenLabs voice
-        : validatedDeepgramVoice || 'aura-asteria-en';
+        : validatedDeepgramVoice || 'aura-2-asteria-en';
 
       // Create Vapi assistant
       const assistantId = await createVapiAssistant({
@@ -778,8 +777,17 @@ ${cleanTranscripts}`;
       console.log(`[VAPI] Started call ${call.id} with Vapi call ID: ${vapiCallId}`);
 
       res.json({ callId: call.id, vapiCallId });
-    } catch (error) {
+    } catch (error: any) {
       console.error("Error starting call:", error);
+      
+      // Log detailed Vapi error if available
+      if (error.response) {
+        console.error("Vapi API error response:", {
+          status: error.response.status,
+          data: error.response.data,
+        });
+      }
+      
       res.status(500).json({ error: "Failed to start call" });
     }
   });

@@ -162,16 +162,16 @@ function getVoiceConfig(voiceProvider: string, voice: string): VoiceConfig {
         voiceId: voice, // e.g., "aura-asteria-en"
       };
     case 'polly':
-      // Vapi doesn't support Polly directly, fall back to Deepgram
-      console.warn('Polly not supported by Vapi, using Deepgram Asteria instead');
+      // Vapi doesn't support Polly directly, fall back to Deepgram Aura-2
+      console.warn('Polly not supported by Vapi, using Deepgram Aura-2 Asteria instead');
       return {
         provider: 'deepgram',
-        voiceId: 'aura-asteria-en',
+        voiceId: 'aura-2-asteria-en',
       };
     default:
       return {
         provider: 'deepgram',
-        voiceId: 'aura-asteria-en',
+        voiceId: 'aura-2-asteria-en',
       };
   }
 }
