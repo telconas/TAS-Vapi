@@ -1755,8 +1755,25 @@ ${transcriptText}`;
     }
 
     try {
-      // Transfer the call by updating the TwiML URL
-      if (activeCall.twilioCallSid) {
+      // With Vapi, transfers are handled automatically via the transferCall tool
+      // The AI decides when to transfer based on conversation context
+      // For manual transfer requests, we send an operator instruction
+      if (activeCall.vapiCallId) {
+        await sendVapiMessage(
+          activeCall.vapiCallId,
+          'Transfer this call to +16166170915 immediately using the transfer_call function.'
+        );
+        
+        console.log(`[VAPI] Transfer instruction sent for call ${callId}`);
+        
+        res.json({ 
+          success: true, 
+          message: "Transfer instruction sent to AI. Call will transfer momentarily.",
+          transferredTo: "+16166170915" 
+        });
+      }
+      // Fallback to Twilio for legacy calls
+      else if (activeCall.twilioCallSid) {
         const host = getPublicHost(req);
         await twilioClient
           .calls(activeCall.twilioCallSid)
@@ -1765,7 +1782,7 @@ ${transcriptText}`;
             method: "POST",
           });
 
-        console.error(`[TRANSFER] Call ${callId} transferred to +16166170915`);
+        console.log(`[TWILIO] Call ${callId} transferred to +16166170915`);
 
         // Calculate duration at transfer time
         const duration = Math.floor((Date.now() - activeCall.startTime) / 1000);
@@ -1790,7 +1807,7 @@ ${transcriptText}`;
 
         res.json({ success: true, transferredTo: "+16166170915", duration });
       } else {
-        res.status(400).json({ error: "No Twilio call SID available" });
+        res.status(400).json({ error: "No call SID available" });
       }
     } catch (error) {
       console.error("Error transferring call:", error);
@@ -1798,7 +1815,7 @@ ${transcriptText}`;
     }
   });
 
-  // API: Hang up an active call
+  // API: Hang up an active call (supports both Vapi and Twilio)
   app.post("/api/calls/:callId/hangup", async (req, res) => {
     const { callId } = req.params;
     const activeCall = activeCalls.get(callId);
@@ -1808,11 +1825,17 @@ ${transcriptText}`;
     }
 
     try {
-      // End the Twilio call if we have a call SID
-      if (activeCall.twilioCallSid) {
+      // End the Vapi call if we have a Vapi call ID
+      if (activeCall.vapiCallId) {
+        await endVapiCall(activeCall.vapiCallId);
+        console.log(`[VAPI] Ended call ${callId}`);
+      }
+      // Fallback to Twilio for legacy calls
+      else if (activeCall.twilioCallSid) {
         await twilioClient
           .calls(activeCall.twilioCallSid)
           .update({ status: "completed" });
+        console.log(`[TWILIO] Ended call ${callId}`);
       }
 
       // Calculate duration
