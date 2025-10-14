@@ -145,7 +145,7 @@ ZIP CODE ENTRY: If asked for a zip code, look in the account section above for t
 
 // Voice provider configuration
 interface VoiceConfig {
-  provider: 'elevenlabs' | 'deepgram' | 'azure';
+  provider: '11labs' | 'deepgram' | 'azure';
   voiceId: string;
 }
 
@@ -153,7 +153,7 @@ function getVoiceConfig(voiceProvider: string, voice: string): VoiceConfig {
   switch (voiceProvider) {
     case 'elevenlabs':
       return {
-        provider: 'elevenlabs',
+        provider: '11labs', // Vapi uses "11labs" not "elevenlabs"
         voiceId: voice, // ElevenLabs voice ID
       };
     case 'deepgram':

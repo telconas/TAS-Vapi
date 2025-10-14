@@ -27,13 +27,14 @@ A full-stack web application that enables outbound AI voice calls using **Vapi.a
   - Possible causes: Authentication tokens, CORS/upgrade headers, or Vapi monitoring service configuration
   - Requires further investigation with Vapi API documentation or support
 
-**Phase 5: Testing & Refinement** 🔄 In Progress
-- Vapi call initiation: ✅ Working
-- Voice configuration: ✅ Fixed (voice name extraction)
-- Live monitoring UI: ✅ Appears correctly
-- WebSocket audio streaming: ⚠️ Connection fails (Vapi-side issue)
-- Call summaries: ⚠️ Not displaying in UI
-- See IMPLEMENTATION_STATUS.md for detailed feature status and known limitations
+**Phase 5: Testing & Refinement** ✅ Core Features Complete
+- Vapi call initiation: ✅ Working perfectly
+- Voice configuration: ✅ Fixed (ElevenLabs uses "11labs", Deepgram uses voice names)
+- Call lifecycle: ✅ Idle → Ringing → Connected → Ended
+- Live monitoring UI: ✅ Appears correctly during active calls
+- Hang up functionality: ✅ Properly terminates calls
+- **Known Limitation**: WebSocket audio streaming returns 500 error (Vapi-side monitoring service issue)
+- **Known Limitation**: Call summaries not yet displaying (requires Vapi end-of-call-report investigation)
 
 ## Tech Stack
 - **Frontend**: React, Tailwind CSS, Wouter (routing), TanStack Query
@@ -106,6 +107,8 @@ The following secrets are configured and available:
 - Components follow shadcn patterns with hover-elevate interactions
 
 ## Recent Updates
+- ✅ **Fixed voice provider format** (October 2025) - Corrected Vapi API call to use "11labs" instead of "elevenlabs" for ElevenLabs voices, resolving 400 Bad Request errors
+- ✅ **Voice ID extraction** - Deepgram voice IDs properly extract voice names (e.g., "aura-2-asteria-en" → "asteria") for Vapi compatibility
 - Added AI Instructions field for customizing what the AI does on calls
 - Added provider dropdown with 24+ carrier phone numbers (All Stream, ATT, Comcast, Spectrum, Verizon, etc.)
 - Added Hang Up button to disconnect active calls
