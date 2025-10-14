@@ -160,3 +160,7 @@ Note: User declined Replit's Twilio integration - using manual API credentials i
   - TwiML `<Dial>` verb redirects active call seamlessly
   - Call status updates to "transferred" with proper UI indication
   - Transfer endpoint: POST /api/calls/:callId/transfer
+- ✅ **Volume Boost for Polly Voices** - Enhanced AI voice volume for better audibility
+  - Uses TwiML `<Prosody volume="x-loud">` tag for maximum loudness
+  - Only applies to Amazon Polly voices (default voice provider)
+  - Deepgram and ElevenLabs audio levels remain at provider defaults
