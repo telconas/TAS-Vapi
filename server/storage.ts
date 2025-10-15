@@ -20,6 +20,7 @@ export interface IStorage {
   // Call methods
   createCall(call: InsertCall): Promise<Call>;
   getCall(id: string): Promise<Call | undefined>;
+  getCallByVapiId(vapiCallId: string): Promise<Call | undefined>;
   updateCallStatus(id: string, status: string, duration?: number, endedAt?: Date): Promise<void>;
   updateCall(id: string, updates: Partial<Call>): Promise<void>;
   
@@ -42,6 +43,11 @@ export class DatabaseStorage implements IStorage {
 
   async getCall(id: string): Promise<Call | undefined> {
     const [call] = await db.select().from(calls).where(eq(calls.id, id));
+    return call;
+  }
+
+  async getCallByVapiId(vapiCallId: string): Promise<Call | undefined> {
+    const [call] = await db.select().from(calls).where(eq(calls.twilioCallSid, vapiCallId));
     return call;
   }
 

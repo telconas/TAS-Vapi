@@ -456,6 +456,81 @@ ${cleanTranscripts}`;
     }
   });
 
+  // Manual summary generation and email sending
+  app.post("/api/calls/:callId/send-summary", async (req, res) => {
+    try {
+      const { callId } = req.params;
+      const call = await storage.getCall(callId);
+
+      if (!call) {
+        return res.status(404).json({ error: "Call not found" });
+      }
+
+      console.log(`[MANUAL SUMMARY] Generating summary for call ${callId}...`);
+
+      // Get transcript
+      const transcript = await storage.getTranscriptByCallId(callId);
+      const transcriptText = transcript
+        .map((msg: { speaker: string; text: string }) => `${msg.speaker === 'ai' ? 'AI' : 'Caller'}: ${msg.text}`)
+        .join('\n');
+
+      if (!transcriptText) {
+        return res.status(400).json({ error: "No transcript available for this call" });
+      }
+
+      console.log(`[MANUAL SUMMARY] Transcript length: ${transcriptText.length} characters`);
+
+      // Generate summary
+      const summaryPrompt = `You are analyzing a phone call transcript. The caller is referred to as "JPM" (Jim Martin). Extract the representative's name if mentioned. Provide a concise summary in bullet points covering:
+- Representative name (if mentioned)
+- Key topics discussed
+- Actions taken
+- Important account details mentioned (account numbers, PINs, service addresses, phone numbers)
+- Next steps or follow-ups
+
+Transcript:
+${transcriptText}`;
+
+      const summaryCompletion = await openaiClient.chat.completions.create({
+        model: 'gpt-4-turbo-preview',
+        messages: [
+          { role: 'system', content: 'You are a helpful assistant that summarizes phone call transcripts.' },
+          { role: 'user', content: summaryPrompt },
+        ],
+        temperature: 0.3,
+      });
+
+      const summary = summaryCompletion.choices[0]?.message?.content || '';
+      console.log(`[MANUAL SUMMARY] Summary generated: ${summary.substring(0, 100)}...`);
+
+      // Save summary
+      await storage.updateCall(callId, { summary });
+
+      // Send email if recipient provided
+      if (call.emailRecipient) {
+        console.log(`[MANUAL SUMMARY] Sending email to ${call.emailRecipient}...`);
+        await sendCallSummaryEmail(
+          call.emailRecipient,
+          call.phoneNumber,
+          summary,
+          call.duration || 0,
+          call.recordingUrl || undefined
+        );
+        console.log(`[MANUAL SUMMARY] ✓ Email sent to ${call.emailRecipient}`);
+      }
+
+      res.json({
+        success: true,
+        summary,
+        emailSent: !!call.emailRecipient,
+        recipient: call.emailRecipient,
+      });
+    } catch (error) {
+      console.error("[MANUAL SUMMARY] Error:", error);
+      res.status(500).json({ error: "Failed to generate and send summary" });
+    }
+  });
+
   // API: Proxy recording from Twilio with authentication
   app.get("/api/recording-proxy/:callId", async (req, res) => {
     try {
@@ -739,15 +814,14 @@ ${cleanTranscripts}`;
         customerName: 'Customer',
       });
 
-      // Update call record with monitoring URLs
-      if (listenUrl || controlUrl) {
-        await storage.updateCall(call.id, { 
-          listenUrl: listenUrl || undefined,
-          controlUrl: controlUrl || undefined,
-        });
-        
-        console.log(`[VAPI] Monitoring URLs for call ${call.id}:`, { listenUrl, controlUrl });
-      }
+      // Update call record with Vapi call ID and monitoring URLs
+      await storage.updateCall(call.id, { 
+        twilioCallSid: vapiCallId, // Store Vapi call ID in twilioCallSid field
+        listenUrl: listenUrl || undefined,
+        controlUrl: controlUrl || undefined,
+      });
+      
+      console.log(`[VAPI] Monitoring URLs for call ${call.id}:`, { listenUrl, controlUrl });
 
       // Store active call info
       activeCalls.set(call.id, {
@@ -894,8 +968,33 @@ ${cleanTranscripts}`;
           // Full call report with recording URL, transcript, cost, etc.
           const { call: vapiCall } = message;
           
-          if (activeCall && vapiCall) {
-            console.log('[VAPI] End of call report:', {
+          console.log('[VAPI] End-of-call-report received:', {
+            hasActiveCall: !!activeCall,
+            hasVapiCall: !!vapiCall,
+            vapiCallId: vapiCall?.id,
+          });
+          
+          if (vapiCall) {
+            // Find the call in database using Vapi call ID
+            // activeCall might be deleted already, so we look it up by Vapi ID
+            let dbCall: any = null;
+            
+            // First try using activeCall if available
+            if (activeCall) {
+              dbCall = await storage.getCall(activeCall.callId);
+            }
+            
+            // If no activeCall or call not found, search by Vapi call ID
+            if (!dbCall) {
+              dbCall = await storage.getCallByVapiId(vapiCall.id);
+            }
+
+            if (!dbCall) {
+              console.log('[VAPI] Could not find call in database for Vapi ID:', vapiCall.id);
+              break;
+            }
+
+            console.log('[VAPI] End of call report for call:', dbCall.id, {
               duration: vapiCall.duration,
               cost: vapiCall.cost,
               recordingUrl: vapiCall.recordingUrl,
@@ -903,19 +1002,23 @@ ${cleanTranscripts}`;
 
             // Update call with recording URL
             if (vapiCall.recordingUrl) {
-              await storage.updateCall(activeCall.callId, {
+              await storage.updateCall(dbCall.id, {
                 recordingUrl: vapiCall.recordingUrl,
               });
             }
 
-            // Get call from database to access email recipient
-            const dbCall = await storage.getCall(activeCall.callId);
+            console.log('[VAPI] DB Call:', {
+              callId: dbCall.id,
+              emailRecipient: dbCall.emailRecipient,
+            });
 
             // Generate AI summary
-            const transcript = await storage.getTranscriptByCallId(activeCall.callId);
+            const transcript = await storage.getTranscriptByCallId(dbCall.id);
             const transcriptText = transcript
               .map((msg: { speaker: string; text: string }) => `${msg.speaker === 'ai' ? 'AI' : 'Caller'}: ${msg.text}`)
               .join('\n');
+
+            console.log('[VAPI] Transcript length:', transcriptText.length);
 
             if (transcriptText) {
               const summaryPrompt = `You are analyzing a phone call transcript. The caller is referred to as "JPM" (Jim Martin). Extract the representative's name if mentioned. Provide a concise summary in bullet points covering:
@@ -928,6 +1031,7 @@ ${cleanTranscripts}`;
 Transcript:
 ${transcriptText}`;
 
+              console.log('[VAPI] Generating summary...');
               const summaryCompletion = await openaiClient.chat.completions.create({
                 model: 'gpt-4-turbo-preview',
                 messages: [
@@ -938,26 +1042,37 @@ ${transcriptText}`;
               });
 
               const summary = summaryCompletion.choices[0]?.message?.content || '';
+              console.log('[VAPI] Summary generated:', summary.substring(0, 100) + '...');
 
               // Save summary to database
-              await storage.updateCall(activeCall.callId, { summary });
+              await storage.updateCall(dbCall.id, { summary });
 
-              // Send email if recipient provided
-              if (dbCall?.emailRecipient && summary && vapiCall.recordingUrl) {
+              // Send email if recipient provided (don't require recording URL)
+              if (dbCall.emailRecipient && summary) {
                 try {
+                  console.log(`[EMAIL] Sending summary to ${dbCall.emailRecipient}...`);
                   await sendCallSummaryEmail(
                     dbCall.emailRecipient,
                     dbCall.phoneNumber,
                     summary,
                     vapiCall.duration || 0,
-                    vapiCall.recordingUrl
+                    vapiCall.recordingUrl || undefined
                   );
-                  console.log(`[EMAIL] Summary sent to ${dbCall.emailRecipient}`);
+                  console.log(`[EMAIL] ✓ Summary sent to ${dbCall.emailRecipient}`);
                 } catch (emailError) {
-                  console.error('[EMAIL] Failed to send summary:', emailError);
+                  console.error('[EMAIL] ✗ Failed to send summary:', emailError);
                 }
+              } else {
+                console.log('[EMAIL] Skipped - missing requirements:', {
+                  hasRecipient: !!dbCall.emailRecipient,
+                  hasSummary: !!summary,
+                });
               }
+            } else {
+              console.log('[VAPI] No transcript available for summary');
             }
+          } else {
+            console.log('[VAPI] Skipping end-of-call-report - no vapiCall data');
           }
           break;
         }
