@@ -1911,21 +1911,54 @@ ${transcriptText}`;
     }
 
     try {
-      // With Vapi, transfers are handled automatically via the transferCall tool
-      // The AI decides when to transfer based on conversation context
-      // For manual transfer requests, we send an operator instruction
-      if (activeCall.vapiCallId) {
-        await sendVapiMessage(
-          activeCall.vapiCallId,
-          'Transfer this call to +16166170915 immediately using the transfer_call function.'
-        );
+      // With Vapi, use live call control to transfer directly
+      if (activeCall.controlUrl) {
+        // Use Vapi's live call control to transfer the call
+        const response = await fetch(activeCall.controlUrl, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            type: "transfer-call",
+            destination: {
+              type: "number",
+              number: "+16166170915"
+            }
+          })
+        });
         
-        console.log(`[VAPI] Transfer instruction sent for call ${callId}`);
+        if (!response.ok) {
+          throw new Error(`Vapi transfer failed: ${response.status} ${await response.text()}`);
+        }
+        
+        console.log(`[VAPI] Call ${callId} transfer initiated to +16166170915`);
+        
+        // Calculate duration at transfer time
+        const duration = Math.floor((Date.now() - activeCall.startTime) / 1000);
+
+        // Update call status in database
+        await storage.updateCallStatus(callId, "transferred", duration, new Date());
+
+        // Send WebSocket update
+        activeCall.ws.send(
+          JSON.stringify({
+            type: "call_status",
+            data: {
+              callId,
+              status: "transferred",
+              duration,
+            },
+          }),
+        );
+
+        // Clean up active call
+        activeCalls.delete(callId);
         
         res.json({ 
           success: true, 
-          message: "Transfer instruction sent to AI. Call will transfer momentarily.",
-          transferredTo: "+16166170915" 
+          transferredTo: "+16166170915",
+          duration
         });
       }
       // Fallback to Twilio for legacy calls
@@ -1963,7 +1996,7 @@ ${transcriptText}`;
 
         res.json({ success: true, transferredTo: "+16166170915", duration });
       } else {
-        res.status(400).json({ error: "No call SID available" });
+        res.status(400).json({ error: "No call control available" });
       }
     } catch (error) {
       console.error("Error transferring call:", error);
