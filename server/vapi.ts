@@ -336,17 +336,3 @@ export async function getVapiCall(vapiCallId: string): Promise<any> {
 export async function endVapiCall(vapiCallId: string): Promise<void> {
   await vapiClient.delete(`/call/${vapiCallId}`);
 }
-
-// Send message to active call (operator instructions)
-export async function sendVapiMessage(
-  vapiCallId: string,
-  message: string,
-): Promise<void> {
-  await vapiClient.post(`/call/${vapiCallId}/message`, {
-    type: "assistant-message",
-    message: {
-      role: "system",
-      content: message,
-    },
-  });
-}

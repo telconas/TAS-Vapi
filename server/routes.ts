@@ -9,7 +9,7 @@ import { randomUUID } from "crypto";
 import { sendCallSummaryEmail } from "./sendgrid";
 import { writeFileSync, mkdirSync, existsSync } from "fs";
 import { join, basename } from "path";
-import { createVapiAssistant, makeVapiCall, getVapiCall, endVapiCall, sendVapiMessage, buildSystemPrompt as buildVapiSystemPrompt } from "./vapi";
+import { createVapiAssistant, makeVapiCall, getVapiCall, endVapiCall, buildSystemPrompt as buildVapiSystemPrompt } from "./vapi";
 
 const twilioClient = twilio(
   process.env.TWILIO_ACCOUNT_SID,
@@ -1910,6 +1910,15 @@ ${transcriptText}`;
       return res.status(404).json({ error: "Call not found" });
     }
 
+    // Validate controlUrl is available
+    if (!activeCall.controlUrl) {
+      console.error(`[TRANSFER] No controlUrl available for call ${callId}`);
+      return res.status(400).json({ 
+        error: "Call control not available",
+        details: "This call does not have live control enabled" 
+      });
+    }
+
     try {
       // With Vapi, use live call control to transfer directly
       if (activeCall.controlUrl) {
@@ -1929,7 +1938,12 @@ ${transcriptText}`;
         });
         
         if (!response.ok) {
-          throw new Error(`Vapi transfer failed: ${response.status} ${await response.text()}`);
+          const errorText = await response.text();
+          console.error(`[VAPI] Transfer failed: ${response.status} - ${errorText}`);
+          return res.status(response.status).json({ 
+            error: "Transfer failed", 
+            details: errorText 
+          });
         }
         
         console.log(`[VAPI] Call ${callId} transfer initiated to +16166170915`);
