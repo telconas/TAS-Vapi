@@ -283,11 +283,19 @@ export async function createVapiAssistant(params: {
       "function-call",
     ],
     serverUrl: webhookUrl,
-    recordingEnabled: true, // Enable call recording
+    // Artifact plan: Controls recording, transcription, and analysis
+    artifactPlan: {
+      recordingEnabled: true, // Keep recording active during and after transfers
+      videoRecordingEnabled: false,
+      transcriptPlan: {
+        enabled: true, // Keep transcription active during and after transfers
+      },
+      recordingPath: "mono", // Record all audio in mono format
+    },
     endCallMessage: "Thank you for your time. Goodbye.",
     // Enable live monitoring for real-time audio streaming
     monitorPlan: {
-      listenEnabled: true, // Enable WebSocket audio streaming
+      listenEnabled: true, // Enable WebSocket audio streaming for real-time capture
       controlEnabled: true, // Enable live call control
     },
   };
