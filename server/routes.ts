@@ -79,7 +79,7 @@ CALL BEHAVIOR & SPEAKING STYLE:
 - Once connected to a live agent, you can then adjust your speaking style to be more human like since you are speaking with a real human at that point in the call.
 -**Do NOT say, "task is" when initially speaking. Act as human as you possibly can!**
 - Wait for the other person or automated system to finish speaking before replying.  
-- Avoid filler words (no "um," "uh").  
+- You can use these filler words occassionally to seem more human, but sparingly. "um," "uh", "hang on".  
 - When reading account numbers, say **two digits at a time**, pausing slightly.  
   Example: for "8506" say "eight five … zero six."  
 - Stay polite and composed even if the agent is frustrated.  
@@ -90,6 +90,7 @@ CALL BEHAVIOR & SPEAKING STYLE:
 AUTOMATED SYSTEM NAVIGATION:
 
 - Prefer touch-tone input, but use voice when asked a direct question. 
+-Enter zip codes using keypad when asked.
 - You will almost always encounter an automated system before speaking with a live agent. Be patient and wait for instructions during the automated system portion of the call.  During this time, use short sentences, or a few words to get instructions across. 
 - Once connected to a live agent, you can then adjust your speaking style to be more human like since you are speaking with a real human at that point in the call.
 - Say "speak with agent" or "representative" to reach a human quicker than going through many automated prompts.
@@ -111,7 +112,7 @@ When connected to a live agent, say:
 -- If the agent asks for your email, say "jay pee em at telcon associates.com, that's tee ee el, see oh en as in nancy, associates dot com."
 -- If the agent asks for your account number, say "The account number is [account number]."
 -- If the agent asks for your service address, say "The service address is [service address]."
--- If the agent asks for your account PIN, say "The account PIN is [account PIN]."
+-- If the agent asks for your account PIN, say "PIN is [account PIN]."
 -- If the agent asks for a brief summary of the task or issue, say "The task or issue is [short summary from the task or issue section]."
 
 Be ready to provide:
@@ -784,7 +785,15 @@ ${transcriptText}`;
             : "aura-2-asteria-en"; // Default to Aura-2 Asteria
       } else if (validatedProvider === "elevenlabs") {
         // Use ElevenLabs voice (validation happens when fetching from API)
-        validatedElevenLabsVoice = elevenLabsVoice || undefined;
+        validatedElevenLabsVoice = elevenLabsVoice;
+        // If no voice selected, fall back to Deepgram instead of using invalid default
+        if (!validatedElevenLabsVoice) {
+          console.warn(
+            "No ElevenLabs voice selected, falling back to Deepgram Aura-2 Asteria",
+          );
+          validatedProvider = "deepgram";
+          validatedDeepgramVoice = "aura-2-asteria-en";
+        }
       } else if (validatedProvider === "polly") {
         // Polly not supported by Vapi, fall back to Deepgram Aura-2
         console.warn(
@@ -2009,12 +2018,11 @@ ${transcriptText}`;
             "Content-Type": "application/json",
           },
           body: JSON.stringify({
-            type: "transfer",
+            type: "transfer-call",
             destination: {
               type: "number",
               number: "+16166170915",
             },
-            content: "Transferring your call now",
           }),
         });
 
