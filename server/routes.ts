@@ -9,7 +9,13 @@ import { randomUUID } from "crypto";
 import { sendCallSummaryEmail } from "./sendgrid";
 import { writeFileSync, mkdirSync, existsSync } from "fs";
 import { join, basename } from "path";
-import { createVapiAssistant, makeVapiCall, getVapiCall, endVapiCall, buildSystemPrompt as buildVapiSystemPrompt } from "./vapi";
+import {
+  createVapiAssistant,
+  makeVapiCall,
+  getVapiCall,
+  endVapiCall,
+  buildSystemPrompt as buildVapiSystemPrompt,
+} from "./vapi";
 
 const twilioClient = twilio(
   process.env.TWILIO_ACCOUNT_SID,
@@ -71,7 +77,7 @@ CALL BEHAVIOR & SPEAKING STYLE:
 -When waiting on hold, do not speak until you are connected with a live agent.
 - When the call is initiated, you will always be speaking with a non-human automated system. Be patient and wait for instructions during the automated system portion of the call.  During this time, use short sentences, or a few words to get instructions across. Do not ask the automated system questions like "can you confirm, xyz?" or "is this correct, xyz?"
 - Once connected to a live agent, you can then adjust your speaking style to be more human like since you are speaking with a real human at that point in the call.
--
+-**Do NOT say, "task is" when initially speaking. Act as human as you possibly can!**
 - Wait for the other person or automated system to finish speaking before replying.  
 - Avoid filler words (no "um," "uh").  
 - When reading account numbers, say **two digits at a time**, pausing slightly.  
@@ -377,15 +383,19 @@ export async function registerRoutes(app: Express): Promise<Server> {
       // Filter out internal messages and format transcript
       const cleanTranscripts = transcripts
         .filter((t) => !t.text.startsWith("[INTERNAL:"))
-        .map((t) => `${t.speaker === 'ai' ? 'JPM' : 'Representative'}: ${t.text}`)
-        .join('\n');
+        .map(
+          (t) => `${t.speaker === "ai" ? "JPM" : "Representative"}: ${t.text}`,
+        )
+        .join("\n");
 
       if (!cleanTranscripts || cleanTranscripts.trim().length === 0) {
         console.error(`[SUMMARY] No transcript content for call ${callId}`);
         return;
       }
 
-      console.error(`[SUMMARY] Processing ${transcripts.length} transcript messages`);
+      console.error(
+        `[SUMMARY] Processing ${transcripts.length} transcript messages`,
+      );
 
       // Generate summary using OpenAI
       const summaryPrompt = `You are an AI assistant tasked with summarizing phone call transcripts. The caller is Jim Martin, referred to as JPM when summarizing. Summarize the contents of the call using bullet points for what transpires. Always get the name of the representative. The customer will always be referred to as JPM. Use full sentences, but do not use dashes to delineate sentences. Always include any account numbers, PIN numbers, service addresses, and phone numbers if mentioned on the call. No need to add things like: "the two parties exchanged pleasantries and the call ended". Stay to the main points of the call when summarizing.
@@ -395,7 +405,7 @@ Here is the transcript:
 ${cleanTranscripts}`;
 
       const completion = await openaiClient.chat.completions.create({
-        model: "gpt-4.1",
+        model: "gpt-4o",
         messages: [
           {
             role: "user",
@@ -410,21 +420,27 @@ ${cleanTranscripts}`;
       if (summary) {
         // Store summary in database
         await storage.updateCall(callId, { summary });
-        console.error(`[SUMMARY SUCCESS] ✓ Summary generated and saved for call ${callId}`);
+        console.error(
+          `[SUMMARY SUCCESS] ✓ Summary generated and saved for call ${callId}`,
+        );
 
         // Send email if recipient is specified
         if (call.emailRecipient) {
-          console.error(`[EMAIL] Attempting to send summary to ${call.emailRecipient}`);
+          console.error(
+            `[EMAIL] Attempting to send summary to ${call.emailRecipient}`,
+          );
           await sendCallSummaryEmail(
             call.emailRecipient,
             call.phoneNumber,
             summary,
             call.duration || 0,
-            call.recordingUrl || undefined
+            call.recordingUrl || undefined,
           );
         }
       } else {
-        console.error(`[SUMMARY ERROR] No summary generated for call ${callId}`);
+        console.error(
+          `[SUMMARY ERROR] No summary generated for call ${callId}`,
+        );
       }
     } catch (error) {
       console.error(
@@ -471,14 +487,21 @@ ${cleanTranscripts}`;
       // Get transcript
       const transcript = await storage.getTranscriptByCallId(callId);
       const transcriptText = transcript
-        .map((msg: { speaker: string; text: string }) => `${msg.speaker === 'ai' ? 'AI' : 'Caller'}: ${msg.text}`)
-        .join('\n');
+        .map(
+          (msg: { speaker: string; text: string }) =>
+            `${msg.speaker === "ai" ? "AI" : "Caller"}: ${msg.text}`,
+        )
+        .join("\n");
 
       if (!transcriptText) {
-        return res.status(400).json({ error: "No transcript available for this call" });
+        return res
+          .status(400)
+          .json({ error: "No transcript available for this call" });
       }
 
-      console.log(`[MANUAL SUMMARY] Transcript length: ${transcriptText.length} characters`);
+      console.log(
+        `[MANUAL SUMMARY] Transcript length: ${transcriptText.length} characters`,
+      );
 
       // Generate summary
       const summaryPrompt = `You are analyzing a phone call transcript. The caller is referred to as "JPM" (Jim Martin). Extract the representative's name if mentioned. Provide a concise summary in bullet points covering:
@@ -492,29 +515,37 @@ Transcript:
 ${transcriptText}`;
 
       const summaryCompletion = await openaiClient.chat.completions.create({
-        model: 'gpt-4-turbo-preview',
+        model: "gpt-4-turbo-preview",
         messages: [
-          { role: 'system', content: 'You are a helpful assistant that summarizes phone call transcripts.' },
-          { role: 'user', content: summaryPrompt },
+          {
+            role: "system",
+            content:
+              "You are a helpful assistant that summarizes phone call transcripts.",
+          },
+          { role: "user", content: summaryPrompt },
         ],
         temperature: 0.3,
       });
 
-      const summary = summaryCompletion.choices[0]?.message?.content || '';
-      console.log(`[MANUAL SUMMARY] Summary generated: ${summary.substring(0, 100)}...`);
+      const summary = summaryCompletion.choices[0]?.message?.content || "";
+      console.log(
+        `[MANUAL SUMMARY] Summary generated: ${summary.substring(0, 100)}...`,
+      );
 
       // Save summary
       await storage.updateCall(callId, { summary });
 
       // Send email if recipient provided
       if (call.emailRecipient) {
-        console.log(`[MANUAL SUMMARY] Sending email to ${call.emailRecipient}...`);
+        console.log(
+          `[MANUAL SUMMARY] Sending email to ${call.emailRecipient}...`,
+        );
         await sendCallSummaryEmail(
           call.emailRecipient,
           call.phoneNumber,
           summary,
           call.duration || 0,
-          call.recordingUrl || undefined
+          call.recordingUrl || undefined,
         );
         console.log(`[MANUAL SUMMARY] ✓ Email sent to ${call.emailRecipient}`);
       }
@@ -746,7 +777,9 @@ ${transcriptText}`;
       if (validatedProvider === "deepgram") {
         // Validate Deepgram voice (Vapi expects full aura-2-X-en format)
         validatedDeepgramVoice =
-          deepgramVoice && (deepgramVoice.startsWith('aura-2-') || deepgramVoice.startsWith('aura-'))
+          deepgramVoice &&
+          (deepgramVoice.startsWith("aura-2-") ||
+            deepgramVoice.startsWith("aura-"))
             ? deepgramVoice
             : "aura-2-asteria-en"; // Default to Aura-2 Asteria
       } else if (validatedProvider === "elevenlabs") {
@@ -754,16 +787,16 @@ ${transcriptText}`;
         validatedElevenLabsVoice = elevenLabsVoice || undefined;
       } else if (validatedProvider === "polly") {
         // Polly not supported by Vapi, fall back to Deepgram Aura-2
-        console.warn('Polly not supported by Vapi, using Deepgram Aura-2 Asteria instead');
+        console.warn(
+          "Polly not supported by Vapi, using Deepgram Aura-2 Asteria instead",
+        );
         validatedProvider = "deepgram";
         validatedDeepgramVoice = "aura-2-asteria-en";
       }
 
       // Validate environment variables
       if (!process.env.VAPI_API_KEY) {
-        return res
-          .status(500)
-          .json({ error: "Vapi API key not configured" });
+        return res.status(500).json({ error: "Vapi API key not configured" });
       }
 
       // Get WebSocket client for this session
@@ -794,9 +827,10 @@ ${transcriptText}`;
       const systemPrompt = buildVapiSystemPrompt(prompt);
 
       // Determine voice for Vapi (Deepgram voices will be converted to just the name in getVoiceConfig)
-      const voice = validatedProvider === 'elevenlabs' 
-        ? validatedElevenLabsVoice || '21m00Tcm4TlvDq8ikWAM' // Default ElevenLabs voice
-        : validatedDeepgramVoice || 'aura-2-asteria-en'; // Will be converted to 'asteria'
+      const voice =
+        validatedProvider === "elevenlabs"
+          ? validatedElevenLabsVoice || "21m00Tcm4TlvDq8ikWAM" // Default ElevenLabs voice
+          : validatedDeepgramVoice || "aura-2-asteria-en"; // Will be converted to 'asteria'
 
       // Create Vapi assistant
       const assistantId = await createVapiAssistant({
@@ -804,24 +838,27 @@ ${transcriptText}`;
         systemPrompt,
         voiceProvider: validatedProvider,
         voice,
-        firstMessageMode: 'assistant-waits-for-user', // AI only speaks when asked
+        firstMessageMode: "assistant-waits-for-user", // AI only speaks when asked
       });
 
       // Make Vapi call
       const { vapiCallId, listenUrl, controlUrl } = await makeVapiCall({
         assistantId,
         phoneNumber,
-        customerName: 'Customer',
+        customerName: "Customer",
       });
 
       // Update call record with Vapi call ID and monitoring URLs
-      await storage.updateCall(call.id, { 
+      await storage.updateCall(call.id, {
         twilioCallSid: vapiCallId, // Store Vapi call ID in twilioCallSid field
         listenUrl: listenUrl || undefined,
         controlUrl: controlUrl || undefined,
       });
-      
-      console.log(`[VAPI] Monitoring URLs for call ${call.id}:`, { listenUrl, controlUrl });
+
+      console.log(`[VAPI] Monitoring URLs for call ${call.id}:`, {
+        listenUrl,
+        controlUrl,
+      });
 
       // Store active call info
       activeCalls.set(call.id, {
@@ -848,12 +885,14 @@ ${transcriptText}`;
         }),
       );
 
-      console.log(`[VAPI] Started call ${call.id} with Vapi call ID: ${vapiCallId}`);
+      console.log(
+        `[VAPI] Started call ${call.id} with Vapi call ID: ${vapiCallId}`,
+      );
 
       res.json({ callId: call.id, vapiCallId });
     } catch (error: any) {
       console.error("Error starting call:", error);
-      
+
       // Log detailed Vapi error if available
       if (error.response) {
         console.error("Vapi API error response:", {
@@ -861,7 +900,7 @@ ${transcriptText}`;
           data: error.response.data,
         });
       }
-      
+
       res.status(500).json({ error: "Failed to start call" });
     }
   });
@@ -875,7 +914,7 @@ ${transcriptText}`;
         return res.sendStatus(200);
       }
 
-      console.log('[VAPI WEBHOOK] Received event:', message.type);
+      console.log("[VAPI WEBHOOK] Received event:", message.type);
 
       // Find active call by Vapi call ID
       let activeCall: ActiveCall | undefined;
@@ -888,15 +927,15 @@ ${transcriptText}`;
 
       // Handle different message types
       switch (message.type) {
-        case 'transcript': {
+        case "transcript": {
           // Real-time transcription
           const { transcript, role, transcriptType } = message;
-          
+
           // Only process final transcripts, not partial updates
           // Vapi sends many partial updates as speech recognition refines
-          if (activeCall && transcript && transcriptType === 'final') {
-            const speaker = role === 'assistant' ? 'ai' : 'caller';
-            
+          if (activeCall && transcript && transcriptType === "final") {
+            const speaker = role === "assistant" ? "ai" : "caller";
+
             // Save to database
             await storage.addTranscriptMessage({
               callId: activeCall.callId,
@@ -907,7 +946,7 @@ ${transcriptText}`;
             // Send to frontend via WebSocket
             activeCall.ws.send(
               JSON.stringify({
-                type: 'transcription',
+                type: "transcription",
                 data: {
                   callId: activeCall.callId,
                   speaker,
@@ -920,24 +959,31 @@ ${transcriptText}`;
           break;
         }
 
-        case 'status-update': {
+        case "status-update": {
           // Call status updates (ringing, in-progress, ended)
           const { status } = message;
-          
+
           if (activeCall) {
             let appStatus: string = status;
-            
+
             // Map Vapi statuses to our app statuses
-            if (status === 'in-progress') {
-              appStatus = 'connected';
-            } else if (status === 'ended') {
-              appStatus = 'ended';
+            if (status === "in-progress") {
+              appStatus = "connected";
+            } else if (status === "ended") {
+              appStatus = "ended";
             }
 
             // Update database
-            if (appStatus === 'ended') {
-              const duration = Math.floor((Date.now() - activeCall.startTime) / 1000);
-              await storage.updateCallStatus(activeCall.callId, 'ended', duration, new Date());
+            if (appStatus === "ended") {
+              const duration = Math.floor(
+                (Date.now() - activeCall.startTime) / 1000,
+              );
+              await storage.updateCallStatus(
+                activeCall.callId,
+                "ended",
+                duration,
+                new Date(),
+              );
             } else {
               await storage.updateCallStatus(activeCall.callId, appStatus);
             }
@@ -945,56 +991,60 @@ ${transcriptText}`;
             // Send to frontend
             activeCall.ws.send(
               JSON.stringify({
-                type: 'call_status',
+                type: "call_status",
                 data: {
                   callId: activeCall.callId,
                   status: appStatus,
-                  duration: appStatus === 'ended' 
-                    ? Math.floor((Date.now() - activeCall.startTime) / 1000)
-                    : undefined,
+                  duration:
+                    appStatus === "ended"
+                      ? Math.floor((Date.now() - activeCall.startTime) / 1000)
+                      : undefined,
                 },
               }),
             );
 
             // Clean up active call if ended
-            if (appStatus === 'ended') {
+            if (appStatus === "ended") {
               activeCalls.delete(activeCall.callId);
             }
           }
           break;
         }
 
-        case 'end-of-call-report': {
+        case "end-of-call-report": {
           // Full call report with recording URL, transcript, cost, etc.
           const { call: vapiCall } = message;
-          
-          console.log('[VAPI] End-of-call-report received:', {
+
+          console.log("[VAPI] End-of-call-report received:", {
             hasActiveCall: !!activeCall,
             hasVapiCall: !!vapiCall,
             vapiCallId: vapiCall?.id,
           });
-          
+
           if (vapiCall) {
             // Find the call in database using Vapi call ID
             // activeCall might be deleted already, so we look it up by Vapi ID
             let dbCall: any = null;
-            
+
             // First try using activeCall if available
             if (activeCall) {
               dbCall = await storage.getCall(activeCall.callId);
             }
-            
+
             // If no activeCall or call not found, search by Vapi call ID
             if (!dbCall) {
               dbCall = await storage.getCallByVapiId(vapiCall.id);
             }
 
             if (!dbCall) {
-              console.log('[VAPI] Could not find call in database for Vapi ID:', vapiCall.id);
+              console.log(
+                "[VAPI] Could not find call in database for Vapi ID:",
+                vapiCall.id,
+              );
               break;
             }
 
-            console.log('[VAPI] End of call report for call:', dbCall.id, {
+            console.log("[VAPI] End of call report for call:", dbCall.id, {
               duration: vapiCall.duration,
               cost: vapiCall.cost,
               recordingUrl: vapiCall.recordingUrl,
@@ -1007,7 +1057,7 @@ ${transcriptText}`;
               });
             }
 
-            console.log('[VAPI] DB Call:', {
+            console.log("[VAPI] DB Call:", {
               callId: dbCall.id,
               emailRecipient: dbCall.emailRecipient,
             });
@@ -1015,10 +1065,13 @@ ${transcriptText}`;
             // Generate AI summary
             const transcript = await storage.getTranscriptByCallId(dbCall.id);
             const transcriptText = transcript
-              .map((msg: { speaker: string; text: string }) => `${msg.speaker === 'ai' ? 'AI' : 'Caller'}: ${msg.text}`)
-              .join('\n');
+              .map(
+                (msg: { speaker: string; text: string }) =>
+                  `${msg.speaker === "ai" ? "AI" : "Caller"}: ${msg.text}`,
+              )
+              .join("\n");
 
-            console.log('[VAPI] Transcript length:', transcriptText.length);
+            console.log("[VAPI] Transcript length:", transcriptText.length);
 
             if (transcriptText) {
               const summaryPrompt = `You are analyzing a phone call transcript. The caller is referred to as "JPM" (Jim Martin). Extract the representative's name if mentioned. Provide a concise summary in bullet points covering:
@@ -1031,18 +1084,27 @@ ${transcriptText}`;
 Transcript:
 ${transcriptText}`;
 
-              console.log('[VAPI] Generating summary...');
-              const summaryCompletion = await openaiClient.chat.completions.create({
-                model: 'gpt-4-turbo-preview',
-                messages: [
-                  { role: 'system', content: 'You are a helpful assistant that summarizes phone call transcripts.' },
-                  { role: 'user', content: summaryPrompt },
-                ],
-                temperature: 0.3,
-              });
+              console.log("[VAPI] Generating summary...");
+              const summaryCompletion =
+                await openaiClient.chat.completions.create({
+                  model: "gpt-4-turbo-preview",
+                  messages: [
+                    {
+                      role: "system",
+                      content:
+                        "You are a helpful assistant that summarizes phone call transcripts.",
+                    },
+                    { role: "user", content: summaryPrompt },
+                  ],
+                  temperature: 0.3,
+                });
 
-              const summary = summaryCompletion.choices[0]?.message?.content || '';
-              console.log('[VAPI] Summary generated:', summary.substring(0, 100) + '...');
+              const summary =
+                summaryCompletion.choices[0]?.message?.content || "";
+              console.log(
+                "[VAPI] Summary generated:",
+                summary.substring(0, 100) + "...",
+              );
 
               // Save summary to database
               await storage.updateCall(dbCall.id, { summary });
@@ -1050,42 +1112,55 @@ ${transcriptText}`;
               // Send email if recipient provided (don't require recording URL)
               if (dbCall.emailRecipient && summary) {
                 try {
-                  console.log(`[EMAIL] Sending summary to ${dbCall.emailRecipient}...`);
+                  console.log(
+                    `[EMAIL] Sending summary to ${dbCall.emailRecipient}...`,
+                  );
                   await sendCallSummaryEmail(
                     dbCall.emailRecipient,
                     dbCall.phoneNumber,
                     summary,
                     vapiCall.duration || 0,
-                    vapiCall.recordingUrl || undefined
+                    vapiCall.recordingUrl || undefined,
                   );
-                  console.log(`[EMAIL] ✓ Summary sent to ${dbCall.emailRecipient}`);
+                  console.log(
+                    `[EMAIL] ✓ Summary sent to ${dbCall.emailRecipient}`,
+                  );
                 } catch (emailError) {
-                  console.error('[EMAIL] ✗ Failed to send summary:', emailError);
+                  console.error(
+                    "[EMAIL] ✗ Failed to send summary:",
+                    emailError,
+                  );
                 }
               } else {
-                console.log('[EMAIL] Skipped - missing requirements:', {
+                console.log("[EMAIL] Skipped - missing requirements:", {
                   hasRecipient: !!dbCall.emailRecipient,
                   hasSummary: !!summary,
                 });
               }
             } else {
-              console.log('[VAPI] No transcript available for summary');
+              console.log("[VAPI] No transcript available for summary");
             }
           } else {
-            console.log('[VAPI] Skipping end-of-call-report - no vapiCall data');
+            console.log(
+              "[VAPI] Skipping end-of-call-report - no vapiCall data",
+            );
           }
           break;
         }
 
-        case 'function-call': {
+        case "function-call": {
           // DTMF button press or other function calls
           const { functionCall } = message;
-          
+
           if (functionCall && activeCall) {
-            console.log('[VAPI] Function call:', functionCall.name, functionCall.parameters);
-            
+            console.log(
+              "[VAPI] Function call:",
+              functionCall.name,
+              functionCall.parameters,
+            );
+
             // Log DTMF presses
-            if (functionCall.name === 'press_button') {
+            if (functionCall.name === "press_button") {
               const digit = functionCall.parameters?.digit;
               console.log(`[DTMF] Call ${activeCall.callId} pressed: ${digit}`);
             }
@@ -1094,12 +1169,12 @@ ${transcriptText}`;
         }
 
         default:
-          console.log('[VAPI WEBHOOK] Unknown message type:', message.type);
+          console.log("[VAPI WEBHOOK] Unknown message type:", message.type);
       }
 
       res.sendStatus(200);
     } catch (error) {
-      console.error('[VAPI WEBHOOK] Error processing webhook:', error);
+      console.error("[VAPI WEBHOOK] Error processing webhook:", error);
       res.sendStatus(200); // Always return 200 to prevent retries
     }
   });
@@ -1829,7 +1904,10 @@ ${transcriptText}`;
 
       // Generate call summary using OpenAI
       generateCallSummary(callId).catch((err) =>
-        console.error("Summary generation failed from recording callback:", err),
+        console.error(
+          "Summary generation failed from recording callback:",
+          err,
+        ),
       );
 
       res.sendStatus(200);
@@ -1874,7 +1952,9 @@ ${transcriptText}`;
   app.post("/api/test-summary/:callId", async (req, res) => {
     const { callId } = req.params;
 
-    console.error(`[TEST] Manual summary generation trigger for call ${callId}`);
+    console.error(
+      `[TEST] Manual summary generation trigger for call ${callId}`,
+    );
 
     try {
       await generateCallSummary(callId);
@@ -1888,15 +1968,15 @@ ${transcriptText}`;
   // TwiML endpoint for call transfer
   app.post("/api/transfer-twiml/:callId", async (req, res) => {
     const { callId } = req.params;
-    
+
     console.error(`[TRANSFER] Generating transfer TwiML for call ${callId}`);
-    
+
     // TwiML to dial the transfer number (616-617-0915)
     const twiml = `<?xml version="1.0" encoding="UTF-8"?>
 <Response>
   <Dial>+16166170915</Dial>
 </Response>`;
-    
+
     res.type("text/xml");
     res.send(twiml);
   });
@@ -1913,9 +1993,9 @@ ${transcriptText}`;
     // Validate controlUrl is available
     if (!activeCall.controlUrl) {
       console.error(`[TRANSFER] No controlUrl available for call ${callId}`);
-      return res.status(400).json({ 
+      return res.status(400).json({
         error: "Call control not available",
-        details: "This call does not have live control enabled" 
+        details: "This call does not have live control enabled",
       });
     }
 
@@ -1924,35 +2004,43 @@ ${transcriptText}`;
       if (activeCall.controlUrl) {
         // Use Vapi's live call control to transfer the call
         const response = await fetch(activeCall.controlUrl, {
-          method: 'POST',
+          method: "POST",
           headers: {
-            'Content-Type': 'application/json',
+            "Content-Type": "application/json",
           },
           body: JSON.stringify({
-            type: "transfer-call",
+            type: "transfer",
             destination: {
               type: "number",
-              number: "+16166170915"
-            }
-          })
+              number: "+16166170915",
+            },
+            content: "Transferring your call now",
+          }),
         });
-        
+
         if (!response.ok) {
           const errorText = await response.text();
-          console.error(`[VAPI] Transfer failed: ${response.status} - ${errorText}`);
-          return res.status(response.status).json({ 
-            error: "Transfer failed", 
-            details: errorText 
+          console.error(
+            `[VAPI] Transfer failed: ${response.status} - ${errorText}`,
+          );
+          return res.status(response.status).json({
+            error: "Transfer failed",
+            details: errorText,
           });
         }
-        
+
         console.log(`[VAPI] Call ${callId} transfer initiated to +16166170915`);
-        
+
         // Calculate duration at transfer time
         const duration = Math.floor((Date.now() - activeCall.startTime) / 1000);
 
         // Update call status in database
-        await storage.updateCallStatus(callId, "transferred", duration, new Date());
+        await storage.updateCallStatus(
+          callId,
+          "transferred",
+          duration,
+          new Date(),
+        );
 
         // Send WebSocket update
         activeCall.ws.send(
@@ -1968,22 +2056,20 @@ ${transcriptText}`;
 
         // Clean up active call
         activeCalls.delete(callId);
-        
-        res.json({ 
-          success: true, 
+
+        res.json({
+          success: true,
           transferredTo: "+16166170915",
-          duration
+          duration,
         });
       }
       // Fallback to Twilio for legacy calls
       else if (activeCall.twilioCallSid) {
         const host = getPublicHost(req);
-        await twilioClient
-          .calls(activeCall.twilioCallSid)
-          .update({
-            url: `https://${host}/api/transfer-twiml/${callId}`,
-            method: "POST",
-          });
+        await twilioClient.calls(activeCall.twilioCallSid).update({
+          url: `https://${host}/api/transfer-twiml/${callId}`,
+          method: "POST",
+        });
 
         console.log(`[TWILIO] Call ${callId} transferred to +16166170915`);
 
@@ -1991,7 +2077,12 @@ ${transcriptText}`;
         const duration = Math.floor((Date.now() - activeCall.startTime) / 1000);
 
         // Update call status in database
-        await storage.updateCallStatus(callId, "transferred", duration, new Date());
+        await storage.updateCallStatus(
+          callId,
+          "transferred",
+          duration,
+          new Date(),
+        );
 
         // Send WebSocket update
         activeCall.ws.send(
