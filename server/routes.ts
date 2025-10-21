@@ -346,26 +346,61 @@ export async function registerRoutes(app: Express): Promise<Server> {
           const { callId, instruction } = message.data;
           const activeCall = activeCalls.get(callId);
 
-          if (activeCall) {
-            // Add instruction to AI conversation context as a system message
-            // This won't be transcribed or played to caller
-            activeCall.openaiConversation.push({
-              role: "system",
-              content: `[OPERATOR INSTRUCTION - Not for caller]: ${instruction}`,
-            });
-
-            console.log(`Instruction added for call ${callId}: ${instruction}`);
-
-            // Send success response
-            ws.send(
-              JSON.stringify({
-                type: "instruction_response",
-                data: {
-                  success: true,
-                  message: "Instruction added to AI context",
+          if (activeCall && activeCall.controlUrl) {
+            try {
+              // Send instruction to Vapi assistant via Live Call Control API
+              const response = await fetch(activeCall.controlUrl, {
+                method: "POST",
+                headers: {
+                  Authorization: `Bearer ${process.env.VAPI_API_KEY}`,
+                  "Content-Type": "application/json",
                 },
-              }),
-            );
+                body: JSON.stringify({
+                  type: "add-message",
+                  message: {
+                    role: "system",
+                    content: `[OPERATOR INSTRUCTION - Silent, do not speak this to caller]: ${instruction}`,
+                  },
+                }),
+              });
+
+              if (!response.ok) {
+                const errorText = await response.text();
+                console.error(
+                  `[VAPI CONTROL] Failed to send instruction: ${response.status} - ${errorText}`,
+                );
+                throw new Error(`Vapi control API error: ${response.status}`);
+              }
+
+              console.log(
+                `[VAPI CONTROL] Instruction sent successfully for call ${callId}: ${instruction}`,
+              );
+
+              // Send success response
+              ws.send(
+                JSON.stringify({
+                  type: "instruction_response",
+                  data: {
+                    success: true,
+                    message: "Instruction sent to AI assistant",
+                  },
+                }),
+              );
+            } catch (error) {
+              console.error(
+                `[VAPI CONTROL] Error sending instruction:`,
+                error,
+              );
+              ws.send(
+                JSON.stringify({
+                  type: "instruction_response",
+                  data: {
+                    success: false,
+                    message: "Failed to send instruction to AI",
+                  },
+                }),
+              );
+            }
           } else {
             // Send error response
             ws.send(
@@ -373,7 +408,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
                 type: "instruction_response",
                 data: {
                   success: false,
-                  message: "Call not found or not active",
+                  message: activeCall
+                    ? "Call control not available"
+                    : "Call not found or not active",
                 },
               }),
             );
