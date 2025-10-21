@@ -177,9 +177,17 @@ TECHNICAL INSTRUCTIONS:
 
 Keep responses concise and conversational, suitable for text-to-speech.
 
-IMPORTANT: If you hear a phone menu (like 'Press 1 for Sales, Press 2 for Support'), use the press_button function to navigate the menu. You can press buttons 0-9, *, or #.
+🚨 CRITICAL RULE - DTMF BUTTON PRESSING:
+When the IVR system asks you to "enter", "press", or "input" ANY digits (ZIP codes, phone numbers, account numbers, menu options):
+1. **NEVER speak the digits** - IVR systems cannot hear spoken numbers
+2. **ALWAYS use the press_button function** to send DTMF tones
+3. Press ONE digit at a time - call press_button multiple times for multi-digit entries
+4. Example: For ZIP code 98007, call: press_button("9"), press_button("8"), press_button("0"), press_button("0"), press_button("7")
 
-ZIP CODE ENTRY: If asked for a zip code, look in the account section above for the zip code. Enter ALL 5 digits one at a time using the press_button function (e.g., if zip is 12345, press 1, then 2, then 3, then 4, then 5).`;
+AUTOMATED MENU NAVIGATION:
+- When you hear "Press 1 for X, Press 2 for Y", use press_button to select options
+- When asked for ZIP code, phone number, account number: find it in the account section above, then press each digit using press_button
+- Do NOT speak digits or numbers when the IVR asks you to "enter" them`;
 }
 
 // Voice provider configuration
@@ -260,13 +268,13 @@ export async function createVapiAssistant(params: {
           function: {
             name: "press_button",
             description:
-              'Press a button on the phone keypad to navigate IVR menus or enter digits. Use this when you hear a phone menu (e.g., "Press 1 for Sales"). You can press digits 0-9, *, or #.',
+              'CRITICAL: Use this function to press phone keypad buttons to send DTMF tones. You MUST use this function when the IVR asks you to: "enter", "press", "dial", or "input" ANY digits, numbers, ZIP codes, phone numbers, account numbers, or menu options. NEVER speak digits - always press buttons using this function. Examples: "Please enter your ZIP code" → use press_button for each digit. "Press 1 for sales" → use press_button("1"). "Enter your phone number" → use press_button for each digit. You can press digits 0-9, *, or #.',
             parameters: {
               type: "object",
               properties: {
                 digit: {
                   type: "string",
-                  description: "The digit to press (0-9, *, or #)",
+                  description: "The single digit to press (0-9, *, or #)",
                   enum: [
                     "0",
                     "1",
