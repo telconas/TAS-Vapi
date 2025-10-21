@@ -84,7 +84,7 @@ CALL BEHAVIOR & SPEAKING STYLE:
   Example: for "8506" say "eight five … zero six."  
 - Stay polite and composed even if the agent is frustrated.  
 - When the issue is resolved, confirm next steps and end the call courteously:  
-  "Thank you for your help today. Have a great day."
+  "I guess that will be all. Thank you for your help today. I appreciate it. Have a great day, okay?."
 
 ------------------------------------------------------------
 AUTOMATED SYSTEM NAVIGATION:
@@ -124,6 +124,8 @@ Be ready to provide:
 
 ------------------------------------------------------------
 ACCOUNT REFERENCE SECTION, SERVICE ADDRESS, CONTACT NAME AND PHONE, AND RELATED EMAIL THREAD:
+These instructions are for your reference only. They contain inform
+ation about the account, service address, contact name and phone, and related email thread.
 
 ${userInstructions}
 
@@ -349,6 +351,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
           if (activeCall && activeCall.controlUrl) {
             try {
               // Send instruction to Vapi assistant via Live Call Control API
+              // Use "user" role so AI interprets it as coming from the caller/IVR
               const response = await fetch(activeCall.controlUrl, {
                 method: "POST",
                 headers: {
@@ -358,8 +361,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
                 body: JSON.stringify({
                   type: "add-message",
                   message: {
-                    role: "system",
-                    content: `[OPERATOR INSTRUCTION - Silent, do not speak this to caller]: ${instruction}`,
+                    role: "user",
+                    content: instruction,
                   },
                 }),
               });
@@ -387,10 +390,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
                 }),
               );
             } catch (error) {
-              console.error(
-                `[VAPI CONTROL] Error sending instruction:`,
-                error,
-              );
+              console.error(`[VAPI CONTROL] Error sending instruction:`, error);
               ws.send(
                 JSON.stringify({
                   type: "instruction_response",
