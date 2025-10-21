@@ -231,6 +231,15 @@ export async function createVapiAssistant(params: {
 
   const webhookUrl = getPublicWebhookUrl("/api/vapi/webhook");
 
+  // Log the system prompt being sent to Vapi (first 500 chars for debugging)
+  console.log("=== Creating Vapi Assistant ===");
+  console.log("Assistant name:", params.name);
+  console.log("Voice provider:", params.voiceProvider);
+  console.log("Voice:", params.voice);
+  console.log("System prompt (first 500 chars):", params.systemPrompt.substring(0, 500));
+  console.log("System prompt (last 500 chars):", params.systemPrompt.substring(params.systemPrompt.length - 500));
+  console.log("System prompt total length:", params.systemPrompt.length);
+
   const assistantPayload = {
     name: params.name,
     firstMessageMode: params.firstMessageMode || "assistant-waits-for-user", // AI only speaks when asked
