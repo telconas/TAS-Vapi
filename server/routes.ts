@@ -351,7 +351,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
           if (activeCall && activeCall.controlUrl) {
             try {
               // Send instruction to Vapi assistant via Live Call Control API
-              // Use "user" role so AI interprets it as coming from the caller/IVR
+              // Use "system" role with explicit function call directive
               const response = await fetch(activeCall.controlUrl, {
                 method: "POST",
                 headers: {
@@ -361,8 +361,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
                 body: JSON.stringify({
                   type: "add-message",
                   message: {
-                    role: "user",
-                    content: instruction,
+                    role: "system",
+                    content: `IMMEDIATE ACTION REQUIRED: ${instruction}. You MUST use the press_button function RIGHT NOW to execute this instruction. Do not speak, just press the buttons.`,
                   },
                 }),
               });
