@@ -33,8 +33,9 @@ A full-stack web application that enables outbound AI voice calls using **Vapi.a
 - Call lifecycle: ✅ Idle → Ringing → Connected → Ended
 - Live monitoring UI: ✅ Appears correctly during active calls
 - Hang up functionality: ✅ Properly terminates calls
+- Call transfer: ✅ Fixed - recording and transcription continue through transfer (October 2025)
+- Call summaries: ✅ Include complete transcript including post-transfer conversation
 - **Known Limitation**: WebSocket audio streaming returns 500 error (Vapi-side monitoring service issue)
-- **Known Limitation**: Call summaries not yet displaying (requires Vapi end-of-call-report investigation)
 
 ## Tech Stack
 - **Frontend**: React, Tailwind CSS, Wouter (routing), TanStack Query
@@ -107,8 +108,10 @@ The following secrets are configured and available:
 - Components follow shadcn patterns with hover-elevate interactions
 
 ## Recent Updates
+- ✅ **Fixed call transfer recording** (October 22, 2025) - Calls now continue recording and transcribing during and after transfers. Summary includes complete conversation including post-transfer dialogue. Fixed Vapi transfer API format (type: "transfer" with Authorization header).
 - ✅ **Fixed voice provider format** (October 2025) - Corrected Vapi API call to use "11labs" instead of "elevenlabs" for ElevenLabs voices, resolving 400 Bad Request errors
 - ✅ **Voice ID extraction** - Deepgram voice IDs properly extract voice names (e.g., "aura-2-asteria-en" → "asteria") for Vapi compatibility
+- ✅ **Enhanced DTMF button pressing** (October 22, 2025) - Strengthened AI instructions to use press_button function for ZIP codes, phone numbers, and account numbers instead of speaking them
 - Added AI Instructions field for customizing what the AI does on calls
 - Added provider dropdown with 24+ carrier phone numbers (All Stream, ATT, Comcast, Spectrum, Verizon, etc.)
 - Added Hang Up button to disconnect active calls

@@ -2082,13 +2082,15 @@ ${transcriptText}`;
         const response = await fetch(activeCall.controlUrl, {
           method: "POST",
           headers: {
+            Authorization: `Bearer ${process.env.VAPI_API_KEY}`,
             "Content-Type": "application/json",
           },
           body: JSON.stringify({
-            type: "transfer-call",
+            type: "transfer",
             destination: {
               type: "number",
               number: "+16166170915",
+              message: "Transferring your call now. Please hold.",
             },
           }),
         });
@@ -2106,36 +2108,24 @@ ${transcriptText}`;
 
         console.log(`[VAPI] Call ${callId} transfer initiated to +16166170915`);
 
-        // Calculate duration at transfer time
-        const duration = Math.floor((Date.now() - activeCall.startTime) / 1000);
-
-        // Update call status in database
-        await storage.updateCallStatus(
-          callId,
-          "transferred",
-          duration,
-          new Date(),
-        );
-
-        // Send WebSocket update
+        // DON'T delete active call or mark as ended - Vapi will continue recording/transcribing
+        // The end-of-call-report webhook will handle final status and summary with COMPLETE transcript
+        
+        // Send WebSocket update to frontend (for UI notification only)
         activeCall.ws.send(
           JSON.stringify({
             type: "call_status",
             data: {
               callId,
-              status: "transferred",
-              duration,
+              status: "transferring",
             },
           }),
         );
 
-        // Clean up active call
-        activeCalls.delete(callId);
-
         res.json({
           success: true,
           transferredTo: "+16166170915",
-          duration,
+          message: "Call transfer initiated - recording will continue through transfer",
         });
       }
       // Fallback to Twilio for legacy calls
