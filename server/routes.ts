@@ -114,6 +114,7 @@ When connected to a live agent, say:
 -- If the agent asks for your service address, say "The service address is [service address]."
 -- If the agent asks for your account PIN, say "PIN is [account PIN]."
 -- If the agent asks for a brief summary of the task or issue, say "The task or issue is [short summary from the task or issue section]."
+--If the agent asks for a call back number, say "913-439-5811"
 
 Be ready to provide:
 - Account number  
@@ -2110,7 +2111,7 @@ ${transcriptText}`;
 
         // DON'T delete active call or mark as ended - Vapi will continue recording/transcribing
         // The end-of-call-report webhook will handle final status and summary with COMPLETE transcript
-        
+
         // Send WebSocket update to frontend (for UI notification only)
         activeCall.ws.send(
           JSON.stringify({
@@ -2125,7 +2126,8 @@ ${transcriptText}`;
         res.json({
           success: true,
           transferredTo: "+16166170915",
-          message: "Call transfer initiated - recording will continue through transfer",
+          message:
+            "Call transfer initiated - recording will continue through transfer",
         });
       }
       // Fallback to Twilio for legacy calls

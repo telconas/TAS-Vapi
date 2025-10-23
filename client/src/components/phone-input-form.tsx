@@ -3,7 +3,13 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { Phone, PhoneOff, PhoneForwarded } from "lucide-react";
 
 interface PhoneInputFormProps {
@@ -38,6 +44,7 @@ const providers = [
   { name: "Frontier", number: "800-921-8102" },
   { name: "Grande Communications", number: "877-881-7575" },
   { name: "Granite", number: "866-847-5500" },
+  { name: "Lumen", number: "877‑453‑8353" },
   { name: "MetTel", number: "800-876-9823" },
   { name: "Mood Media", number: "800-345-5000" },
   { name: "Optimum (CableVision)", number: "866-251-4435" },
@@ -51,7 +58,12 @@ const providers = [
   { name: "Verizon Enterprise", number: "888-622-0255" },
 ];
 
-export function PhoneInputForm({ onStartCall, onHangUp, onTransfer, isCallActive }: PhoneInputFormProps) {
+export function PhoneInputForm({
+  onStartCall,
+  onHangUp,
+  onTransfer,
+  isCallActive,
+}: PhoneInputFormProps) {
   const [countryCode, setCountryCode] = useState("+1");
   const [phoneNumber, setPhoneNumber] = useState("");
   const [selectedProvider, setSelectedProvider] = useState("");
@@ -61,7 +73,7 @@ export function PhoneInputForm({ onStartCall, onHangUp, onTransfer, isCallActive
   const handleProviderSelect = (value: string) => {
     setSelectedProvider(value);
     if (value) {
-      const provider = providers.find(p => p.number === value);
+      const provider = providers.find((p) => p.number === value);
       if (provider) {
         // Strip all non-digits from the phone number
         const cleanNumber = provider.number.replace(/\D/g, "");
@@ -98,12 +110,12 @@ export function PhoneInputForm({ onStartCall, onHangUp, onTransfer, isCallActive
         <Label htmlFor="provider" className="text-base font-medium">
           Provider (Optional)
         </Label>
-        <Select 
-          value={selectedProvider} 
+        <Select
+          value={selectedProvider}
           onValueChange={handleProviderSelect}
           disabled={isCallActive}
         >
-          <SelectTrigger 
+          <SelectTrigger
             className="w-full bg-card border-card-border"
             data-testid="select-provider"
           >
@@ -111,10 +123,10 @@ export function PhoneInputForm({ onStartCall, onHangUp, onTransfer, isCallActive
           </SelectTrigger>
           <SelectContent>
             {providers.map((provider) => (
-              <SelectItem 
-                key={provider.number} 
+              <SelectItem
+                key={provider.number}
                 value={provider.number}
-                data-testid={`option-provider-${provider.name.toLowerCase().replace(/\s+/g, '-')}`}
+                data-testid={`option-provider-${provider.name.toLowerCase().replace(/\s+/g, "-")}`}
               >
                 {provider.name} - {provider.number}
               </SelectItem>
@@ -128,8 +140,12 @@ export function PhoneInputForm({ onStartCall, onHangUp, onTransfer, isCallActive
           Phone Number
         </Label>
         <div className="flex gap-3">
-          <Select value={countryCode} onValueChange={setCountryCode} disabled={isCallActive}>
-            <SelectTrigger 
+          <Select
+            value={countryCode}
+            onValueChange={setCountryCode}
+            disabled={isCallActive}
+          >
+            <SelectTrigger
               className="w-32 bg-card border-card-border"
               data-testid="select-country-code"
             >
@@ -137,8 +153,8 @@ export function PhoneInputForm({ onStartCall, onHangUp, onTransfer, isCallActive
             </SelectTrigger>
             <SelectContent>
               {countryCodes.map((item) => (
-                <SelectItem 
-                  key={item.code} 
+                <SelectItem
+                  key={item.code}
                   value={item.code}
                   data-testid={`option-country-${item.code}`}
                 >

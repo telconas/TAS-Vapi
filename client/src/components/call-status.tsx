@@ -2,7 +2,7 @@ import { Badge } from "@/components/ui/badge";
 import { Phone, PhoneCall, PhoneOff, PhoneForwarded } from "lucide-react";
 
 interface CallStatusProps {
-  status: "idle" | "ringing" | "connected" | "ended" | "transferred";
+  status: "idle" | "ringing" | "connected" | "ended" | "transferred" | "transferring";
   duration?: number;
 }
 
@@ -25,6 +25,12 @@ export function CallStatus({ status, duration }: CallStatusProps) {
       icon: PhoneCall,
       color: "bg-chart-2/20 text-chart-2 border-chart-2/30",
       dotColor: "bg-chart-2",
+    },
+    transferring: {
+      label: "Transferring...",
+      icon: PhoneForwarded,
+      color: "bg-chart-5/20 text-chart-5 border-chart-5/30",
+      dotColor: "bg-chart-5",
     },
     ended: {
       label: "Call Ended",
@@ -57,7 +63,7 @@ export function CallStatus({ status, duration }: CallStatusProps) {
           className={`px-4 py-2 text-base font-medium border ${config.color}`}
           data-testid={`status-${status}`}
         >
-          <span className={`w-2 h-2 rounded-full mr-2 ${config.dotColor} ${status === "ringing" || status === "connected" ? "animate-pulse" : ""}`} />
+          <span className={`w-2 h-2 rounded-full mr-2 ${config.dotColor} ${status === "ringing" || status === "connected" || status === "transferring" ? "animate-pulse" : ""}`} />
           <Icon className="w-4 h-4 mr-2" />
           {config.label}
         </Badge>
