@@ -108,7 +108,7 @@ The following secrets are configured and available:
 - Components follow shadcn patterns with hover-elevate interactions
 
 ## Recent Updates
-- ✅ **FIXED: DTMF Button Pressing** (October 23, 2025) - **CRITICAL FIX**: Moved DTMF instructions to TOP of system prompt as "CRITICAL RULE #1". AI was saying "Please continue" instead of pressing buttons when IVR asked for ZIP codes/account numbers. Now press_button function has highest priority and includes concrete examples with actual address formats. Removed conflicting "wait and speak" instructions.
+- ✅ **FIXED: Voice vs DTMF Balance** (October 23, 2025) - **CRITICAL FIX**: Clarified when to speak vs when to press buttons. AI now speaks to answer IVR menu questions ("Phone or account number?" → say "Account number") but presses buttons to enter digits ("Enter ZIP code" → press 5-5-4-0-1). Previous fix was too restrictive and made AI completely silent.
 - ✅ **Fixed call transfer recording** (October 22, 2025) - Calls now continue recording and transcribing during and after transfers. Summary includes complete conversation including post-transfer dialogue. Fixed Vapi transfer API format (type: "transfer" with Authorization header).
 - ✅ **Fixed voice provider format** (October 2025) - Corrected Vapi API call to use "11labs" instead of "elevenlabs" for ElevenLabs voices, resolving 400 Bad Request errors
 - ✅ **Voice ID extraction** - Deepgram voice IDs properly extract voice names (e.g., "aura-2-asteria-en" → "asteria") for Vapi compatibility
