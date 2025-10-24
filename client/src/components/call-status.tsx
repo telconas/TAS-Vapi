@@ -46,7 +46,7 @@ export function CallStatus({ status, duration }: CallStatusProps) {
     },
   };
 
-  const config = statusConfig[status];
+  const config = statusConfig[status] || statusConfig.ended;
   const Icon = config.icon;
 
   const formatDuration = (seconds: number) => {
