@@ -1,0 +1,88 @@
+Good catch — yes, your `summaryPrompt` appears **twice** in your file: once in `generateCallSummary()` and once in the `end-of-call-report` webhook handler. That duplication is harmless but **bad for maintainability**.
+
+Here’s how to fix it cleanly and correctly 👇
+
+---
+
+## ✅ **Refactor Plan**
+
+1. **Extract the summary prompt template into a reusable helper function.**
+2. Pass the transcript text into that function whenever needed.
+
+---
+
+### 🧩 Example Implementation
+
+Add this **above** your `registerRoutes` function (or in a separate `utils/summary.ts` file):
+
+```ts
+// Helper to build OpenAI call summary prompt
+function buildSummaryPrompt(transcriptText: string): string {
+  return `You are an AI assistant tasked with creating detailed, narrative-style bullet point summaries of phone call transcripts.
+
+The caller is **Jim Martin**, referred to as **JPM** in the summary.
+
+Your goal is to capture **exactly what transpired during the call** — as if taking professional call notes — using clear, complete sentences for each bullet point.
+
+Follow these rules carefully:
+
+1. Write **full sentences in bullet points**, each describing one distinct action, statement, or event that occurred during the call.
+2. Use a **chronological order** so that the bullet points read like a concise story of what happened from start to finish.
+3. Always identify the **representative’s name** if mentioned.
+4. Always include **account numbers, PINs, service addresses, and phone numbers** if they are mentioned in the transcript.
+5. Use **JPM** to refer to the caller and use the representative’s name when possible (e.g., “The representative, Sarah, confirmed the account number…”).
+6. Avoid filler phrases like “pleasantries,” “greetings,” or “the call ended.”
+7. Do not use dashes to separate sentences within a bullet point. Each bullet point should contain one or two full sentences that describe what happened.
+8. Keep the focus on the **main points of the call** — issues discussed, actions taken, questions asked, confirmations provided, and outcomes.
+9. Maintain a **professional and factual tone** throughout the summary.
+10. If the representative’s name is not provided, note this clearly as “Representative name not mentioned.”
+
+Example format:
+- JPM verified the service address as 7700 Cody Lane, Sachse, TX 75048.  
+- The representative, Sarah, confirmed that the upgrade had been installed on Monday.  
+- JPM thanked the representative and confirmed that no further action was required.  
+
+Transcript:
+${transcriptText}`;
+}
+```
+
+---
+
+### 🔁 Then Replace Both Occurrences
+
+In both places where you currently have:
+
+```ts
+const summaryPrompt = `You are an AI assistant tasked with creating detailed ... ${transcriptText}`;
+```
+
+Replace with:
+
+```ts
+const summaryPrompt = buildSummaryPrompt(transcriptText);
+```
+
+---
+
+### ⚙️ Optional — Centralize Further
+
+If you have a `utils` folder, you can move this helper into `utils/summary.ts` and import it:
+
+```ts
+import { buildSummaryPrompt } from "./utils/summary";
+```
+
+This makes it easier to maintain if you ever adjust formatting, tone, or model usage later.
+
+---
+
+### ✅ Benefits
+
+* **Single source of truth** — change once, affect both summary generators.
+* **Less copy-paste** — easier readability and smaller file.
+* **Cleaner diff** — future updates (like adding timestamps or sentiment extraction) are trivial.
+
+---
+
+Would you like me to include a version that **also supports adding metadata** (like duration, call date, and provider name) inside the summary prompt automatically for even richer context?
