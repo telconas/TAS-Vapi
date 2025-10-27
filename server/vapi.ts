@@ -479,3 +479,23 @@ export async function getVapiCall(vapiCallId: string): Promise<any> {
 export async function endVapiCall(vapiCallId: string): Promise<void> {
   await vapiClient.delete(`/call/${vapiCallId}`);
 }
+
+/*
+ * NOTE: DTMF Configuration
+ * 
+ * DTMF is enabled in two places:
+ * 
+ * 1. Assistant Level (Automatic) ✅
+ *    - Configured in createVapiAssistant() via tools array
+ *    - Includes { type: "dtmf", function: { name: "press_button" } }
+ *    - This allows the AI to send DTMF tones during calls
+ * 
+ * 2. Phone Number Level (Manual - Dashboard Only) ⚠️
+ *    - Must be enabled manually in Vapi Dashboard
+ *    - Go to Phone Numbers → Select Number → Enable "Dial Keypad"
+ *    - Cannot be configured programmatically via API (no serverMessages property exists)
+ *    - Once enabled in dashboard, it persists for all calls from that number
+ * 
+ * Current Status: Phone number 4d110284-3f5e-4035-a9c4-3335ec4c6ff1 has
+ * DTMF manually enabled via dashboard.
+ */
