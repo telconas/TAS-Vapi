@@ -306,7 +306,7 @@ export async function createVapiAssistant(params: {
     firstMessageMode: params.firstMessageMode || "assistant-waits-for-user", // AI only speaks when asked
     model: {
       provider: "openai",
-      model: "gpt-4o", // GPT-4 Omni - latest and fastest
+      model: "gpt-4o-mini", // GPT-4 Omni - latest and fastest
       messages: [
         {
           role: "system",
@@ -314,12 +314,14 @@ export async function createVapiAssistant(params: {
         },
         {
           role: "user",
-          content: "When IVR asks for any numbers (ZIP, account, phone), immediately use press_button for each digit. Never speak numbers to IVR."
+          content:
+            "When IVR asks for any numbers (ZIP, account, phone), immediately use press_button for each digit. Never speak numbers to IVR.",
         },
         {
           role: "assistant",
-          content: "Understood. I will use press_button immediately when IVR requests digits, pressing one button per digit without speaking."
-        }
+          content:
+            "Understood. I will use press_button immediately when IVR requests digits, pressing one button per digit without speaking.",
+        },
       ],
       tools: [
         // DTMF button pressing tool
