@@ -300,6 +300,7 @@ export async function createVapiAssistant(params: {
     params.systemPrompt.substring(params.systemPrompt.length - 500),
   );
   console.log("System prompt total length:", params.systemPrompt.length);
+  console.log("First message mode:", params.firstMessageMode || "assistant-waits-for-user");
 
   const assistantPayload = {
     name: params.name,
@@ -410,8 +411,32 @@ export async function createVapiAssistant(params: {
     },
   };
 
-  const response = await vapiClient.post("/assistant", assistantPayload);
-  return response.data.id;
+  // Log the complete payload being sent to Vapi (for debugging)
+  console.log("\n=== VAPI ASSISTANT PAYLOAD ===");
+  console.log("Tools being sent:", JSON.stringify(assistantPayload.model.tools, null, 2));
+  console.log("Number of tools:", assistantPayload.model.tools.length);
+  console.log("Messages array length:", assistantPayload.model.messages.length);
+  console.log("================================\n");
+
+  try {
+    const response = await vapiClient.post("/assistant", assistantPayload);
+    
+    console.log("\n=== VAPI ASSISTANT CREATED ===");
+    console.log("Assistant ID:", response.data.id);
+    console.log("Tools in response:", response.data.model?.tools?.length || 0);
+    if (response.data.model?.tools) {
+      console.log("Tool types:", response.data.model.tools.map((t: any) => t.type || t.function?.name));
+    }
+    console.log("================================\n");
+    
+    return response.data.id;
+  } catch (error: any) {
+    console.error("\n=== VAPI ASSISTANT CREATION FAILED ===");
+    console.error("Error:", error.response?.data || error.message);
+    console.error("Status:", error.response?.status);
+    console.error("=======================================\n");
+    throw error;
+  }
 }
 
 // Make outbound call via Vapi
