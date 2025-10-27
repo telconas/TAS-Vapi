@@ -56,98 +56,6 @@ interface ActiveCall {
 
 const activeCalls = new Map<string, ActiveCall>();
 
-// Track sent DTMF to prevent duplicates (callId -> Set of sent data types)
-const sentDTMFCache = new Map<string, Set<string>>();
-
-// Server-driven DTMF injection for IVR navigation
-async function handleIVRDTMF(
-  transcript: string,
-  prompt: string,
-  controlUrl: string,
-  callId: string,
-): Promise<void> {
-  const lowerTranscript = transcript.toLowerCase();
-
-  // IVR patterns that request numeric input
-  const patterns = {
-    accountNumber: /(?:say or enter|enter|tell me|provide|what is).*(?:account number|account)/i,
-    zipCode: /(?:say or enter|enter|tell me|provide|what is).*(?:zip|postal code|zip code)/i,
-    phoneNumber: /(?:say or enter|enter|tell me|provide|what is).*(?:phone number|telephone number|10 digit|number)/i,
-  };
-
-  let digitsToSend: string | null = null;
-  let dataType: string | null = null;
-
-  // Check which pattern matches
-  if (patterns.accountNumber.test(transcript)) {
-    // Extract account number from prompt
-    const accountMatch = prompt.match(/Account Number:\s*(\d+)/i);
-    if (accountMatch) {
-      digitsToSend = accountMatch[1];
-      dataType = "account number";
-    }
-  } else if (patterns.zipCode.test(transcript)) {
-    // Extract ZIP from service address
-    const zipMatch = prompt.match(/(?:Service Address:[\s\S]*?,\s*\w+\s*,?\s*)(\d{5})/i);
-    if (zipMatch) {
-      digitsToSend = zipMatch[1];
-      dataType = "ZIP code";
-    }
-  } else if (patterns.phoneNumber.test(transcript)) {
-    // Extract phone from contact section
-    const phoneMatch = prompt.match(/Contact:[\s\S]*?(\d{3}[-\s]?\d{3}[-\s]?\d{4})/i);
-    if (phoneMatch) {
-      // Remove any dashes or spaces from phone number
-      digitsToSend = phoneMatch[1].replace(/[-\s]/g, "");
-      dataType = "phone number";
-    }
-  }
-
-  // If we found digits to send, inject DTMF via Vapi control API
-  if (digitsToSend && dataType) {
-    // Check if we've already sent this data type for this call
-    if (!sentDTMFCache.has(callId)) {
-      sentDTMFCache.set(callId, new Set());
-    }
-    
-    const callCache = sentDTMFCache.get(callId)!;
-    if (callCache.has(dataType)) {
-      console.log(`[DTMF INJECT] ⊗ Already sent ${dataType} for call ${callId}, skipping duplicate`);
-      return;
-    }
-
-    console.log(`[DTMF INJECT] Call ${callId}: Detected IVR request for ${dataType}`);
-    console.log(`[DTMF INJECT] IVR said: "${transcript}"`);
-    console.log(`[DTMF INJECT] Sending ${dataType}: ${digitsToSend} (${digitsToSend.length} digits)`);
-
-    try {
-      // Send all digits in a single request via Vapi control API
-      const response = await fetch(controlUrl, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          "Authorization": `Bearer ${process.env.VAPI_API_KEY}`,
-        },
-        body: JSON.stringify({
-          type: "send-dtmf",
-          digits: digitsToSend,
-        }),
-      });
-
-      if (!response.ok) {
-        const errorText = await response.text();
-        console.error(`[DTMF INJECT] ✗ Failed to send ${dataType}: ${response.status} ${errorText}`);
-      } else {
-        console.log(`[DTMF INJECT] ✓ Successfully sent ${digitsToSend.length} digits for ${dataType}`);
-        // Mark this data type as sent for this call
-        callCache.add(dataType);
-      }
-    } catch (error) {
-      console.error(`[DTMF INJECT] ✗ Error sending DTMF:`, error);
-    }
-  }
-}
-
 // Helper function to build the full system prompt
 function buildSystemPrompt(userInstructions: string): string {
   return `ROLE:
@@ -261,7 +169,7 @@ TRANSFER TO HUMAN AGENT:
 
 **CRITICAL: DO NOT TRANSFER during IVR navigation or automated systems!**
 
-You are equipped with server-side DTMF automation that will automatically enter account numbers, ZIP codes, and phone numbers when requested by IVR systems. **Wait for the automation to complete** before considering a transfer.
+You have the press_button function to navigate IVR menus and enter account data. **Complete the IVR navigation first** using press_button before considering a transfer.
 
 **ONLY transfer the call to a human agent** using the transfer_call function when:
 
@@ -1175,16 +1083,8 @@ ${transcriptText}`;
               }),
             );
 
-            // Server-driven DTMF injection for IVR navigation
-            // Only trigger on caller (IVR) messages, not AI responses
-            if (speaker === "caller" && activeCall.controlUrl) {
-              await handleIVRDTMF(
-                transcript,
-                activeCall.prompt,
-                activeCall.controlUrl,
-                activeCall.callId,
-              );
-            }
+            // Note: DTMF is handled by the AI using the press_button function tool
+            // The Live Call Control API does not support direct DTMF sending
           }
           break;
         }
@@ -1236,7 +1136,6 @@ ${transcriptText}`;
             // Clean up active call if ended
             if (appStatus === "ended") {
               activeCalls.delete(activeCall.callId);
-              sentDTMFCache.delete(activeCall.callId);
             }
           }
           break;
@@ -1477,7 +1376,6 @@ ${transcriptText}`;
       );
 
       activeCalls.delete(callId);
-      sentDTMFCache.delete(callId);
 
       // Note: Webhook will be sent from recording callback once recording URL is available
     }
@@ -2311,7 +2209,6 @@ ${transcriptText}`;
 
         // Clean up active call
         activeCalls.delete(callId);
-        sentDTMFCache.delete(callId);
 
         res.json({ success: true, transferredTo: "+19134395811", duration });
       } else {
@@ -2366,7 +2263,6 @@ ${transcriptText}`;
 
       // Clean up active call
       activeCalls.delete(callId);
-      sentDTMFCache.delete(callId);
 
       // Note: Call summary will be generated from recording callback once recording URL is available
 

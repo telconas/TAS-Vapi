@@ -183,7 +183,7 @@ export async function sendCallSummaryEmail(
             }
           </div>
           <div class="footer">
-            <p>TAS AI Agent - Powered by Twilio, OpenAI & Deepgram</p>
+            <p>TAS AI Agent</p>
           </div>
         </div>
       </body>
