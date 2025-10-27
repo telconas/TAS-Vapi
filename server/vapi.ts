@@ -312,6 +312,14 @@ export async function createVapiAssistant(params: {
           role: "system",
           content: params.systemPrompt,
         },
+        {
+          role: "user",
+          content: "When IVR asks for any numbers (ZIP, account, phone), immediately use press_button for each digit. Never speak numbers to IVR."
+        },
+        {
+          role: "assistant",
+          content: "Understood. I will use press_button immediately when IVR requests digits, pressing one button per digit without speaking."
+        }
       ],
       tools: [
         // DTMF button pressing tool
