@@ -219,39 +219,49 @@ ZIP CODE ENTRY: If asked for a zip code, look in the account section above for t
 // Helper function to build OpenAI call summary prompt
 // Single source of truth for summary generation across the application
 function buildSummaryPrompt(transcriptText: string): string {
-  return `You are an AI assistant tasked with creating concise, narrative-style bullet point summaries of phone call transcripts.
+  return `You are an AI assistant tasked with creating detailed, narrative-style bullet point summaries of phone call transcripts.
 
 The caller is **Jim Martin**, referred to as **JPM** in the summary.
 
 **IMPORTANT: ONLY summarize the conversation with a LIVE HUMAN AGENT.**
 
-IGNORE and DO NOT SUMMARIZE any of the following:
-- Automated greetings and IVR menus (e.g., "Press 1 for sales, press 2 for support")
+IGNORE and DO NOT INCLUDE any of the following:
+- Automated greetings and IVR menu prompts
 - Hold music or hold messages
-- System prompts asking for account numbers, ZIP codes, or PINs
+- Automated system prompts asking for account numbers, ZIP codes, or PINs
 - Any automated voice or recording before reaching a live person
-- Button presses or DTMF navigation
+- Button presses, DTMF navigation, or what buttons were pressed
 - "Please hold while we transfer your call" type messages
 
-START your summary ONLY from when a live human representative begins speaking and interacting with JPM.
+START your summary from when a live human representative begins speaking and interacting with JPM.
 
 If no live agent interaction occurred (call was entirely automated/IVR), respond with: "No live agent interaction - call was handled by automated system."
 
 Follow these rules for the live agent portion:
 
 1. Write **full sentences in bullet points**, each describing one distinct action, statement, or event.
-2. Use **chronological order** so the bullet points read like concise notes of what happened.
+2. Use **chronological order** so the bullet points read like a story of what happened.
 3. Always identify the **representative's name** if mentioned.
-4. Include **account numbers, confirmation numbers, and key details** mentioned during the live conversation.
+4. **ALWAYS include important details mentioned during the conversation:**
+   - Account numbers
+   - Static IP addresses
+   - Confirmation numbers
+   - Service addresses
+   - Phone numbers
+   - Pricing and plan details
+   - Dates and times
+   - Any reference numbers or ticket numbers
 5. Use **JPM** to refer to the caller and the representative's name when known.
-6. Focus on **outcomes**: issues resolved, actions taken, next steps, and confirmations.
-7. Keep it brief - typically 3-6 bullet points for most calls.
-8. If the representative's name is not provided, use "the representative" or "the agent."
+6. Capture everything important - use as many bullet points as needed to cover all key information.
+7. If the representative's name is not provided, use "the representative" or "the agent."
 
 Example format:
-- JPM spoke with Sarah who confirmed the service upgrade was completed on Monday.
-- Sarah verified the account is now active with the new plan at $89/month.
-- No further action required; confirmation number 12345 was provided.
+- JPM spoke with Sarah regarding the business internet account.
+- Sarah confirmed the account number is 8372749201 and verified the service address at 7700 Cody Lane, Sachse, TX 75048.
+- The static IP block 209.182.44.16/29 was confirmed as active on the account.
+- Sarah noted the current plan is Business Internet 200 at $149.99/month.
+- A service call was scheduled for Tuesday, December 3rd between 10am-12pm.
+- Confirmation number 445892 was provided for the scheduled appointment.
 
 Transcript:
 ${transcriptText}`;
