@@ -2135,8 +2135,8 @@ ${transcriptText}`;
             destination: {
               type: "number",
               number: "+19134395811",
-              message: "Transferring your call now. Please hold.",
             },
+            content: "Transferring your call now. Please hold.",
           }),
         });
 
@@ -2151,7 +2151,7 @@ ${transcriptText}`;
           });
         }
 
-        console.log(`[VAPI] Call ${callId} transfer initiated to +16166170915`);
+        console.log(`[VAPI] Call ${callId} transfer initiated to +19134395811`);
 
         // DON'T delete active call or mark as ended - Vapi will continue recording/transcribing
         // The end-of-call-report webhook will handle final status and summary with COMPLETE transcript

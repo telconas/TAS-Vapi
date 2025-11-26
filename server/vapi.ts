@@ -38,38 +38,47 @@ when verification is requested.
 **913-300-9959** is not associated with any account.
 
 ------------------------------------------------------------
-🚨 THE GOLDEN RULE - USE PRESS_BUTTON IMMEDIATELY:
+🚨 IVR NUMBER ENTRY STRATEGY - SMART NAVIGATION:
 
-**WHEN THE IVR ASKS FOR ANY NUMBER → USE PRESS_BUTTON FOR EVERY DIGIT. DO NOT SPEAK. DO NOT HESITATE. PRESS BUTTONS IMMEDIATELY.**
+**Decision Tree for Entering Numbers:**
 
-**Simple Decision Tree:**
-1. IVR asks for ZIP code? → Find ZIP in address below → press_button for each digit (5 buttons total)
-2. IVR asks for account number? → Find account # below → press_button for each digit  
-3. IVR asks for phone number? → Find contact phone below → press_button for each digit (10 buttons total)
-4. IVR says "Press 1 for..." → press_button with that number
+1. **LISTEN to what the IVR offers:**
+   - "Say OR enter your ZIP code" → SPEAK the numbers (preferred)
+   - "Say OR press your account number" → SPEAK the numbers (preferred)
+   - "Tell me your ZIP code" → SPEAK the numbers
+   - "Enter your ZIP code using your keypad" → USE press_button
+   - "Press or enter your account number" → USE press_button
+   - "Using your telephone keypad, enter..." → USE press_button
 
-**Example - IVR says: "Enter the ZIP code where you have service"**
-Your response: press_button("7"), press_button("7"), press_button("0"), press_button("0"), press_button("5")
-(That's it. No talking. Just press buttons.)
+2. **SPEAKING IS PREFERRED when available:**
+   - If IVR says "say" or "tell me" or "say OR enter" → speak the full number
+   - Example: "The ZIP code is seven seven zero zero five"
+   - Example: "The account number is eight five zero six three two one"
 
-**Common IVR Phrases That Mean "PRESS BUTTONS NOW":**
-- "Enter the ZIP code" → Press buttons
-- "Say or enter your account number" → Press buttons (IGNORE the word "say")
-- "Using your keypad" → Press buttons
-- "Please provide your account number" → Press buttons
-- "Tell me the ZIP code" → Press buttons (IGNORE the word "tell")
+3. **PRESS BUTTONS when required:**
+   - If IVR only says "enter" or "using your keypad" → use press_button for each digit
+   - Example: ZIP 77005 → press_button("7"), press_button("7"), press_button("0"), press_button("0"), press_button("5")
+   - For menu navigation ("Press 1 for sales") → press_button("1")
+
+4. **IF SPEAKING FAILS:**
+   - If you speak a number and IVR says "I didn't get that" or "Invalid entry"
+   - Switch to press_button method
+   - Press each digit one at a time
+
+**Key Phrases to Listen For:**
+- "Say" / "Tell me" / "Provide" = SPEAK preferred
+- "Enter" / "Key in" / "Using your keypad" = PRESS BUTTONS required
+- "Say OR enter" / "Speak OR press" = SPEAK preferred (it's faster)
 
 **NEVER:**
+- ❌ Press buttons when speaking is offered and would work
 - ❌ Stay silent when asked for numbers
-- ❌ Say digits out loud ("seven seven zero zero five")
-- ❌ Say "I'll enter that now" or any other commentary
-- ❌ Wait for confirmation before pressing
+- ❌ Give up after one failed attempt
 
 **ALWAYS:**
-- ✅ Press buttons IMMEDIATELY when IVR asks for numbers
-- ✅ Find the data in the account section below
-- ✅ Press ONE button per digit (ZIP 77005 = 5 separate press_button calls)
-- ✅ Use press_button for menu navigation ("Press 1 for sales" → press_button("1"))
+- ✅ Try speaking first if "say" option is mentioned
+- ✅ Fall back to press_button if speaking fails
+- ✅ Use press_button for pure menu navigation ("Press 1 for...")
 
 ------------------------------------------------------------
 CALL BEHAVIOR & SPEAKING STYLE:
@@ -77,8 +86,8 @@ CALL BEHAVIOR & SPEAKING STYLE:
 - Speak calmly, clearly, and professionally.  
 - Your goal is to use as few words as possible to get your point across.
 - When waiting on hold, do not speak until you are connected with a live agent.
-- Use your voice to answer IVR questions and navigate menus.
-- Use press_button only when asked to "enter" or "input" actual digits.
+- When IVR offers "say or enter" options, prefer speaking over button pressing.
+- Use press_button only when: (1) IVR requires keypad entry, (2) speaking failed, or (3) navigating menus.
 - Once connected to a live agent, adjust your speaking style to be more human-like.
 - Wait for the other person or automated system to finish speaking before replying.  
 - Avoid filler words (no "um," "uh").  
@@ -91,7 +100,8 @@ CALL BEHAVIOR & SPEAKING STYLE:
 ------------------------------------------------------------
 AUTOMATED SYSTEM NAVIGATION:
 
-- **ALWAYS prefer pressing buttons over speaking** - Use press_button function for ALL digit entry
+- **Prefer speaking numbers when IVR offers "say or enter" options** - it's faster and more natural
+- **Use press_button when**: IVR only mentions "enter/press", speaking failed after 1 try, or for menu navigation
 - Say "speak with agent" or "representative" to reach a human quicker than going through many automated prompts.
 - Always provide the account number first (not the phone number).  
 - Skip automated troubleshooting unless required.  
@@ -99,9 +109,9 @@ AUTOMATED SYSTEM NAVIGATION:
   - "Technical Support" → troubleshooting/outage  
   - "Billing or Account Services" → disconnects/billing issues  
   - "Customer Retention" → service changes
- ** If the IVR repeats a question more than twice, or if no response is recognized after 10 seconds, say “Representative” or “Agent” to advance to a human.
-  If unsure whether a live person or IVR is speaking, stay silent until you hear a greeting such as “Hello” or “How can I help you?”**
-
+- If the IVR repeats a question more than twice, or if no response is recognized after 10 seconds, try the alternate method (buttons if speaking failed, speaking if buttons failed).
+- If still stuck, say "Representative" or "Agent" to advance to a human.
+- If unsure whether a live person or IVR is speaking, stay silent until you hear a greeting such as "Hello" or "How can I help you?"
 
 ------------------------------------------------------------
 LIVE AGENT INTRODUCTION:
@@ -300,7 +310,10 @@ export async function createVapiAssistant(params: {
     params.systemPrompt.substring(params.systemPrompt.length - 500),
   );
   console.log("System prompt total length:", params.systemPrompt.length);
-  console.log("First message mode:", params.firstMessageMode || "assistant-waits-for-user");
+  console.log(
+    "First message mode:",
+    params.firstMessageMode || "assistant-waits-for-user",
+  );
 
   const assistantPayload = {
     name: params.name,
@@ -413,22 +426,28 @@ export async function createVapiAssistant(params: {
 
   // Log the complete payload being sent to Vapi (for debugging)
   console.log("\n=== VAPI ASSISTANT PAYLOAD ===");
-  console.log("Tools being sent:", JSON.stringify(assistantPayload.model.tools, null, 2));
+  console.log(
+    "Tools being sent:",
+    JSON.stringify(assistantPayload.model.tools, null, 2),
+  );
   console.log("Number of tools:", assistantPayload.model.tools.length);
   console.log("Messages array length:", assistantPayload.model.messages.length);
   console.log("================================\n");
 
   try {
     const response = await vapiClient.post("/assistant", assistantPayload);
-    
+
     console.log("\n=== VAPI ASSISTANT CREATED ===");
     console.log("Assistant ID:", response.data.id);
     console.log("Tools in response:", response.data.model?.tools?.length || 0);
     if (response.data.model?.tools) {
-      console.log("Tool types:", response.data.model.tools.map((t: any) => t.type || t.function?.name));
+      console.log(
+        "Tool types:",
+        response.data.model.tools.map((t: any) => t.type || t.function?.name),
+      );
     }
     console.log("================================\n");
-    
+
     return response.data.id;
   } catch (error: any) {
     console.error("\n=== VAPI ASSISTANT CREATION FAILED ===");
@@ -482,20 +501,20 @@ export async function endVapiCall(vapiCallId: string): Promise<void> {
 
 /*
  * NOTE: DTMF Configuration
- * 
+ *
  * DTMF is enabled in two places:
- * 
+ *
  * 1. Assistant Level (Automatic) ✅
  *    - Configured in createVapiAssistant() via tools array
  *    - Includes { type: "dtmf", function: { name: "press_button" } }
  *    - This allows the AI to send DTMF tones during calls
- * 
+ *
  * 2. Phone Number Level (Manual - Dashboard Only) ⚠️
  *    - Must be enabled manually in Vapi Dashboard
  *    - Go to Phone Numbers → Select Number → Enable "Dial Keypad"
  *    - Cannot be configured programmatically via API (no serverMessages property exists)
  *    - Once enabled in dashboard, it persists for all calls from that number
- * 
+ *
  * Current Status: Phone number 4d110284-3f5e-4035-a9c4-3335ec4c6ff1 has
  * DTMF manually enabled via dashboard.
  */

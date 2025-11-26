@@ -32,6 +32,7 @@ const countryCodes = [
 
 const providers = [
   { name: "All Stream", number: "800-360-4467" },
+  { name: "Astound", number: "800-427-8686" },
   { name: "ATT", number: "800-321-2000" },
   { name: "Century Link", number: "800-777-9594" },
   { name: "Comcast Business", number: "800-391-3000" },
