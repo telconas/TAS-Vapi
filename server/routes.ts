@@ -267,6 +267,37 @@ Transcript:
 ${transcriptText}`;
 }
 
+// Helper function to poll Vapi API for recording URL (processing may take time)
+async function pollForRecording(vapiCallId: string, dbCallId: string) {
+  const maxAttempts = 10;
+  const delayMs = 5000; // 5 seconds between attempts
+  
+  for (let attempt = 1; attempt <= maxAttempts; attempt++) {
+    await new Promise(resolve => setTimeout(resolve, delayMs));
+    
+    try {
+      console.log(`[VAPI POLL] Attempt ${attempt}/${maxAttempts} - Checking for recording...`);
+      const vapiCall = await getVapiCall(vapiCallId);
+      
+      const recordingUrl = vapiCall?.artifact?.recordingUrl || 
+                           vapiCall?.artifact?.stereoRecordingUrl ||
+                           vapiCall?.recordingUrl;
+      
+      if (recordingUrl) {
+        console.log(`[VAPI POLL] ✓ Recording URL found: ${recordingUrl.substring(0, 50)}...`);
+        await storage.updateCall(dbCallId, { recordingUrl });
+        return;
+      }
+      
+      console.log(`[VAPI POLL] Recording not ready yet (attempt ${attempt}/${maxAttempts})`);
+    } catch (error) {
+      console.error(`[VAPI POLL] Error fetching call:`, error);
+    }
+  }
+  
+  console.log(`[VAPI POLL] Recording not available after ${maxAttempts} attempts`);
+}
+
 // Helper function to generate and save ElevenLabs audio
 async function generateAndSaveAudio(
   text: string,
@@ -1216,23 +1247,35 @@ ${transcriptText}`;
               callDuration = dbCall.duration;
             }
 
+            // Extract recording URL from artifact object (Vapi's structure)
+            const recordingUrl = vapiCall.artifact?.recordingUrl || 
+                                 vapiCall.artifact?.stereoRecordingUrl ||
+                                 vapiCall.recordingUrl;
+
             console.log("[VAPI] End of call report for call:", dbCall.id, {
               vapiDuration: vapiCall.duration,
               calculatedDuration: callDuration,
               cost: vapiCall.cost,
-              recordingUrl: vapiCall.recordingUrl,
+              recordingUrl: recordingUrl,
+              hasArtifact: !!vapiCall.artifact,
             });
 
             // Update call with recording URL and duration
             const updateData: any = {};
-            if (vapiCall.recordingUrl) {
-              updateData.recordingUrl = vapiCall.recordingUrl;
+            if (recordingUrl) {
+              updateData.recordingUrl = recordingUrl;
             }
             if (callDuration > 0) {
               updateData.duration = callDuration;
             }
             if (Object.keys(updateData).length > 0) {
               await storage.updateCall(dbCall.id, updateData);
+            }
+
+            // If no recording URL, poll Vapi API for it (recording processing may take time)
+            if (!recordingUrl && vapiCall.id) {
+              console.log("[VAPI] No recording URL in webhook, will poll Vapi API...");
+              pollForRecording(vapiCall.id, dbCall.id);
             }
 
             console.log("[VAPI] DB Call:", {
@@ -1289,7 +1332,7 @@ ${transcriptText}`;
                     dbCall.phoneNumber,
                     summary,
                     callDuration,
-                    vapiCall.recordingUrl || undefined,
+                    recordingUrl || undefined,
                   );
                   console.log(
                     `[EMAIL] ✓ Summary sent to ${dbCall.emailRecipient}`,
