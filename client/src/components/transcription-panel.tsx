@@ -11,21 +11,12 @@ interface TranscriptionPanelProps {
 
 export function TranscriptionPanel({ messages, isActive }: TranscriptionPanelProps) {
   const scrollRef = useRef<HTMLDivElement>(null);
-  const scrollAreaRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
-    // Only auto-scroll if user is already near the bottom (within 100px)
-    // This allows users to scroll up to read without being forced back down
-    if (scrollRef.current && scrollAreaRef.current) {
-      const scrollArea = scrollAreaRef.current.querySelector('[data-radix-scroll-area-viewport]');
-      if (scrollArea) {
-        const { scrollTop, scrollHeight, clientHeight } = scrollArea;
-        const isNearBottom = scrollHeight - scrollTop - clientHeight < 100;
-        
-        if (isNearBottom) {
-          scrollRef.current.scrollIntoView({ behavior: "smooth" });
-        }
-      }
+    // Always auto-scroll to bottom when new messages arrive
+    // This ensures the latest transcription is always visible
+    if (scrollRef.current) {
+      scrollRef.current.scrollIntoView({ behavior: "smooth" });
     }
   }, [messages]);
 
@@ -39,7 +30,7 @@ export function TranscriptionPanel({ messages, isActive }: TranscriptionPanelPro
   };
 
   return (
-    <Card className="h-[500px] flex flex-col" data-testid="card-transcription-panel">
+    <Card className="h-[calc(100vh-180px)] min-h-[600px] flex flex-col" data-testid="card-transcription-panel">
       <div className="p-6 border-b border-card-border">
         <h3 className="text-lg font-semibold">Live Transcription</h3>
         {isActive && (
@@ -49,7 +40,7 @@ export function TranscriptionPanel({ messages, isActive }: TranscriptionPanelPro
         )}
       </div>
       
-      <ScrollArea className="flex-1 p-6" ref={scrollAreaRef}>
+      <ScrollArea className="flex-1 p-6">
         {messages.length === 0 ? (
           <div className="flex flex-col items-center justify-center h-full text-center space-y-4">
             <div className="w-16 h-16 rounded-full bg-primary/10 flex items-center justify-center">
