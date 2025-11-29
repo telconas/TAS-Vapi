@@ -10,13 +10,16 @@ interface TranscriptionPanelProps {
 }
 
 export function TranscriptionPanel({ messages, isActive }: TranscriptionPanelProps) {
-  const scrollRef = useRef<HTMLDivElement>(null);
+  const scrollAreaRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
-    // Always auto-scroll to bottom when new messages arrive
-    // This ensures the latest transcription is always visible
-    if (scrollRef.current) {
-      scrollRef.current.scrollIntoView({ behavior: "smooth" });
+    // Auto-scroll to bottom when new messages arrive
+    // Find the scroll viewport inside ScrollArea and scroll it
+    if (scrollAreaRef.current) {
+      const viewport = scrollAreaRef.current.querySelector('[data-radix-scroll-area-viewport]');
+      if (viewport) {
+        viewport.scrollTop = viewport.scrollHeight;
+      }
     }
   }, [messages]);
 
@@ -40,7 +43,7 @@ export function TranscriptionPanel({ messages, isActive }: TranscriptionPanelPro
         )}
       </div>
       
-      <ScrollArea className="flex-1 p-6">
+      <ScrollArea className="flex-1 p-6" ref={scrollAreaRef}>
         {messages.length === 0 ? (
           <div className="flex flex-col items-center justify-center h-full text-center space-y-4">
             <div className="w-16 h-16 rounded-full bg-primary/10 flex items-center justify-center">
@@ -94,7 +97,6 @@ export function TranscriptionPanel({ messages, isActive }: TranscriptionPanelPro
                 </div>
               </div>
             ))}
-            <div ref={scrollRef} />
           </div>
         )}
       </ScrollArea>
