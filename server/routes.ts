@@ -1165,6 +1165,9 @@ ${transcriptText}`;
           // Full call report with recording URL, transcript, cost, etc.
           const { call: vapiCall } = message;
 
+          // Log full vapiCall object to debug duration field
+          console.log("[VAPI] End-of-call-report FULL payload:", JSON.stringify(vapiCall, null, 2));
+
           console.log("[VAPI] End-of-call-report received:", {
             hasActiveCall: !!activeCall,
             hasVapiCall: !!vapiCall,
@@ -1194,17 +1197,42 @@ ${transcriptText}`;
               break;
             }
 
+            // Extract duration - Vapi may use different field names
+            // Try: duration, durationSeconds, durationMs, or calculate from timestamps
+            let callDuration = 
+              vapiCall.duration || 
+              vapiCall.durationSeconds || 
+              (vapiCall.durationMs ? Math.floor(vapiCall.durationMs / 1000) : 0) ||
+              (vapiCall.endedAt && vapiCall.startedAt ? 
+                Math.floor((new Date(vapiCall.endedAt).getTime() - new Date(vapiCall.startedAt).getTime()) / 1000) : 0);
+            
+            // Fallback: calculate from activeCall start time if still no duration
+            if (!callDuration && activeCall) {
+              callDuration = Math.floor((Date.now() - activeCall.startTime) / 1000);
+            }
+            
+            // Final fallback: use dbCall.duration if it was already set
+            if (!callDuration && dbCall.duration) {
+              callDuration = dbCall.duration;
+            }
+
             console.log("[VAPI] End of call report for call:", dbCall.id, {
-              duration: vapiCall.duration,
+              vapiDuration: vapiCall.duration,
+              calculatedDuration: callDuration,
               cost: vapiCall.cost,
               recordingUrl: vapiCall.recordingUrl,
             });
 
-            // Update call with recording URL
+            // Update call with recording URL and duration
+            const updateData: any = {};
             if (vapiCall.recordingUrl) {
-              await storage.updateCall(dbCall.id, {
-                recordingUrl: vapiCall.recordingUrl,
-              });
+              updateData.recordingUrl = vapiCall.recordingUrl;
+            }
+            if (callDuration > 0) {
+              updateData.duration = callDuration;
+            }
+            if (Object.keys(updateData).length > 0) {
+              await storage.updateCall(dbCall.id, updateData);
             }
 
             console.log("[VAPI] DB Call:", {
@@ -1260,7 +1288,7 @@ ${transcriptText}`;
                     dbCall.emailRecipient,
                     dbCall.phoneNumber,
                     summary,
-                    vapiCall.duration || 0,
+                    callDuration,
                     vapiCall.recordingUrl || undefined,
                   );
                   console.log(
