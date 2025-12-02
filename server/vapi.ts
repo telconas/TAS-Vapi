@@ -356,39 +356,10 @@ export async function createVapiAssistant(params: {
         },
       ],
       tools: [
-        // DTMF button pressing tool
+        // DTMF tool - Reference pre-configured tool from Vapi dashboard
         {
           type: "dtmf",
           async: false,
-          function: {
-            name: "press_button",
-            description:
-              'Use this to send keypad button presses (DTMF tones) to navigate phone menus. USE CASES: (1) Menu navigation like "Press 1 for sales" → press_button("1"), (2) When IVR says "enter" or "using your keypad" without offering voice option, (3) When speaking numbers failed. For ZIP/account numbers when IVR offers "say OR enter", prefer speaking first. Example for keypad entry: ZIP 77005 requires 5 calls: press_button("7"), press_button("7"), press_button("0"), press_button("0"), press_button("5"). Available buttons: 0-9, *, #.',
-            parameters: {
-              type: "object",
-              properties: {
-                digit: {
-                  type: "string",
-                  description: "The single digit to press (0-9, *, or #)",
-                  enum: [
-                    "0",
-                    "1",
-                    "2",
-                    "3",
-                    "4",
-                    "5",
-                    "6",
-                    "7",
-                    "8",
-                    "9",
-                    "*",
-                    "#",
-                  ],
-                },
-              },
-              required: ["digit"],
-            },
-          },
         },
         // Call transfer tool
         {
@@ -430,14 +401,17 @@ export async function createVapiAssistant(params: {
     serverUrl: webhookUrl,
     // Artifact plan: Controls recording, transcription, and analysis
     artifactPlan: {
-      recordingEnabled: true, // Keep recording active during and after transfers
+      recordingEnabled: true,
       videoRecordingEnabled: false,
       transcriptPlan: {
-        enabled: true, // Keep transcription active during and after transfers
+        enabled: true,
+        assistantName: "James Martin", // Label speakers in transcript
+        userName: "Agent",
       },
       recordingPath: "mono", // Record all audio in mono format
     },
-    endCallMessage: "Thank you for your time. Goodbye.",
+    endCallMessage:
+      "Thank you for your help. I appreciate it. Thanks again, goodbye.",
     // Enable live monitoring for real-time audio streaming
     monitorPlan: {
       listenEnabled: true, // Enable WebSocket audio streaming for real-time capture
