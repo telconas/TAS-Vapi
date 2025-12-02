@@ -334,7 +334,8 @@ export async function createVapiAssistant(params: {
 
   const assistantPayload = {
     name: params.name,
-    firstMessageMode: params.firstMessageMode || "assistant-waits-for-user", // AI only speaks when asked
+    firstMessageMode: "assistant-speaks-first", // Must speak first to respond to IVR prompts
+    responseDelaySeconds: 0.3, // Small delay to let IVR finish speaking before responding
     model: {
       provider: "openai",
       model: "gpt-4o-mini", // GPT-4 Omni - latest and fastest
@@ -408,10 +409,13 @@ export async function createVapiAssistant(params: {
       ],
     },
     voice: voiceConfig,
+    // First message when call connects - brief acknowledgment to activate assistant
+    firstMessage: "...",
     transcriber: {
       provider: "deepgram",
       model: "nova-2",
       language: "en-US",
+      endpointing: 300, // Faster speech endpoint detection (300ms)
     },
     // Silence timeout configuration - prevents call drops during hold
     silenceTimeoutSeconds: 1200, // 20 minutes of silence before ending call
