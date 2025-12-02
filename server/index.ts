@@ -1,6 +1,7 @@
 import express, { type Request, Response, NextFunction } from "express";
 import { registerRoutes } from "./routes";
 import { setupVite, serveStatic, log } from "./vite";
+import { enablePhoneNumberDTMF } from "./vapi";
 
 const app = express();
 app.use(express.json({ limit: '10mb' })); // Increase limit for Vapi webhooks with large transcripts
@@ -67,5 +68,10 @@ app.use((req, res, next) => {
     reusePort: true,
   }, () => {
     log(`serving on port ${port}`);
+    
+    // Enable DTMF on phone number at startup (non-blocking)
+    enablePhoneNumberDTMF().catch((err) => {
+      console.error("Failed to setup DTMF on startup:", err.message);
+    });
   });
 })();

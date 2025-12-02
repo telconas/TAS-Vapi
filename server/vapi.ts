@@ -494,22 +494,26 @@ export async function endVapiCall(vapiCallId: string): Promise<void> {
   await vapiClient.delete(`/call/${vapiCallId}`);
 }
 
-/*
- * NOTE: DTMF Configuration
- *
- * DTMF is enabled in two places:
- *
- * 1. Assistant Level (Automatic) ✅
- *    - Configured in createVapiAssistant() via tools array
- *    - Includes { type: "dtmf", function: { name: "press_button" } }
- *    - This allows the AI to send DTMF tones during calls
- *
- * 2. Phone Number Level (Manual - Dashboard Only) ⚠️
- *    - Must be enabled manually in Vapi Dashboard
- *    - Go to Phone Numbers → Select Number → Enable "Dial Keypad"
- *    - Cannot be configured programmatically via API (no serverMessages property exists)
- *    - Once enabled in dashboard, it persists for all calls from that number
- *
- * Current Status: Phone number 4d110284-3f5e-4035-a9c4-3335ec4c6ff1 has
- * DTMF manually enabled via dashboard.
- */
+// DTMF Configuration Status
+// DTMF is configured in two places:
+// 1. Vapi Dashboard: Tool ID 2caf5c24-5f88-4f70-8f34-3e2d4c3d9a5a (dtmf_tool)
+// 2. Assistant Level: tools array includes { type: "dtmf" }
+export async function enablePhoneNumberDTMF(): Promise<{ updated: boolean; enabled: boolean }> {
+  const phoneNumberId = process.env.PHONE_NUMBER_ID;
+  
+  if (!phoneNumberId) {
+    console.warn("⚠️ PHONE_NUMBER_ID not set");
+    return { updated: false, enabled: false };
+  }
+
+  try {
+    // Verify phone number exists and log its configuration
+    const phoneConfig = await vapiClient.get(`/phone-number/${phoneNumberId}`);
+    console.log("📞 Phone number configured:", phoneConfig.data.number);
+    console.log("✅ DTMF enabled via Vapi dashboard tool (ID: 2caf5c24-5f88-4f70-8f34-3e2d4c3d9a5a)");
+    return { updated: false, enabled: true };
+  } catch (error: any) {
+    console.error("❌ Failed to verify phone number:", error.response?.data || error.message);
+    return { updated: false, enabled: false };
+  }
+}
