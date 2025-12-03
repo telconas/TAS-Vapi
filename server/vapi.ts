@@ -25,9 +25,9 @@ function getPublicWebhookUrl(path: string): string {
 }
 
 // Helper function to build the full system prompt
-export function buildSystemPrompt(userInstructions: string): string {
+export function buildSystemPrompt(userInstructions: string, callerName: string = "James Martin"): string {
   return `ROLE:
-You are a professional virtual assistant speaking as **James Martin**, calling on behalf of the location listed in the account section below.  
+You are a professional virtual assistant speaking as **${callerName}**, calling on behalf of the location listed in the account section below.  
 Your job is to complete the specific task described in the "Task or Issue" section using the provided account information and email thread as reference.  
 
 When specifically asked, please provide:
@@ -107,7 +107,7 @@ When you hear:
 - "What is your zip code?" → Say the zip code OR use press_button
 - "Please enter or say your account number" → Say the account number
 - "What is the phone number on your account?" → Say the phone number
-- "Please state your name" → Say "James Martin"
+- "Please state your name" → Say "${callerName}"
 - "How can I help you today?" → State the reason for calling briefly
 - "Press or say 1 for..." → Use press_button("1") for menu options
 
@@ -134,11 +134,11 @@ AUTOMATED SYSTEM NAVIGATION:
 LIVE AGENT INTRODUCTION:
 
 When connected to a live agent, say:
-> "Hello, my name is James Martin, and calling on behalf of [location name]. The reason for my call is [give short version of task]. Only give one piece of information at a time."
+> "Hello, my name is ${callerName}, and calling on behalf of [location name]. The reason for my call is [give short version of task]." Only give one piece of information at a time.
 -- Slow your speaking pace slightly.
 -- Use mild acknowledgment phrases such as “Sure,” “Understood,” or “Ok, Got it” to sound natural.
 -- If interrupted, stop immediately and wait for the agent to finish before replying.
--- If the agent asks for your name, say "James Martin."
+-- If the agent asks for your name, say "${callerName}."
 -- If the agent asks for your relationship to the account, say "I am a vendor for [site name]."
 -- If the agent asks for your phone number, say "913-439-5811."
 -- If the agent asks for your email, say "j p m at telcon associates.com, that's tee ee el, see oh en as in nancy, associates dot com."
@@ -498,9 +498,12 @@ export async function endVapiCall(vapiCallId: string): Promise<void> {
 // DTMF is configured in two places:
 // 1. Vapi Dashboard: Tool ID 2caf5c24-5f88-4f70-8f34-3e2d4c3d9a5a (dtmf_tool)
 // 2. Assistant Level: tools array includes { type: "dtmf" }
-export async function enablePhoneNumberDTMF(): Promise<{ updated: boolean; enabled: boolean }> {
+export async function enablePhoneNumberDTMF(): Promise<{
+  updated: boolean;
+  enabled: boolean;
+}> {
   const phoneNumberId = process.env.PHONE_NUMBER_ID;
-  
+
   if (!phoneNumberId) {
     console.warn("⚠️ PHONE_NUMBER_ID not set");
     return { updated: false, enabled: false };
@@ -510,10 +513,15 @@ export async function enablePhoneNumberDTMF(): Promise<{ updated: boolean; enabl
     // Verify phone number exists and log its configuration
     const phoneConfig = await vapiClient.get(`/phone-number/${phoneNumberId}`);
     console.log("📞 Phone number configured:", phoneConfig.data.number);
-    console.log("✅ DTMF enabled via Vapi dashboard tool (ID: 2caf5c24-5f88-4f70-8f34-3e2d4c3d9a5a)");
+    console.log(
+      "✅ DTMF enabled via Vapi dashboard tool (ID: 2caf5c24-5f88-4f70-8f34-3e2d4c3d9a5a)",
+    );
     return { updated: false, enabled: true };
   } catch (error: any) {
-    console.error("❌ Failed to verify phone number:", error.response?.data || error.message);
+    console.error(
+      "❌ Failed to verify phone number:",
+      error.response?.data || error.message,
+    );
     return { updated: false, enabled: false };
   }
 }

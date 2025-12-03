@@ -13,7 +13,7 @@ import {
 import { Phone, PhoneOff, PhoneForwarded } from "lucide-react";
 
 interface PhoneInputFormProps {
-  onStartCall: (phoneNumber: string, prompt: string, email?: string) => void;
+  onStartCall: (phoneNumber: string, prompt: string, callerName: string, email?: string) => void;
   onHangUp: () => void;
   onTransfer: () => void;
   isCallActive: boolean;
@@ -28,6 +28,14 @@ const countryCodes = [
   { code: "+49", country: "DE" },
   { code: "+33", country: "FR" },
   { code: "+61", country: "AU" },
+];
+
+const callerNames = [
+  { value: "James Martin", label: "James Martin" },
+  { value: "Mariad Thatcher", label: "Mariad Thatcher" },
+  { value: "Kara Robbins", label: "Kara Robbins" },
+  { value: "Ben Judy", label: "Ben Judy" },
+  { value: "Doug Pearce", label: "Doug Pearce" },
 ];
 
 const providers = [
@@ -68,6 +76,7 @@ export function PhoneInputForm({
   const [countryCode, setCountryCode] = useState("+1");
   const [phoneNumber, setPhoneNumber] = useState("");
   const [selectedProvider, setSelectedProvider] = useState("");
+  const [callerName, setCallerName] = useState("James Martin");
   const [prompt, setPrompt] = useState("");
   const [email, setEmail] = useState("jpm@telconassociates.com");
 
@@ -85,13 +94,42 @@ export function PhoneInputForm({
 
   const handleStartCall = () => {
     const fullNumber = `${countryCode}${phoneNumber}`;
-    onStartCall(fullNumber, prompt, email || undefined);
+    onStartCall(fullNumber, prompt, callerName, email || undefined);
   };
 
   const isValid = phoneNumber.length >= 10 && prompt.trim().length > 0;
 
   return (
     <div className="space-y-6">
+      <div className="space-y-3">
+        <Label htmlFor="caller-name" className="text-base font-medium">
+          Caller Name
+        </Label>
+        <Select
+          value={callerName}
+          onValueChange={setCallerName}
+          disabled={isCallActive}
+        >
+          <SelectTrigger
+            className="w-full bg-card border-card-border"
+            data-testid="select-caller-name"
+          >
+            <SelectValue placeholder="Select caller name" />
+          </SelectTrigger>
+          <SelectContent>
+            {callerNames.map((name) => (
+              <SelectItem
+                key={name.value}
+                value={name.value}
+                data-testid={`option-caller-${name.value.toLowerCase().replace(/\s+/g, "-")}`}
+              >
+                {name.label}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+      </div>
+
       <div className="space-y-3">
         <Label htmlFor="prompt" className="text-base font-medium">
           AI Instructions

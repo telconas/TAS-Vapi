@@ -255,7 +255,7 @@ export default function Dashboard() {
     }
   };
 
-  const handleStartCall = async (phone: string, prompt: string, email?: string) => {
+  const handleStartCall = async (phone: string, prompt: string, callerName: string, email?: string) => {
     try {
       if (!sessionId) {
         toast({
@@ -281,6 +281,7 @@ export default function Dashboard() {
         body: JSON.stringify({
           phoneNumber: phone,
           prompt,
+          callerName,
           emailRecipient: email,
           voiceProvider,
           pollyVoice: selectedPollyVoice,

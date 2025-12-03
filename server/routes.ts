@@ -922,6 +922,7 @@ ${transcriptText}`;
       const {
         phoneNumber,
         prompt,
+        callerName,
         pollyVoice,
         deepgramVoice,
         elevenLabsVoice,
@@ -1001,8 +1002,9 @@ ${transcriptText}`;
         emailRecipient: emailRecipient || undefined,
       });
 
-      // Build system prompt for Vapi assistant
-      const systemPrompt = buildVapiSystemPrompt(prompt);
+      // Build system prompt for Vapi assistant with caller name
+      const validatedCallerName = callerName || "James Martin";
+      const systemPrompt = buildVapiSystemPrompt(prompt, validatedCallerName);
 
       // Determine voice for Vapi (Deepgram voices will be converted to just the name in getVoiceConfig)
       const voice =
