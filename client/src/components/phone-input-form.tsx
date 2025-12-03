@@ -13,7 +13,12 @@ import {
 import { Phone, PhoneOff, PhoneForwarded } from "lucide-react";
 
 interface PhoneInputFormProps {
-  onStartCall: (phoneNumber: string, prompt: string, callerName: string, email?: string) => void;
+  onStartCall: (
+    phoneNumber: string,
+    prompt: string,
+    callerName: string,
+    email?: string,
+  ) => void;
   onHangUp: () => void;
   onTransfer: () => void;
   isCallActive: boolean;
@@ -51,6 +56,7 @@ const providers = [
   { name: "Cox", number: "866-272-5777" },
   { name: "Direct TV", number: "888-342-7288" },
   { name: "Frontier", number: "800-921-8102" },
+  { name: "GoTo Communications", number: "833-851-8340" },
   { name: "Grande Communications", number: "877-881-7575" },
   { name: "Granite", number: "866-847-5500" },
   { name: "Lumen", number: "877‑453‑8353" },
