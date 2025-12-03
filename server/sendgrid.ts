@@ -1,56 +1,16 @@
 import sgMail from "@sendgrid/mail";
 
-let connectionSettings: any;
-
-async function getCredentials() {
-  const hostname = process.env.REPLIT_CONNECTORS_HOSTNAME;
-  const xReplitToken = process.env.REPL_IDENTITY
-    ? "repl " + process.env.REPL_IDENTITY
-    : process.env.WEB_REPL_RENEWAL
-      ? "depl " + process.env.WEB_REPL_RENEWAL
-      : null;
-
-  if (!xReplitToken) {
-    throw new Error("X_REPLIT_TOKEN not found for repl/depl");
+// Get SendGrid client with fresh API key each time (no caching)
+async function getUncachableSendGridClient() {
+  const apiKey = process.env.SENDGRID_API_KEY;
+  const fromEmail = process.env.SENDGRID_FROM_EMAIL || "noreply@telconassociates.com";
+  
+  if (!apiKey) {
+    throw new Error("SENDGRID_API_KEY environment variable is not set");
   }
-
-  connectionSettings = await fetch(
-    "https://" +
-      hostname +
-      "/api/v2/connection?include_secrets=true&connector_names=sendgrid",
-    {
-      headers: {
-        Accept: "application/json",
-        X_REPLIT_TOKEN: xReplitToken,
-      },
-    },
-  )
-    .then((res) => res.json())
-    .then((data) => data.items?.[0]);
-
-  if (
-    !connectionSettings ||
-    !connectionSettings.settings.api_key ||
-    !connectionSettings.settings.from_email
-  ) {
-    throw new Error("SendGrid not connected");
-  }
-  return {
-    apiKey: connectionSettings.settings.api_key,
-    email: connectionSettings.settings.from_email,
-  };
-}
-
-// WARNING: Never cache this client.
-// Access tokens expire, so a new client must be created each time.
-// Always call this function again to get a fresh client.
-export async function getUncachableSendGridClient() {
-  const { apiKey, email } = await getCredentials();
+  
   sgMail.setApiKey(apiKey);
-  return {
-    client: sgMail,
-    fromEmail: email,
-  };
+  return { client: sgMail, fromEmail };
 }
 
 // Helper function to send call summary email
@@ -62,6 +22,11 @@ export async function sendCallSummaryEmail(
   recordingUrl?: string,
 ) {
   try {
+    // DEBUG: Log what we received
+    console.error("[EMAIL DEBUG] recordingUrl received:", recordingUrl);
+    console.error("[EMAIL DEBUG] recordingUrl type:", typeof recordingUrl);
+    console.error("[EMAIL DEBUG] recordingUrl truthiness:", !!recordingUrl);
+
     const { client, fromEmail } = await getUncachableSendGridClient();
 
     const formatDuration = (seconds: number) => {
@@ -139,6 +104,10 @@ export async function sendCallSummaryEmail(
     const bulletListHtml = sentences.map((s) => `<li>${s}</li>`).join("");
     const bulletListText = sentences.map((s) => `• ${s}`).join("\n");
 
+    // More robust check for recording URL
+    const hasRecording = recordingUrl && recordingUrl.trim().length > 0;
+    console.error("[EMAIL DEBUG] hasRecording:", hasRecording);
+
     const emailHtml = `
       <!DOCTYPE html>
       <html>
@@ -164,22 +133,26 @@ export async function sendCallSummaryEmail(
           <div class="content">
             <p class="meta"><strong>Phone Number:</strong> ${phoneNumber}</p>
             <p class="meta"><strong>Duration:</strong> ${formatDuration(duration)}</p>
-            
+
             <h2>Summary of TAS Call</h2>
             <div class="summary">
               <ul>
                 ${bulletListHtml}
               </ul>
             </div>
-            
+
             ${
-              recordingUrl
+              hasRecording
                 ? `
               <p>
                 <a href="${recordingUrl}" class="recording-link">🎧 Listen to Recording</a>
               </p>
             `
-                : ""
+                : `
+              <p style="color: #999; font-style: italic; margin-top: 15px;">
+                Recording not available
+              </p>
+            `
             }
           </div>
           <div class="footer">
@@ -195,7 +168,7 @@ export async function sendCallSummaryEmail(
       from: fromEmail,
       subject: `Call Summary: ${phoneNumber} (${formatDuration(duration)})`,
       html: emailHtml,
-      text: `Call Summary\n\nPhone: ${phoneNumber}\nDuration: ${formatDuration(duration)}\n\n${bulletListText}${recordingUrl ? `\n\nRecording: ${recordingUrl}` : ""}`,
+      text: `Call Summary\n\nPhone: ${phoneNumber}\nDuration: ${formatDuration(duration)}\n\n${bulletListText}${hasRecording ? `\n\nRecording: ${recordingUrl}` : "\n\nRecording not available"}`,
     };
 
     await client.send(msg);

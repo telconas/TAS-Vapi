@@ -1323,28 +1323,50 @@ ${transcriptText}`;
               // Save summary to database
               await storage.updateCall(dbCall.id, { summary });
 
-              // Send email if recipient provided (don't require recording URL)
+              // Send email if recipient provided (delay 3 minutes to ensure recording is available)
               if (dbCall.emailRecipient && summary) {
-                try {
-                  console.log(
-                    `[EMAIL] Sending summary to ${dbCall.emailRecipient}...`,
-                  );
-                  await sendCallSummaryEmail(
-                    dbCall.emailRecipient,
-                    dbCall.phoneNumber,
-                    summary,
-                    callDuration,
-                    recordingUrl || undefined,
-                  );
-                  console.log(
-                    `[EMAIL] ✓ Summary sent to ${dbCall.emailRecipient}`,
-                  );
-                } catch (emailError) {
-                  console.error(
-                    "[EMAIL] ✗ Failed to send summary:",
-                    emailError,
-                  );
-                }
+                const EMAIL_DELAY_MS = 3 * 60 * 1000; // 3 minutes
+                console.log(
+                  `[EMAIL] Scheduling summary email to ${dbCall.emailRecipient} in 3 minutes (recording URL will be refreshed)...`,
+                );
+                
+                // Store the call ID to fetch fresh recording URL after delay
+                const callIdForEmail = dbCall.id;
+                const emailRecipient = dbCall.emailRecipient;
+                const phoneNumber = dbCall.phoneNumber;
+                const emailSummary = summary;
+                const emailDuration = callDuration;
+                
+                setTimeout(async () => {
+                  try {
+                    // Fetch the latest call data to get the most current recording URL
+                    const freshCallData = await storage.getCall(callIdForEmail);
+                    const freshRecordingUrl = freshCallData?.recordingUrl || recordingUrl;
+                    
+                    console.log(
+                      `[EMAIL] Now sending delayed summary to ${emailRecipient}...`,
+                    );
+                    console.log(
+                      `[EMAIL] Recording URL: ${freshRecordingUrl || 'not available'}`,
+                    );
+                    
+                    await sendCallSummaryEmail(
+                      emailRecipient,
+                      phoneNumber,
+                      emailSummary,
+                      emailDuration,
+                      freshRecordingUrl || undefined,
+                    );
+                    console.log(
+                      `[EMAIL] ✓ Delayed summary sent to ${emailRecipient}`,
+                    );
+                  } catch (emailError) {
+                    console.error(
+                      "[EMAIL] ✗ Failed to send delayed summary:",
+                      emailError,
+                    );
+                  }
+                }, EMAIL_DELAY_MS);
               } else {
                 console.log("[EMAIL] Skipped - missing requirements:", {
                   hasRecipient: !!dbCall.emailRecipient,
