@@ -19,6 +19,10 @@ localPort = 33963
 externalPort = 3000
 
 [[ports]]
+localPort = 34505
+externalPort = 4200
+
+[[ports]]
 localPort = 34951
 externalPort = 5000
 
@@ -60,3 +64,8 @@ waitForPort = 5000
 
 [agent]
 integrations = ["javascript_websocket:1.0.0", "sendgrid:1.0.0"]
+
+[userenv]
+
+[userenv.shared]
+SENDGRID_FROM_EMAIL = "avb@telconassociates.com"
