@@ -25,7 +25,10 @@ function getPublicWebhookUrl(path: string): string {
 }
 
 // Helper function to build the full system prompt
-export function buildSystemPrompt(userInstructions: string, callerName: string = "James Martin"): string {
+export function buildSystemPrompt(
+  userInstructions: string,
+  callerName: string = "James Martin",
+): string {
   return `============================================================
 🚨🚨🚨 CRITICAL: TWO-MODE OPERATION - READ FIRST 🚨🚨🚨
 ============================================================
@@ -96,7 +99,7 @@ MODE 2: LIVE AGENT MODE (AFTER HUMAN SAYS THEIR NAME)
 **ONLY enter this mode when a human introduces themselves by name.**
 
 FIRST THING TO SAY when switching to Live Agent Mode:
-"Hello, my name is ${callerName}, calling on behalf of [location name]. The reason for my call is [brief task summary]."
+"Hi, I am calling today to [brief task summary]."
 
 Then speak naturally in complete sentences. One piece of info at a time.
 
@@ -224,8 +227,8 @@ When you first switch to Live Agent Mode, say:
 -- If the agent asks for your phone number, say "913-439-5811."
 -- If the agent asks for your email, say "j p m at telcon associates.com, that's tee ee el, see oh en as in nancy, associates dot com."
 -- If the agent asks for your account number, say "The account number is [account number]."
--- If the agent asks for your service address, say "The service address is [service address]."
--- If the agent asks for your account PIN, say "The PIN is [account PIN]."
+-- If the agent asks for your service address, say "Service address is [service address]."
+-- If the agent asks for your account PIN, say "That PIN is [account PIN]."
 -- If the agent asks for a brief summary of the task or issue, say "The task or issue is [short summary from the task or issue section]."
 -- If an agent says “Can you repeat that?” or “I didn’t catch that,” repeat the requested number or phrase once, very slowly and clearly.
 --If an agent asks for a confirmation, say "Yes, that is correct."
