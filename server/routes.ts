@@ -2393,6 +2393,43 @@ ${transcriptText}`;
   // ============================================
 
   // Generate Twilio access token for browser-based calling
+  app.post("/api/manual-call/token", async (req, res) => {
+    try {
+      const accountSid = process.env.TWILIO_ACCOUNT_SID;
+      const authToken = process.env.TWILIO_AUTH_TOKEN;
+      const twimlAppSid = process.env.TWILIO_TWIML_APP_SID;
+
+      if (!accountSid || !authToken) {
+        return res.status(500).json({ error: "Twilio credentials not configured" });
+      }
+
+      const { identity } = req.body;
+      const tokenIdentity = identity || `manual-caller-${Date.now()}`;
+
+      const AccessToken = twilio.jwt.AccessToken;
+      const VoiceGrant = AccessToken.VoiceGrant;
+
+      const token = new AccessToken(
+        accountSid,
+        process.env.TWILIO_API_KEY_SID || accountSid,
+        process.env.TWILIO_API_KEY_SECRET || authToken,
+        { identity: tokenIdentity }
+      );
+
+      const voiceGrant = new VoiceGrant({
+        outgoingApplicationSid: twimlAppSid,
+        incomingAllow: false,
+      });
+      token.addGrant(voiceGrant);
+
+      console.log(`[MANUAL CALL] Generated token for identity: ${tokenIdentity}`);
+      res.json({ token: token.toJwt(), identity: tokenIdentity });
+    } catch (error) {
+      console.error("[MANUAL CALL] Error generating token:", error);
+      res.status(500).json({ error: "Failed to generate token" });
+    }
+  });
+
   app.get("/api/twilio/token", async (req, res) => {
     try {
       const accountSid = process.env.TWILIO_ACCOUNT_SID;
@@ -2430,7 +2467,7 @@ ${transcriptText}`;
     }
   });
 
-  // Start a manual outbound call
+  // Register a manual outbound call (call initiated from browser via Device.connect)
   app.post("/api/manual-call/start", async (req, res) => {
     try {
       const { phoneNumber, callerName, emailRecipient, sessionId } = req.body;
@@ -2440,11 +2477,8 @@ ${transcriptText}`;
       }
 
       const ws = sessionId ? wsClients.get(sessionId) : null;
-      if (!ws) {
-        return res.status(400).json({ error: "No active WebSocket session" });
-      }
 
-      // Create call record in database
+      // Create call record in database with generated ID
       const callId = randomUUID();
       await storage.createCall({
         phoneNumber,
@@ -2455,65 +2489,75 @@ ${transcriptText}`;
         emailRecipient: emailRecipient || null,
       });
 
-      // Store in active calls
+      // Store in active calls for tracking
       activeCalls.set(callId, {
         callId,
         phoneNumber,
         prompt: "",
         openaiConversation: [],
-        ws,
+        ws: ws || null,
         startTime: Date.now(),
       });
 
-      // Make the call via Twilio
-      const host = getPublicHost(req);
-      const call = await twilioClient.calls.create({
-        to: phoneNumber,
-        from: process.env.TWILIO_PHONE_NUMBER!,
-        url: `https://${host}/api/twilio/manual-voice/${callId}`,
-        statusCallback: `https://${host}/api/twilio/manual-status/${callId}`,
-        statusCallbackEvent: ["initiated", "ringing", "answered", "completed"],
-        record: true,
-        recordingStatusCallback: `https://${host}/api/twilio/manual-recording-callback/${callId}`,
-        recordingStatusCallbackEvent: ["completed"],
-      });
+      console.log(`[MANUAL CALL] Registered call ${callId} to ${phoneNumber}`);
 
-      // Update the active call with Twilio SID
-      const activeCall = activeCalls.get(callId);
-      if (activeCall) {
-        activeCall.twilioCallSid = call.sid;
+      // Notify via WebSocket if available
+      if (ws) {
+        ws.send(JSON.stringify({
+          type: "call_status",
+          data: { callId, status: "ringing", callType: "manual" }
+        }));
       }
 
-      // Update database with Twilio SID
-      await storage.updateCallTwilioSid(callId, call.sid);
-
-      console.log(`[MANUAL CALL] Started call ${callId} to ${phoneNumber}, Twilio SID: ${call.sid}`);
-
-      // Notify via WebSocket
-      ws.send(JSON.stringify({
-        type: "call_status",
-        data: { callId, status: "ringing", callType: "manual" }
-      }));
-
-      res.json({ callId, twilioCallSid: call.sid, status: "ringing" });
+      // Return the callId - the actual call is made by browser Device.connect()
+      res.json({ callId, status: "registered" });
     } catch (error) {
-      console.error("[MANUAL CALL] Error starting call:", error);
-      res.status(500).json({ error: "Failed to start manual call" });
+      console.error("[MANUAL CALL] Error registering call:", error);
+      res.status(500).json({ error: "Failed to register manual call" });
     }
   });
 
-  // TwiML for manual outbound call - connects to browser via WebRTC
+  // TwiML Voice URL for Twilio Client SDK (Device.connect)
+  // This is called by Twilio when the browser initiates an outbound call via Device.connect()
+  app.post("/api/twilio/voice", async (req, res) => {
+    const { To, CallId, From } = req.body;
+    const host = getPublicHost(req);
+
+    console.log(`[TWILIO VOICE] Incoming voice request - To: ${To}, CallId: ${CallId}, From: ${From}`);
+
+    if (!To) {
+      const twiml = `<?xml version="1.0" encoding="UTF-8"?>
+<Response>
+  <Say>No destination number provided.</Say>
+  <Hangup />
+</Response>`;
+      return res.type("text/xml").send(twiml);
+    }
+
+    // Generate TwiML to dial the destination with recording
+    const callId = CallId || `manual-${Date.now()}`;
+    const twiml = `<?xml version="1.0" encoding="UTF-8"?>
+<Response>
+  <Dial callerId="${process.env.TWILIO_PHONE_NUMBER}" record="record-from-answer" recordingStatusCallback="https://${host}/api/twilio/manual-recording-callback/${callId}" recordingStatusCallbackEvent="completed">
+    <Number statusCallback="https://${host}/api/twilio/manual-status/${callId}" statusCallbackEvent="initiated ringing answered completed">${To}</Number>
+  </Dial>
+</Response>`;
+
+    console.log(`[TWILIO VOICE] Returning TwiML for call to ${To}`);
+    res.type("text/xml").send(twiml);
+  });
+
+  // TwiML for manual outbound call - connects to browser via WebRTC (legacy/fallback)
   app.post("/api/twilio/manual-voice/:callId", async (req, res) => {
     const { callId } = req.params;
     const host = getPublicHost(req);
+    const activeCall = activeCalls.get(callId);
+    const phoneNumber = req.body.To || activeCall?.phoneNumber;
 
     const twiml = `<?xml version="1.0" encoding="UTF-8"?>
 <Response>
-  <Connect>
-    <Stream url="wss://${host}/ws/manual-audio/${callId}" />
-  </Connect>
-  <Dial record="record-from-answer" recordingStatusCallback="https://${host}/api/twilio/manual-recording-callback/${callId}">
-    <Number>${req.body.To || activeCalls.get(callId)?.phoneNumber}</Number>
+  <Dial callerId="${process.env.TWILIO_PHONE_NUMBER}" record="record-from-answer" recordingStatusCallback="https://${host}/api/twilio/manual-recording-callback/${callId}">
+    <Number>${phoneNumber}</Number>
   </Dial>
 </Response>`;
 
