@@ -42,3 +42,29 @@ The application is built upon a modern full-stack architecture.
 - **Deepgram:** Provides ultra-fast transcription and TTS services (Deepgram Aura) through Vapi.ai.
 - **ElevenLabs:** Offers natural-sounding voices with emotional nuances, also integrated via Vapi.ai.
 - **Twilio (Legacy/Specific Functions):** While largely replaced by Vapi.ai for core voice AI, Twilio's TwiML is still referenced for features like Amazon Polly TTS and for managing certain aspects of call flow.
+- **Twilio Voice SDK:** Used for browser-based manual calling feature. Allows users to make direct phone calls from the browser without AI.
+
+## Manual Calling Feature
+The application includes a manual dialer that allows users to make phone calls directly from the browser using the Twilio Voice SDK (WebRTC). This bypasses the AI agent and lets users speak directly.
+
+**Features:**
+- Dial pad interface (0-9, *, #) for entering phone numbers
+- Real-time DTMF tone sending during calls
+- Mute/unmute functionality
+- Call recording with automatic summary generation
+- Email delivery of call summaries
+
+**Required Twilio Configuration:**
+To use the manual calling feature, you need to set up a TwiML App in your Twilio Console:
+1. Go to Twilio Console > Voice > TwiML Apps
+2. Create a new TwiML App
+3. Set the Voice URL to: `https://<your-domain>/api/twilio/voice` (POST method)
+4. Save and copy the TwiML App SID
+5. Add the following environment variables:
+   - `TWILIO_TWIML_APP_SID`: The TwiML App SID from step 4
+   - `TWILIO_API_KEY_SID`: (Optional) API Key SID for enhanced security
+   - `TWILIO_API_KEY_SECRET`: (Optional) API Key Secret for enhanced security
+
+**Database:**
+- `callType` field distinguishes AI calls ("ai") from manual calls ("manual")
+- Both call types use the same recording and summary pipeline
