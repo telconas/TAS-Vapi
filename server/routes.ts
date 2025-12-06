@@ -48,7 +48,7 @@ interface ActiveCall {
   vapiCallId?: string; // Vapi call identifier
   vapiAssistantId?: string; // Vapi assistant identifier
   openaiConversation: any[];
-  ws: WebSocket;
+  ws: WebSocket | null; // Can be null for manual calls without active WebSocket
   startTime: number;
   listenUrl?: string; // Vapi WebSocket URL for live audio monitoring
   controlUrl?: string; // Vapi HTTP URL for live call control
@@ -1124,7 +1124,7 @@ ${transcriptText}`;
             });
 
             // Send to frontend via WebSocket
-            activeCall.ws.send(
+            activeCall.ws?.send(
               JSON.stringify({
                 type: "transcription",
                 data: {
@@ -1172,7 +1172,7 @@ ${transcriptText}`;
             }
 
             // Send to frontend
-            activeCall.ws.send(
+            activeCall.ws?.send(
               JSON.stringify({
                 type: "call_status",
                 data: {
@@ -1463,7 +1463,7 @@ ${transcriptText}`;
     if (CallStatus === "in-progress" && activeCall) {
       await storage.updateCallStatus(callId, "connected");
 
-      activeCall.ws.send(
+      activeCall.ws?.send(
         JSON.stringify({
           type: "call_status",
           data: {
@@ -1479,7 +1479,7 @@ ${transcriptText}`;
 
       await storage.updateCallStatus(callId, "ended", duration, new Date());
 
-      activeCall.ws.send(
+      activeCall.ws?.send(
         JSON.stringify({
           type: "call_status",
           data: {
@@ -1518,7 +1518,7 @@ ${transcriptText}`;
       });
 
       // Send to frontend
-      activeCall.ws.send(
+      activeCall.ws?.send(
         JSON.stringify({
           type: "transcription",
           data: {
@@ -1683,7 +1683,7 @@ ${transcriptText}`;
       });
 
       // Send to frontend
-      activeCall.ws.send(
+      activeCall.ws?.send(
         JSON.stringify({
           type: "transcription",
           data: {
@@ -1759,7 +1759,7 @@ ${transcriptText}`;
       });
 
       // Send to frontend
-      activeCall.ws.send(
+      activeCall.ws?.send(
         JSON.stringify({
           type: "transcription",
           data: {
@@ -1878,7 +1878,7 @@ ${transcriptText}`;
                   text: buttonMessage,
                 });
 
-                activeCall.ws.send(
+                activeCall.ws?.send(
                   JSON.stringify({
                     type: "transcription",
                     data: {
@@ -1935,7 +1935,7 @@ ${transcriptText}`;
           text: aiResponse,
         });
 
-        activeCall.ws.send(
+        activeCall.ws?.send(
           JSON.stringify({
             type: "transcription",
             data: {
@@ -2272,7 +2272,7 @@ ${transcriptText}`;
         // The end-of-call-report webhook will handle final status and summary with COMPLETE transcript
 
         // Send WebSocket update to frontend (for UI notification only)
-        activeCall.ws.send(
+        activeCall.ws?.send(
           JSON.stringify({
             type: "call_status",
             data: {
@@ -2311,7 +2311,7 @@ ${transcriptText}`;
         );
 
         // Send WebSocket update
-        activeCall.ws.send(
+        activeCall.ws?.send(
           JSON.stringify({
             type: "call_status",
             data: {
@@ -2365,7 +2365,7 @@ ${transcriptText}`;
       await storage.updateCallStatus(callId, "ended", duration, new Date());
 
       // Send WebSocket update
-      activeCall.ws.send(
+      activeCall.ws?.send(
         JSON.stringify({
           type: "call_status",
           data: {
@@ -2396,11 +2396,23 @@ ${transcriptText}`;
   app.post("/api/manual-call/token", async (req, res) => {
     try {
       const accountSid = process.env.TWILIO_ACCOUNT_SID;
-      const authToken = process.env.TWILIO_AUTH_TOKEN;
+      const apiKeySid = process.env.TWILIO_API_KEY_SID;
+      const apiKeySecret = process.env.TWILIO_API_KEY_SECRET;
       const twimlAppSid = process.env.TWILIO_TWIML_APP_SID;
 
-      if (!accountSid || !authToken) {
-        return res.status(500).json({ error: "Twilio credentials not configured" });
+      // Log configuration status (not the actual values)
+      console.log(`[MANUAL CALL] Config check - AccountSID: ${accountSid ? 'SET' : 'MISSING'}, API Key SID: ${apiKeySid ? 'SET' : 'MISSING'}, API Key Secret: ${apiKeySecret ? 'SET' : 'MISSING'}, TwiML App SID: ${twimlAppSid ? 'SET' : 'MISSING'}`);
+
+      if (!accountSid) {
+        return res.status(500).json({ error: "Twilio Account SID not configured" });
+      }
+
+      if (!apiKeySid || !apiKeySecret) {
+        return res.status(500).json({ error: "Twilio API Key credentials not configured. Please add TWILIO_API_KEY_SID and TWILIO_API_KEY_SECRET." });
+      }
+
+      if (!twimlAppSid) {
+        return res.status(500).json({ error: "Twilio TwiML App SID not configured" });
       }
 
       const { identity } = req.body;
@@ -2411,8 +2423,8 @@ ${transcriptText}`;
 
       const token = new AccessToken(
         accountSid,
-        process.env.TWILIO_API_KEY_SID || accountSid,
-        process.env.TWILIO_API_KEY_SECRET || authToken,
+        apiKeySid,
+        apiKeySecret,
         { identity: tokenIdentity }
       );
 
@@ -2422,7 +2434,7 @@ ${transcriptText}`;
       });
       token.addGrant(voiceGrant);
 
-      console.log(`[MANUAL CALL] Generated token for identity: ${tokenIdentity}`);
+      console.log(`[MANUAL CALL] Generated token for identity: ${tokenIdentity}, TwiML App: ${twimlAppSid.substring(0, 10)}...`);
       res.json({ token: token.toJwt(), identity: tokenIdentity });
     } catch (error) {
       console.error("[MANUAL CALL] Error generating token:", error);
@@ -2605,7 +2617,7 @@ ${transcriptText}`;
 
     // Notify via WebSocket
     if (activeCall?.ws) {
-      activeCall.ws.send(JSON.stringify({
+      activeCall.ws?.send(JSON.stringify({
         type: "call_status",
         data: { callId, status, duration, callType: "manual" }
       }));
@@ -2683,7 +2695,7 @@ ${transcriptText}`;
       await storage.updateCallStatus(callId, "ended", duration, new Date());
       
       if (activeCall.ws) {
-        activeCall.ws.send(JSON.stringify({
+        activeCall.ws?.send(JSON.stringify({
           type: "call_status",
           data: { callId, status: "ended", duration, callType: "manual" }
         }));
