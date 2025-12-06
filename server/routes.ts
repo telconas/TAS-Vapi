@@ -2400,8 +2400,12 @@ ${transcriptText}`;
       const apiKeySecret = process.env.TWILIO_API_KEY_SECRET;
       const twimlAppSid = process.env.TWILIO_TWIML_APP_SID;
 
-      // Log configuration status (not the actual values)
-      console.log(`[MANUAL CALL] Config check - AccountSID: ${accountSid ? 'SET' : 'MISSING'}, API Key SID: ${apiKeySid ? 'SET' : 'MISSING'}, API Key Secret: ${apiKeySecret ? 'SET' : 'MISSING'}, TwiML App SID: ${twimlAppSid ? 'SET' : 'MISSING'}`);
+      // Log configuration status with format hints (not the actual values)
+      console.log(`[MANUAL CALL] Config check:`);
+      console.log(`  - AccountSID: ${accountSid ? `SET (starts with: ${accountSid.substring(0, 2)})` : 'MISSING'}`);
+      console.log(`  - API Key SID: ${apiKeySid ? `SET (starts with: ${apiKeySid.substring(0, 2)}, length: ${apiKeySid.length})` : 'MISSING'} [Should start with SK]`);
+      console.log(`  - API Key Secret: ${apiKeySecret ? `SET (length: ${apiKeySecret.length})` : 'MISSING'}`);
+      console.log(`  - TwiML App SID: ${twimlAppSid ? `SET (starts with: ${twimlAppSid.substring(0, 2)})` : 'MISSING'} [Should start with AP]`);
 
       if (!accountSid) {
         return res.status(500).json({ error: "Twilio Account SID not configured" });
