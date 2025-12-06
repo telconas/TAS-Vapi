@@ -124,63 +124,75 @@ export function ManualCallPanel({
     };
   }, [callStatus]);
 
-  const initializeDevice = async () => {
-    try {
-      setCallStatus("initializing");
-      setDeviceError(null);
-      
-      const response = await fetch("/api/manual-call/token", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ identity: sessionId || "manual-caller" }),
-      });
-      
-      if (!response.ok) {
-        throw new Error("Failed to get access token");
-      }
-      
-      const data = await response.json();
-      
-      if (deviceRef.current) {
-        deviceRef.current.destroy();
-      }
-      
-      const device = new Device(data.token, {
-        codecPreferences: [Call.Codec.Opus, Call.Codec.PCMU],
-      });
-      
-      device.on("registered", () => {
-        console.log("Twilio Device registered");
-        setCallStatus("ready");
-      });
-      
-      device.on("error", (error) => {
-        console.error("Twilio Device error:", error);
-        setDeviceError(error.message);
+  const initializeDevice = async (): Promise<Device> => {
+    return new Promise(async (resolve, reject) => {
+      try {
+        setCallStatus("initializing");
+        setDeviceError(null);
+        
+        const response = await fetch("/api/manual-call/token", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ identity: sessionId || "manual-caller" }),
+        });
+        
+        if (!response.ok) {
+          throw new Error("Failed to get access token");
+        }
+        
+        const data = await response.json();
+        
+        if (deviceRef.current) {
+          deviceRef.current.destroy();
+          deviceRef.current = null;
+        }
+        
+        const device = new Device(data.token, {
+          codecPreferences: [Call.Codec.Opus, Call.Codec.PCMU],
+          logLevel: 1,
+        });
+        
+        device.on("registered", () => {
+          console.log("Twilio Device registered, state:", device.state);
+          setCallStatus("ready");
+          deviceRef.current = device;
+          resolve(device);
+        });
+        
+        device.on("error", (error) => {
+          console.error("Twilio Device error:", error);
+          setDeviceError(error.message);
+          toast({
+            title: "Device Error",
+            description: error.message,
+            variant: "destructive",
+          });
+          reject(error);
+        });
+        
+        device.on("incoming", (call) => {
+          console.log("Incoming call:", call);
+        });
+        
+        device.on("unregistered", () => {
+          console.log("Twilio Device unregistered");
+          setCallStatus("idle");
+        });
+        
+        await device.register();
+        
+      } catch (error) {
+        console.error("Failed to initialize Twilio Device:", error);
+        setCallStatus("idle");
+        setDeviceError(error instanceof Error ? error.message : "Failed to initialize");
         toast({
-          title: "Device Error",
-          description: error.message,
+          title: "Initialization Failed",
+          description: "Could not initialize the calling device. Please try again.",
           variant: "destructive",
         });
-      });
-      
-      device.on("incoming", (call) => {
-        console.log("Incoming call:", call);
-      });
-      
-      await device.register();
-      deviceRef.current = device;
-      
-    } catch (error) {
-      console.error("Failed to initialize Twilio Device:", error);
-      setCallStatus("idle");
-      setDeviceError(error instanceof Error ? error.message : "Failed to initialize");
-      toast({
-        title: "Initialization Failed",
-        description: "Could not initialize the calling device. Please try again.",
-        variant: "destructive",
-      });
-    }
+        reject(error);
+      }
+    });
   };
 
   const formatDuration = (seconds: number) => {
@@ -232,20 +244,15 @@ export function ManualCallPanel({
     setIsLoading(true);
     
     try {
-      // Initialize device if needed
-      if (!deviceRef.current || callStatus === "idle") {
-        await initializeDevice();
+      // Initialize device if needed - this now returns a Promise that resolves when registered
+      let device = deviceRef.current;
+      if (!device || device.state !== "registered") {
+        device = await initializeDevice();
       }
       
-      // Wait for device to be ready (registered state)
-      let waitAttempts = 0;
-      const maxWaitAttempts = 30; // 3 seconds max
-      while ((!deviceRef.current || deviceRef.current.state !== "registered") && waitAttempts < maxWaitAttempts) {
-        await new Promise(resolve => setTimeout(resolve, 100));
-        waitAttempts++;
-      }
+      console.log("Device ready, state:", device.state);
       
-      if (!deviceRef.current || deviceRef.current.state !== "registered") {
+      if (!device || device.state !== "registered") {
         throw new Error("Device not ready. Please try again.");
       }
 
@@ -270,7 +277,7 @@ export function ManualCallPanel({
       const callId = callIdData.callId;
       setCurrentCallId(callId);
       
-      const call = await deviceRef.current.connect({
+      const call = await device.connect({
         params: {
           To: formattedNumber,
           CallId: callId,
@@ -365,8 +372,34 @@ export function ManualCallPanel({
   };
 
   const endCall = () => {
+    console.log("End call clicked, callRef:", callRef.current, "deviceRef:", deviceRef.current);
+    
     if (callRef.current) {
-      callRef.current.disconnect();
+      try {
+        callRef.current.disconnect();
+      } catch (error) {
+        console.error("Error disconnecting call:", error);
+      }
+    }
+    
+    // Force reset state if disconnect doesn't work
+    if (callStatus === "ringing" || callStatus === "connected") {
+      const finalDuration = callStartTimeRef.current 
+        ? Math.floor((Date.now() - callStartTimeRef.current) / 1000)
+        : duration;
+      
+      setCallStatus("ended");
+      if (currentCallId) {
+        onCallEnded?.(currentCallId, finalDuration);
+      }
+      
+      setTimeout(() => {
+        setCallStatus("ready");
+        setCurrentCallId(null);
+        setDuration(0);
+        callRef.current = null;
+        callStartTimeRef.current = null;
+      }, 1000);
     }
   };
 
