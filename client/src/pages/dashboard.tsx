@@ -7,6 +7,7 @@ import { VoiceSelector } from "@/components/voice-selector";
 import { CallSummary } from "@/components/call-summary";
 import { InstructionInput } from "@/components/instruction-input";
 import { LiveAudioMonitor } from "@/components/live-audio-monitor";
+import { ManualCallPanel } from "@/components/manual-call-panel";
 import { Card } from "@/components/ui/card";
 import { useToast } from "@/hooks/use-toast";
 import type { TranscriptMessage } from "@shared/schema";
@@ -501,6 +502,19 @@ export default function Dashboard() {
               />
             )}
             */}
+
+            {/* Manual Dialer - for direct browser-to-phone calls */}
+            {!isCallActive && (
+              <ManualCallPanel
+                sessionId={sessionId}
+                onCallStarted={(callId) => {
+                  console.log("Manual call started:", callId);
+                }}
+                onCallEnded={(callId, duration) => {
+                  console.log("Manual call ended:", callId, duration);
+                }}
+              />
+            )}
           </div>
 
           <div className="lg:col-span-3 space-y-6">
