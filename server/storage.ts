@@ -23,6 +23,9 @@ export interface IStorage {
   getCallByVapiId(vapiCallId: string): Promise<Call | undefined>;
   updateCallStatus(id: string, status: string, duration?: number, endedAt?: Date): Promise<void>;
   updateCall(id: string, updates: Partial<Call>): Promise<void>;
+  updateCallTwilioSid(id: string, twilioSid: string): Promise<void>;
+  updateCallRecording(id: string, recordingUrl: string): Promise<void>;
+  updateCallSummary(id: string, summary: string): Promise<void>;
   
   // Transcript methods
   addTranscriptMessage(message: InsertTranscriptMessage): Promise<TranscriptMessage>;
@@ -67,6 +70,27 @@ export class DatabaseStorage implements IStorage {
     await db
       .update(calls)
       .set(updates)
+      .where(eq(calls.id, id));
+  }
+
+  async updateCallTwilioSid(id: string, twilioSid: string): Promise<void> {
+    await db
+      .update(calls)
+      .set({ twilioCallSid: twilioSid })
+      .where(eq(calls.id, id));
+  }
+
+  async updateCallRecording(id: string, recordingUrl: string): Promise<void> {
+    await db
+      .update(calls)
+      .set({ recordingUrl })
+      .where(eq(calls.id, id));
+  }
+
+  async updateCallSummary(id: string, summary: string): Promise<void> {
+    await db
+      .update(calls)
+      .set({ summary })
       .where(eq(calls.id, id));
   }
 

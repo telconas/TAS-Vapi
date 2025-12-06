@@ -2388,5 +2388,297 @@ ${transcriptText}`;
     }
   });
 
+  // ============================================
+  // MANUAL CALLING ROUTES (Browser-based PSTN)
+  // ============================================
+
+  // Generate Twilio access token for browser-based calling
+  app.get("/api/twilio/token", async (req, res) => {
+    try {
+      const accountSid = process.env.TWILIO_ACCOUNT_SID;
+      const authToken = process.env.TWILIO_AUTH_TOKEN;
+      const twimlAppSid = process.env.TWILIO_TWIML_APP_SID;
+
+      if (!accountSid || !authToken) {
+        return res.status(500).json({ error: "Twilio credentials not configured" });
+      }
+
+      // Create an access token for Twilio Voice
+      const AccessToken = twilio.jwt.AccessToken;
+      const VoiceGrant = AccessToken.VoiceGrant;
+
+      const identity = `manual-caller-${Date.now()}`;
+      const token = new AccessToken(
+        accountSid,
+        process.env.TWILIO_API_KEY_SID || accountSid,
+        process.env.TWILIO_API_KEY_SECRET || authToken,
+        { identity }
+      );
+
+      // Grant voice access
+      const voiceGrant = new VoiceGrant({
+        outgoingApplicationSid: twimlAppSid,
+        incomingAllow: false,
+      });
+      token.addGrant(voiceGrant);
+
+      console.log(`[MANUAL CALL] Generated token for identity: ${identity}`);
+      res.json({ token: token.toJwt(), identity });
+    } catch (error) {
+      console.error("[MANUAL CALL] Error generating token:", error);
+      res.status(500).json({ error: "Failed to generate token" });
+    }
+  });
+
+  // Start a manual outbound call
+  app.post("/api/manual-call/start", async (req, res) => {
+    try {
+      const { phoneNumber, callerName, emailRecipient, sessionId } = req.body;
+
+      if (!phoneNumber) {
+        return res.status(400).json({ error: "Phone number is required" });
+      }
+
+      const ws = sessionId ? wsClients.get(sessionId) : null;
+      if (!ws) {
+        return res.status(400).json({ error: "No active WebSocket session" });
+      }
+
+      // Create call record in database
+      const callId = randomUUID();
+      await storage.createCall({
+        phoneNumber,
+        prompt: "Manual call - no AI instructions",
+        status: "ringing",
+        callType: "manual",
+        callerName: callerName || "Unknown",
+        emailRecipient: emailRecipient || null,
+      });
+
+      // Store in active calls
+      activeCalls.set(callId, {
+        callId,
+        phoneNumber,
+        prompt: "",
+        openaiConversation: [],
+        ws,
+        startTime: Date.now(),
+      });
+
+      // Make the call via Twilio
+      const host = getPublicHost(req);
+      const call = await twilioClient.calls.create({
+        to: phoneNumber,
+        from: process.env.TWILIO_PHONE_NUMBER!,
+        url: `https://${host}/api/twilio/manual-voice/${callId}`,
+        statusCallback: `https://${host}/api/twilio/manual-status/${callId}`,
+        statusCallbackEvent: ["initiated", "ringing", "answered", "completed"],
+        record: true,
+        recordingStatusCallback: `https://${host}/api/twilio/manual-recording-callback/${callId}`,
+        recordingStatusCallbackEvent: ["completed"],
+      });
+
+      // Update the active call with Twilio SID
+      const activeCall = activeCalls.get(callId);
+      if (activeCall) {
+        activeCall.twilioCallSid = call.sid;
+      }
+
+      // Update database with Twilio SID
+      await storage.updateCallTwilioSid(callId, call.sid);
+
+      console.log(`[MANUAL CALL] Started call ${callId} to ${phoneNumber}, Twilio SID: ${call.sid}`);
+
+      // Notify via WebSocket
+      ws.send(JSON.stringify({
+        type: "call_status",
+        data: { callId, status: "ringing", callType: "manual" }
+      }));
+
+      res.json({ callId, twilioCallSid: call.sid, status: "ringing" });
+    } catch (error) {
+      console.error("[MANUAL CALL] Error starting call:", error);
+      res.status(500).json({ error: "Failed to start manual call" });
+    }
+  });
+
+  // TwiML for manual outbound call - connects to browser via WebRTC
+  app.post("/api/twilio/manual-voice/:callId", async (req, res) => {
+    const { callId } = req.params;
+    const host = getPublicHost(req);
+
+    const twiml = `<?xml version="1.0" encoding="UTF-8"?>
+<Response>
+  <Connect>
+    <Stream url="wss://${host}/ws/manual-audio/${callId}" />
+  </Connect>
+  <Dial record="record-from-answer" recordingStatusCallback="https://${host}/api/twilio/manual-recording-callback/${callId}">
+    <Number>${req.body.To || activeCalls.get(callId)?.phoneNumber}</Number>
+  </Dial>
+</Response>`;
+
+    res.type("text/xml").send(twiml);
+  });
+
+  // Status callback for manual calls
+  app.post("/api/twilio/manual-status/:callId", async (req, res) => {
+    const { callId } = req.params;
+    const { CallStatus, CallDuration } = req.body;
+    const activeCall = activeCalls.get(callId);
+
+    console.log(`[MANUAL CALL] Status update for ${callId}: ${CallStatus}`);
+
+    let status: string;
+    switch (CallStatus) {
+      case "initiated":
+      case "ringing":
+        status = "ringing";
+        break;
+      case "in-progress":
+        status = "connected";
+        break;
+      case "completed":
+      case "busy":
+      case "no-answer":
+      case "failed":
+      case "canceled":
+        status = "ended";
+        break;
+      default:
+        status = CallStatus;
+    }
+
+    // Update database
+    const duration = CallDuration ? parseInt(CallDuration) : 
+      (activeCall ? Math.floor((Date.now() - activeCall.startTime) / 1000) : 0);
+
+    if (status === "ended") {
+      await storage.updateCallStatus(callId, status, duration, new Date());
+      activeCalls.delete(callId);
+    } else if (status === "connected") {
+      await storage.updateCallStatus(callId, status);
+    }
+
+    // Notify via WebSocket
+    if (activeCall?.ws) {
+      activeCall.ws.send(JSON.stringify({
+        type: "call_status",
+        data: { callId, status, duration, callType: "manual" }
+      }));
+    }
+
+    res.sendStatus(200);
+  });
+
+  // Recording callback for manual calls
+  app.post("/api/twilio/manual-recording-callback/:callId", async (req, res) => {
+    const { callId } = req.params;
+    const { RecordingUrl, RecordingDuration } = req.body;
+
+    console.log(`[MANUAL CALL] Recording callback for ${callId}: ${RecordingUrl}`);
+
+    if (RecordingUrl) {
+      const duration = RecordingDuration ? parseInt(RecordingDuration) : 0;
+      
+      // Update call with recording URL
+      await storage.updateCallRecording(callId, RecordingUrl);
+
+      // Get call details for summary
+      const call = await storage.getCall(callId);
+      if (call) {
+        // Generate summary from recording (for manual calls, we'll note it's a manual call)
+        const summary = `Manual call to ${call.phoneNumber} by ${call.callerName || "unknown caller"}. Duration: ${Math.floor(duration / 60)}m ${duration % 60}s. Recording available.`;
+        
+        await storage.updateCallSummary(callId, summary);
+
+        // Send email if recipient specified
+        if (call.emailRecipient) {
+          console.log(`[MANUAL CALL EMAIL] Scheduling summary email to ${call.emailRecipient} in 3 minutes...`);
+          
+          setTimeout(async () => {
+            try {
+              const updatedCall = await storage.getCall(callId);
+              const recordingUrl = updatedCall?.recordingUrl || RecordingUrl;
+              
+              console.log(`[MANUAL CALL EMAIL] Sending email for call ${callId}`);
+              console.log(`[MANUAL CALL EMAIL] Recording URL: ${recordingUrl}`);
+              
+              await sendCallSummaryEmail(
+                call.emailRecipient!,
+                call.phoneNumber,
+                summary,
+                duration,
+                recordingUrl
+              );
+              
+              console.log(`[MANUAL CALL EMAIL] ✓ Email sent to ${call.emailRecipient}`);
+            } catch (error) {
+              console.error(`[MANUAL CALL EMAIL] Failed:`, error);
+            }
+          }, 180000); // 3 minute delay
+        }
+      }
+    }
+
+    res.sendStatus(200);
+  });
+
+  // Hang up manual call
+  app.post("/api/manual-call/:callId/hangup", async (req, res) => {
+    const { callId } = req.params;
+    const activeCall = activeCalls.get(callId);
+
+    if (!activeCall?.twilioCallSid) {
+      return res.status(404).json({ error: "Manual call not found" });
+    }
+
+    try {
+      await twilioClient.calls(activeCall.twilioCallSid).update({ status: "completed" });
+      
+      const duration = Math.floor((Date.now() - activeCall.startTime) / 1000);
+      await storage.updateCallStatus(callId, "ended", duration, new Date());
+      
+      if (activeCall.ws) {
+        activeCall.ws.send(JSON.stringify({
+          type: "call_status",
+          data: { callId, status: "ended", duration, callType: "manual" }
+        }));
+      }
+      
+      activeCalls.delete(callId);
+      
+      console.log(`[MANUAL CALL] Hung up call ${callId}`);
+      res.json({ success: true, duration });
+    } catch (error) {
+      console.error("[MANUAL CALL] Error hanging up:", error);
+      res.status(500).json({ error: "Failed to hang up call" });
+    }
+  });
+
+  // Send DTMF digits for manual call
+  app.post("/api/manual-call/:callId/dtmf", async (req, res) => {
+    const { callId } = req.params;
+    const { digits } = req.body;
+    const activeCall = activeCalls.get(callId);
+
+    if (!activeCall?.twilioCallSid) {
+      return res.status(404).json({ error: "Manual call not found" });
+    }
+
+    try {
+      // Use Twilio's DTMF API to send tones
+      await twilioClient.calls(activeCall.twilioCallSid)
+        .update({
+          twiml: `<Response><Play digits="${digits}"/><Pause length="60"/></Response>`
+        });
+      
+      console.log(`[MANUAL CALL] Sent DTMF ${digits} for call ${callId}`);
+      res.json({ success: true, digits });
+    } catch (error) {
+      console.error("[MANUAL CALL] Error sending DTMF:", error);
+      res.status(500).json({ error: "Failed to send DTMF" });
+    }
+  });
+
   return httpServer;
 }
