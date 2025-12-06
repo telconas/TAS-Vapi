@@ -232,13 +232,21 @@ export function ManualCallPanel({
     setIsLoading(true);
     
     try {
+      // Initialize device if needed
       if (!deviceRef.current || callStatus === "idle") {
         await initializeDevice();
-        await new Promise(resolve => setTimeout(resolve, 1000));
       }
       
-      if (!deviceRef.current) {
-        throw new Error("Device not initialized");
+      // Wait for device to be ready (registered state)
+      let waitAttempts = 0;
+      const maxWaitAttempts = 30; // 3 seconds max
+      while ((!deviceRef.current || deviceRef.current.state !== "registered") && waitAttempts < maxWaitAttempts) {
+        await new Promise(resolve => setTimeout(resolve, 100));
+        waitAttempts++;
+      }
+      
+      if (!deviceRef.current || deviceRef.current.state !== "registered") {
+        throw new Error("Device not ready. Please try again.");
       }
 
       const formattedNumber = formatPhoneNumber(phoneNumber);
