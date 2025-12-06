@@ -377,37 +377,44 @@ export function ManualCallPanel({
     }
   };
 
-  const endCall = () => {
-    console.log("End call clicked, callRef:", callRef.current, "deviceRef:", deviceRef.current);
+  const endCall = useCallback(() => {
+    console.log("End call clicked!");
+    console.log("  callRef.current:", callRef.current);
+    console.log("  callStatus:", callStatus);
+    console.log("  isLoading:", isLoading);
     
     if (callRef.current) {
       try {
+        console.log("Disconnecting call...");
         callRef.current.disconnect();
+        console.log("Disconnect called successfully");
       } catch (error) {
         console.error("Error disconnecting call:", error);
       }
+    } else {
+      console.log("No call reference to disconnect");
     }
     
-    // Force reset state if disconnect doesn't work
-    if (callStatus === "ringing" || callStatus === "connected") {
-      const finalDuration = callStartTimeRef.current 
-        ? Math.floor((Date.now() - callStartTimeRef.current) / 1000)
-        : duration;
-      
-      setCallStatus("ended");
-      if (currentCallId) {
-        onCallEnded?.(currentCallId, finalDuration);
-      }
-      
-      setTimeout(() => {
-        setCallStatus("ready");
-        setCurrentCallId(null);
-        setDuration(0);
-        callRef.current = null;
-        callStartTimeRef.current = null;
-      }, 1000);
+    // Force reset state
+    const finalDuration = callStartTimeRef.current 
+      ? Math.floor((Date.now() - callStartTimeRef.current) / 1000)
+      : duration;
+    
+    console.log("Resetting call state, duration:", finalDuration);
+    isConnectingRef.current = false;
+    setCallStatus("ended");
+    if (currentCallId) {
+      onCallEnded?.(currentCallId, finalDuration);
     }
-  };
+    
+    setTimeout(() => {
+      setCallStatus("ready");
+      setCurrentCallId(null);
+      setDuration(0);
+      callRef.current = null;
+      callStartTimeRef.current = null;
+    }, 1000);
+  }, [callStatus, isLoading, duration, currentCallId, onCallEnded]);
 
   const toggleMute = () => {
     if (callRef.current) {
