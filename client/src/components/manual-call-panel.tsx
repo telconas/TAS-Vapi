@@ -589,9 +589,16 @@ export function ManualCallPanel({
               </Button>
             ) : (
               <Button
+                type="button"
                 data-testid="button-end-manual-call"
-                className="flex-1 h-14 bg-red-600 hover:bg-red-700"
-                onClick={endCall}
+                className="flex-1 h-14 bg-red-600 hover:bg-red-700 relative z-50"
+                onClick={(e) => {
+                  e.preventDefault();
+                  e.stopPropagation();
+                  window.alert("End Call button was clicked! Ending call now...");
+                  console.log("End Call button clicked - event handler");
+                  endCall();
+                }}
               >
                 <PhoneOff className="w-5 h-5 mr-2" />
                 End Call
