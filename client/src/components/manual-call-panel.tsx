@@ -91,13 +91,15 @@ export function ManualCallPanel({
   const callRef = useRef<Call | null>(null);
   const durationIntervalRef = useRef<NodeJS.Timeout | null>(null);
   const callStartTimeRef = useRef<number | null>(null);
+  const isConnectingRef = useRef<boolean>(false);
 
   useEffect(() => {
     return () => {
       if (durationIntervalRef.current) {
         clearInterval(durationIntervalRef.current);
       }
-      if (deviceRef.current) {
+      // Only destroy device on unmount if not in the middle of a call
+      if (deviceRef.current && !isConnectingRef.current && !callRef.current) {
         deviceRef.current.destroy();
       }
     };
@@ -142,7 +144,8 @@ export function ManualCallPanel({
         
         const data = await response.json();
         
-        if (deviceRef.current) {
+        // Only destroy old device if not connecting
+        if (deviceRef.current && !isConnectingRef.current) {
           deviceRef.current.destroy();
           deviceRef.current = null;
         }
@@ -242,6 +245,7 @@ export function ManualCallPanel({
     }
 
     setIsLoading(true);
+    isConnectingRef.current = true;
     
     try {
       // Initialize device if needed - this now returns a Promise that resolves when registered
@@ -250,7 +254,7 @@ export function ManualCallPanel({
         device = await initializeDevice();
       }
       
-      console.log("Device ready, state:", device.state);
+      console.log("Device ready, state:", device.state, "isConnecting:", isConnectingRef.current);
       
       if (!device || device.state !== "registered") {
         throw new Error("Device not ready. Please try again.");
@@ -291,6 +295,7 @@ export function ManualCallPanel({
       
       call.on("accept", () => {
         console.log("Call accepted");
+        isConnectingRef.current = false;
         setCallStatus("connected");
         onCallStarted?.(callId);
         toast({
@@ -360,6 +365,7 @@ export function ManualCallPanel({
       
     } catch (error) {
       console.error("Failed to start call:", error);
+      isConnectingRef.current = false;
       setCallStatus(deviceRef.current ? "ready" : "idle");
       toast({
         title: "Call Failed",
