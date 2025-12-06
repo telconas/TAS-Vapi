@@ -357,14 +357,20 @@ export function ManualCallPanel({
         });
       });
       
-      call.on("error", (error) => {
+      call.on("error", (error: any) => {
         console.error("Call error:", error);
+        console.error("Error code:", error.code, "Error message:", error.message);
         resetCallState();
         toast({
           title: "Call Error",
           description: error.message || "An error occurred during the call",
           variant: "destructive",
         });
+      });
+      
+      // Handle ringing event - Twilio fires this when call is being placed
+      call.on("ringing", (hasEarlyMedia: boolean) => {
+        console.log("Call ringing, hasEarlyMedia:", hasEarlyMedia);
       });
       
       toast({
@@ -380,6 +386,8 @@ export function ManualCallPanel({
         description: error instanceof Error ? error.message : "Could not start the call",
         variant: "destructive",
       });
+    } finally {
+      setIsLoading(false);
     }
   };
 
@@ -584,7 +592,6 @@ export function ManualCallPanel({
                 data-testid="button-end-manual-call"
                 className="flex-1 h-14 bg-red-600 hover:bg-red-700"
                 onClick={endCall}
-                disabled={isLoading}
               >
                 <PhoneOff className="w-5 h-5 mr-2" />
                 End Call
