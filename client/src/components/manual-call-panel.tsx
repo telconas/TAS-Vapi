@@ -577,35 +577,47 @@ export function ManualCallPanel({
             Debug: callStatus={callStatus}, isCallActive={String(isCallActive)}
           </div>
 
-          {/* Always render both buttons, show/hide with CSS to avoid React re-render issues */}
+          {/* Call/End Call buttons */}
           <div className="flex gap-2">
-            <Button
-              data-testid="button-start-manual-call"
-              className={`flex-1 h-14 bg-green-600 hover:bg-green-700 ${isCallActive ? 'hidden' : ''}`}
-              onClick={startCall}
-              disabled={!phoneNumber || isLoading || callStatus === "initializing"}
-            >
-              {isLoading || callStatus === "initializing" ? (
-                <Loader2 className="w-5 h-5 mr-2 animate-spin" />
-              ) : (
-                <Phone className="w-5 h-5 mr-2" />
-              )}
-              {callStatus === "initializing" ? "Initializing..." : "Call"}
-            </Button>
-            
-            <Button
-              type="button"
-              data-testid="button-end-manual-call"
-              className={`flex-1 h-14 bg-red-600 hover:bg-red-700 ${!isCallActive ? 'hidden' : ''}`}
-              onClick={() => {
-                console.log("END CALL CLICKED!");
-                window.alert("Ending call now!");
-                endCall();
-              }}
-            >
-              <PhoneOff className="w-5 h-5 mr-2" />
-              End Call
-            </Button>
+            {!isCallActive ? (
+              <Button
+                data-testid="button-start-manual-call"
+                className="flex-1 h-14 bg-green-600 hover:bg-green-700"
+                onClick={startCall}
+                disabled={!phoneNumber || isLoading || callStatus === "initializing"}
+              >
+                {isLoading || callStatus === "initializing" ? (
+                  <Loader2 className="w-5 h-5 mr-2 animate-spin" />
+                ) : (
+                  <Phone className="w-5 h-5 mr-2" />
+                )}
+                {callStatus === "initializing" ? "Initializing..." : "Call"}
+              </Button>
+            ) : (
+              <button
+                type="button"
+                data-testid="button-end-manual-call"
+                className="flex-1 h-14 bg-red-600 hover:bg-red-700 text-white font-medium rounded-md flex items-center justify-center gap-2 cursor-pointer"
+                style={{ 
+                  pointerEvents: 'auto', 
+                  zIndex: 9999,
+                  position: 'relative'
+                }}
+                onMouseDown={(e) => {
+                  e.stopPropagation();
+                  console.log("MOUSE DOWN on end call!");
+                }}
+                onClick={(e) => {
+                  e.preventDefault();
+                  e.stopPropagation();
+                  console.log("END CALL BUTTON CLICKED!");
+                  endCall();
+                }}
+              >
+                <PhoneOff className="w-5 h-5" />
+                END CALL
+              </button>
+            )}
           </div>
 
           {callStatus === "connected" && (
