@@ -23,6 +23,8 @@ export const calls = pgTable("calls", {
   emailRecipient: text("email_recipient"), // Email address to send summary to (optional)
   listenUrl: text("listen_url"), // Vapi WebSocket URL for live audio streaming
   controlUrl: text("control_url"), // Vapi HTTP URL for live call control
+  callType: text("call_type").default("ai"), // 'ai' | 'manual' - type of call
+  callerName: text("caller_name"), // Name of the person making the manual call
 });
 
 export const insertCallSchema = createInsertSchema(calls).omit({
