@@ -234,6 +234,17 @@ export function ManualCallPanel({
     return `+1${cleaned}`;
   };
 
+  const resetCallState = useCallback(() => {
+    console.log("Resetting call state to ready");
+    isConnectingRef.current = false;
+    setIsLoading(false);
+    setCallStatus("ready");
+    setCurrentCallId(null);
+    setDuration(0);
+    callRef.current = null;
+    callStartTimeRef.current = null;
+  }, []);
+
   const startCall = async () => {
     if (!phoneNumber) {
       toast({
@@ -348,9 +359,7 @@ export function ManualCallPanel({
       
       call.on("error", (error) => {
         console.error("Call error:", error);
-        setCallStatus("ready");
-        setCurrentCallId(null);
-        callRef.current = null;
+        resetCallState();
         toast({
           title: "Call Error",
           description: error.message || "An error occurred during the call",
@@ -365,23 +374,17 @@ export function ManualCallPanel({
       
     } catch (error) {
       console.error("Failed to start call:", error);
-      isConnectingRef.current = false;
-      setCallStatus(deviceRef.current ? "ready" : "idle");
+      resetCallState();
       toast({
         title: "Call Failed",
         description: error instanceof Error ? error.message : "Could not start the call",
         variant: "destructive",
       });
-    } finally {
-      setIsLoading(false);
     }
   };
 
-  const endCall = useCallback(() => {
+  const endCall = () => {
     console.log("End call clicked!");
-    console.log("  callRef.current:", callRef.current);
-    console.log("  callStatus:", callStatus);
-    console.log("  isLoading:", isLoading);
     
     if (callRef.current) {
       try {
@@ -391,30 +394,33 @@ export function ManualCallPanel({
       } catch (error) {
         console.error("Error disconnecting call:", error);
       }
-    } else {
-      console.log("No call reference to disconnect");
     }
     
-    // Force reset state
+    // Force immediate state reset
+    isConnectingRef.current = false;
+    setIsLoading(false);
+    
     const finalDuration = callStartTimeRef.current 
       ? Math.floor((Date.now() - callStartTimeRef.current) / 1000)
-      : duration;
+      : 0;
     
-    console.log("Resetting call state, duration:", finalDuration);
-    isConnectingRef.current = false;
-    setCallStatus("ended");
+    // Notify parent
     if (currentCallId) {
       onCallEnded?.(currentCallId, finalDuration);
     }
     
+    // Clear refs
+    callRef.current = null;
+    callStartTimeRef.current = null;
+    
+    // Show ended briefly then reset
+    setCallStatus("ended");
     setTimeout(() => {
       setCallStatus("ready");
       setCurrentCallId(null);
       setDuration(0);
-      callRef.current = null;
-      callStartTimeRef.current = null;
     }, 1000);
-  }, [callStatus, isLoading, duration, currentCallId, onCallEnded]);
+  };
 
   const toggleMute = () => {
     if (callRef.current) {
