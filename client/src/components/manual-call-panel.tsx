@@ -5,6 +5,13 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { 
   Phone, 
   PhoneOff, 
@@ -14,6 +21,36 @@ import {
   Loader2
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
+
+const providers = [
+  { name: "All Stream", number: "800-360-4467" },
+  { name: "Astound", number: "800-427-8686" },
+  { name: "ATT", number: "800-321-2000" },
+  { name: "Century Link", number: "800-777-9594" },
+  { name: "Comcast Business", number: "800-391-3000" },
+  { name: "Comcast Premier Central", number: "866-925-9635" },
+  { name: "Comcast Premier East", number: "833-847-4249" },
+  { name: "Comcast Scheduling", number: "866-347-7357" },
+  { name: "Comcast West", number: "866-950-3231" },
+  { name: "Cox", number: "866-272-5777" },
+  { name: "Direct TV", number: "888-342-7288" },
+  { name: "Frontier", number: "800-921-8102" },
+  { name: "GoTo Communications", number: "833-851-8340" },
+  { name: "Grande Communications", number: "877-881-7575" },
+  { name: "Granite", number: "866-847-5500" },
+  { name: "Lumen", number: "877-453-8353" },
+  { name: "MetTel", number: "800-876-9823" },
+  { name: "Mood Media", number: "800-345-5000" },
+  { name: "Optimum (CableVision)", number: "866-251-4435" },
+  { name: "RCN", number: "877-726-7000" },
+  { name: "Spectrum Business", number: "866-772-4948" },
+  { name: "Spectrum Disconnects", number: "866-833-4292" },
+  { name: "Spectrum Enterprise", number: "555-812-2591" },
+  { name: "Spectrum Residential", number: "888-892-2253" },
+  { name: "Spectrum Scheduling", number: "888-681-8943" },
+  { name: "ATT U-verse", number: "888-288-8339" },
+  { name: "Verizon Enterprise", number: "888-622-0255" },
+];
 
 interface ManualCallPanelProps {
   sessionId: string | null;
@@ -36,6 +73,7 @@ export function ManualCallPanel({
   onCallEnded 
 }: ManualCallPanelProps) {
   const [phoneNumber, setPhoneNumber] = useState("");
+  const [selectedProvider, setSelectedProvider] = useState("");
   const [callStatus, setCallStatus] = useState<CallStatus>("idle");
   const [currentCallId, setCurrentCallId] = useState<string | null>(null);
   const [duration, setDuration] = useState(0);
@@ -43,6 +81,11 @@ export function ManualCallPanel({
   const [isLoading, setIsLoading] = useState(false);
   const [deviceError, setDeviceError] = useState<string | null>(null);
   const { toast } = useToast();
+
+  const handleProviderSelect = (value: string) => {
+    setSelectedProvider(value);
+    setPhoneNumber(value);
+  };
   
   const deviceRef = useRef<Device | null>(null);
   const callRef = useRef<Call | null>(null);
@@ -104,7 +147,6 @@ export function ManualCallPanel({
       
       const device = new Device(data.token, {
         codecPreferences: [Call.Codec.Opus, Call.Codec.PCMU],
-        enableRingingState: true,
       });
       
       device.on("registered", () => {
@@ -393,6 +435,33 @@ export function ManualCallPanel({
 
         <div className="space-y-4">
           <div className="space-y-2">
+            <Label htmlFor="manual-provider">Provider (Quick Select)</Label>
+            <Select
+              value={selectedProvider}
+              onValueChange={handleProviderSelect}
+              disabled={isCallActive}
+            >
+              <SelectTrigger
+                className="w-full bg-card border-card-border"
+                data-testid="select-manual-provider"
+              >
+                <SelectValue placeholder="Select a Provider" />
+              </SelectTrigger>
+              <SelectContent>
+                {providers.map((provider) => (
+                  <SelectItem
+                    key={provider.number}
+                    value={provider.number}
+                    data-testid={`manual-option-provider-${provider.name.toLowerCase().replace(/\s+/g, "-")}`}
+                  >
+                    {provider.name} - {provider.number}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+
+          <div className="space-y-2">
             <Label htmlFor="manual-phone">Phone Number</Label>
             <div className="flex gap-2">
               <Input
@@ -400,7 +469,10 @@ export function ManualCallPanel({
                 data-testid="input-manual-phone"
                 type="tel"
                 value={phoneNumber}
-                onChange={(e) => setPhoneNumber(e.target.value)}
+                onChange={(e) => {
+                  setPhoneNumber(e.target.value);
+                  setSelectedProvider("");
+                }}
                 placeholder="+1 (555) 123-4567"
                 className="font-mono text-lg"
                 disabled={isCallActive}
