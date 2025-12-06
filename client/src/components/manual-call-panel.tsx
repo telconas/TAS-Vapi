@@ -572,6 +572,11 @@ export function ManualCallPanel({
             ))}
           </div>
 
+          {/* Debug info - remove after fixing */}
+          <div className="text-xs text-muted-foreground bg-muted p-2 rounded">
+            Debug: callStatus={callStatus}, isCallActive={String(isCallActive)}
+          </div>
+
           <div className="flex gap-2">
             {!isCallActive ? (
               <Button
@@ -588,21 +593,18 @@ export function ManualCallPanel({
                 {callStatus === "initializing" ? "Initializing..." : "Call"}
               </Button>
             ) : (
-              <Button
+              <button
                 type="button"
                 data-testid="button-end-manual-call"
-                className="flex-1 h-14 bg-red-600 hover:bg-red-700 relative z-50"
-                onClick={(e) => {
-                  e.preventDefault();
-                  e.stopPropagation();
-                  window.alert("End Call button was clicked! Ending call now...");
-                  console.log("End Call button clicked - event handler");
+                className="flex-1 h-14 bg-red-600 hover:bg-red-700 text-white font-medium rounded-md flex items-center justify-center gap-2"
+                onClick={() => {
+                  window.alert("RAW BUTTON CLICKED!");
                   endCall();
                 }}
               >
-                <PhoneOff className="w-5 h-5 mr-2" />
-                End Call
-              </Button>
+                <PhoneOff className="w-5 h-5" />
+                End Call (Click Me!)
+              </button>
             )}
           </div>
 
