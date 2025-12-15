@@ -54,6 +54,7 @@ const providers = [
   { name: "Comcast Premier East", number: "833-847-4249" },
   { name: "Comcast Scheduling", number: "866-347-7357" },
   { name: "Comcast West", number: "866-950-3231" },
+  { name: "Comcast Xfinity", number: "800-934-6489" },
   { name: "Cox", number: "866-272-5777" },
   { name: "Direct TV", number: "888-342-7288" },
   { name: "Frontier", number: "800-921-8102" },

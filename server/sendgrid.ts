@@ -3,12 +3,13 @@ import sgMail from "@sendgrid/mail";
 // Get SendGrid client with fresh API key each time (no caching)
 async function getUncachableSendGridClient() {
   const apiKey = process.env.SENDGRID_API_KEY;
-  const fromEmail = process.env.SENDGRID_FROM_EMAIL || "noreply@telconassociates.com";
-  
+  const fromEmail =
+    process.env.SENDGRID_FROM_EMAIL || "avb@telconassociates.com";
+
   if (!apiKey) {
     throw new Error("SENDGRID_API_KEY environment variable is not set");
   }
-  
+
   sgMail.setApiKey(apiKey);
   return { client: sgMail, fromEmail };
 }
