@@ -636,7 +636,26 @@ export async function createVapiAssistant(params: {
       provider: "deepgram",
       model: "nova-2",
       language: "en-US",
-      endpointing: 300, // Faster speech endpoint detection (300ms)
+      endpointing: 800, // Increased from 300ms to 800ms - wait longer before thinking speaker finished
+    },
+    // Interruption and audio settings - reduce sensitivity to prevent cutting off
+    backgroundDenoisingEnabled: true, // Reduce background noise/echo
+    backchannelingEnabled: false, // Disable "mm-hmm" responses that can cause overlap
+    startSpeakingPlan: {
+      waitSeconds: 0.8, // Wait 0.8 seconds after detecting end of speech before responding
+      smartEndpointingPlan: {
+        provider: "vapi", // Use Vapi's AI-based speech pattern analysis
+      },
+      transcriptionEndpointingPlan: {
+        onPunctuationSeconds: 0.5, // Wait after punctuation
+        onNoPunctuationSeconds: 1.5, // Wait longer if no punctuation detected
+        onNumberSeconds: 1.0, // Wait after numbers (important for account numbers)
+      },
+    },
+    stopSpeakingPlan: {
+      numWords: 3, // Require 3 words to interrupt the AI (prevents echo from interrupting)
+      voiceSeconds: 0.5, // Require 0.5 seconds of voice to interrupt
+      backoffSeconds: 1.5, // After being interrupted, wait 1.5 seconds before speaking again
     },
     // Silence timeout configuration - prevents call drops during hold
     silenceTimeoutSeconds: 1200, // 20 minutes of silence before ending call
