@@ -246,6 +246,10 @@ export function ManualCallPanel({
   }, []);
 
   const startCall = async () => {
+    console.log("=== START CALL CLICKED ===");
+    console.log("Phone number:", phoneNumber);
+    console.log("Current device state:", deviceRef.current?.state);
+    
     if (!phoneNumber) {
       toast({
         title: "Error",
@@ -378,12 +382,26 @@ export function ManualCallPanel({
         description: `Dialing ${formattedNumber}`,
       });
       
-    } catch (error) {
+    } catch (error: any) {
       console.error("Failed to start call:", error);
+      console.error("Error type:", typeof error);
+      console.error("Error keys:", Object.keys(error || {}));
+      console.error("Error message:", error?.message);
+      console.error("Error stack:", error?.stack);
       resetCallState();
+      
+      let errorMessage = "Could not start the call";
+      if (error instanceof Error) {
+        errorMessage = error.message;
+      } else if (typeof error === 'string') {
+        errorMessage = error;
+      } else if (error?.message) {
+        errorMessage = error.message;
+      }
+      
       toast({
         title: "Call Failed",
-        description: error instanceof Error ? error.message : "Could not start the call",
+        description: errorMessage,
         variant: "destructive",
       });
     } finally {

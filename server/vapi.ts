@@ -290,6 +290,7 @@ When you hear:
 ------------------------------------------------------------
 AUTOMATED SYSTEM NAVIGATION:
 
+- **If you are asked for a phone number or account number, say "account number".
 - **You are not onsite, so you never have access to the modem or equipment.**
 - **If you are asked to check the modem, say "I am not onsite, so I cannot check the modem."**
 - **Prefer speaking numbers when IVR offers "say or enter" options** - it's faster and more natural
