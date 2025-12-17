@@ -636,7 +636,7 @@ export async function createVapiAssistant(params: {
       provider: "deepgram",
       model: "nova-2",
       language: "en-US",
-      endpointing: 800, // Increased from 300ms to 800ms - wait longer before thinking speaker finished
+      endpointing: 500, // Max allowed by Vapi (was 300ms, increased to 500ms)
     },
     // Interruption and audio settings - reduce sensitivity to prevent cutting off
     backgroundDenoisingEnabled: true, // Reduce background noise/echo
