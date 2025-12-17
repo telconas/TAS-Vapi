@@ -2391,7 +2391,19 @@ ${transcriptText}`;
       // Clean up active call
       activeCalls.delete(callId);
 
-      // Note: Call summary will be generated from recording callback once recording URL is available
+      // Schedule fallback summary generation after 10 seconds
+      // This handles cases where Vapi's end-of-call-report webhook doesn't arrive
+      setTimeout(async () => {
+        try {
+          const call = await storage.getCall(callId);
+          if (call && !call.summary) {
+            console.log(`[SUMMARY FALLBACK] Generating summary for call ${callId} (webhook didn't arrive)`);
+            await generateCallSummary(callId);
+          }
+        } catch (error) {
+          console.error(`[SUMMARY FALLBACK] Error generating summary for ${callId}:`, error);
+        }
+      }, 10000); // 10 second delay to allow webhook to arrive first
 
       res.json({ success: true, duration });
     } catch (error) {
