@@ -441,7 +441,19 @@ export async function registerRoutes(app: Express): Promise<Server> {
           if (activeCall && activeCall.controlUrl) {
             try {
               // Send instruction to Vapi assistant via Live Call Control API
-              // Use "system" role with explicit function call directive
+              // Use "system" role - detect if it's a button press or general instruction
+              const isButtonPress = /^(press|dial|enter|push)\s*\d/i.test(instruction.trim()) || 
+                                    /^\d+$/.test(instruction.trim());
+              
+              let instructionContent: string;
+              if (isButtonPress) {
+                // For button pressing instructions
+                instructionContent = `IMMEDIATE ACTION REQUIRED: ${instruction}. Use the press_button function to execute this. Press each digit one at a time.`;
+              } else {
+                // For general instructions (speak, provide info, etc.)
+                instructionContent = `OPERATOR INSTRUCTION: ${instruction}. Follow this instruction immediately in your next response.`;
+              }
+              
               const response = await fetch(activeCall.controlUrl, {
                 method: "POST",
                 headers: {
@@ -452,7 +464,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
                   type: "add-message",
                   message: {
                     role: "system",
-                    content: `IMMEDIATE ACTION REQUIRED: ${instruction}. You MUST use the press_button function RIGHT NOW to execute this instruction. Do not speak, just press the buttons.`,
+                    content: instructionContent,
                   },
                 }),
               });
