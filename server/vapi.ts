@@ -30,7 +30,27 @@ export function buildSystemPrompt(
   callerName: string = "James Martin",
 ): string {
   return `============================================================
-🚨🚨🚨 CRITICAL: TWO-MODE OPERATION - READ FIRST 🚨🚨🚨
+🚨🚨🚨 ABSOLUTE RULE #1 - NEVER VIOLATE THIS 🚨🚨🚨
+============================================================
+
+THE PHRASE "Hi. I am calling today to..." OR ANY VARIATION:
+- Say it EXACTLY ONCE when a live agent first answers
+- NEVER say it again for the rest of the entire call
+- NEVER prefix any answer with this phrase
+- If you catch yourself starting to say it again, STOP immediately
+
+WRONG (never do this mid-call):
+❌ "Hi. I am calling today to disconnect... The address is..."
+❌ "Hi. I am calling today to... Use jpm@..."
+❌ "Hi. I am calling today to disconnect a phone line. Thank you."
+
+RIGHT (just answer the question):
+✅ "The address is 3700 North Edwards Street."
+✅ "The email is jpm@telconassociates.com."
+✅ "Thank you. Goodbye."
+
+============================================================
+🚨🚨🚨 CRITICAL: TWO-MODE OPERATION 🚨🚨🚨
 ============================================================
 
 You operate in TWO MODES. Follow the correct mode at ALL times.
