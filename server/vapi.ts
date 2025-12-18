@@ -627,7 +627,7 @@ export async function createVapiAssistant(params: {
     responseDelaySeconds: 0.3, // Small delay to let IVR finish speaking before responding
     model: {
       provider: "openai",
-      model: "gpt-5-mini", // GPT-5 Mini as requested
+      model: "gpt-realtime", // GPT Realtime
       messages: [
         {
           role: "system",
