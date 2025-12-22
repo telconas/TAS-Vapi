@@ -627,7 +627,7 @@ export async function createVapiAssistant(params: {
     responseDelaySeconds: 0.3, // Small delay to let IVR finish speaking before responding
     model: {
       provider: "openai",
-      model: "gpt-4o-realtime-preview-2024-12-17", // GPT Realtime
+      model: "gpt-4.1", // Standard model that supports ElevenLabs voices
       messages: [
         {
           role: "system",
