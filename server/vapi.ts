@@ -627,7 +627,7 @@ export async function createVapiAssistant(params: {
     responseDelaySeconds: 0.3, // Small delay to let IVR finish speaking before responding
     model: {
       provider: "openai",
-      model: "gpt-realtime", // GPT Realtime
+      model: "gpt-4o-realtime-preview-2024-12-17", // GPT Realtime
       messages: [
         {
           role: "system",
@@ -697,7 +697,7 @@ export async function createVapiAssistant(params: {
       backoffSeconds: 1.5, // After being interrupted, wait 1.5 seconds before speaking again
     },
     // Silence timeout configuration - prevents call drops during hold
-    silenceTimeoutSeconds: 1200, // 20 minutes of silence before ending call
+    silenceTimeoutSeconds: 600, // 10 minutes of silence before ending call
     maxDurationSeconds: 3600, // Maximum call duration: 60 minutes
     // Configure webhooks for real-time updates
     serverMessages: [
