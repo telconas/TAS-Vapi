@@ -600,6 +600,13 @@ export async function createVapiAssistant(params: {
 }): Promise<string> {
   const voiceConfig = getVoiceConfig(params.voiceProvider, params.voice);
 
+  // Choose model based on voice provider:
+  // - Deepgram voices work with GPT-realtime (faster, native audio)
+  // - ElevenLabs voices require standard GPT models
+  const modelName = params.voiceProvider === "elevenlabs" 
+    ? "gpt-4.1" 
+    : "gpt-4o-realtime-preview-2024-12-17";
+
   const webhookUrl = getPublicWebhookUrl("/api/vapi/webhook");
 
   // Log the system prompt being sent to Vapi (first 500 chars for debugging)
@@ -607,6 +614,7 @@ export async function createVapiAssistant(params: {
   console.log("Assistant name:", params.name);
   console.log("Voice provider:", params.voiceProvider);
   console.log("Voice:", params.voice);
+  console.log("Model:", modelName);
   console.log(
     "System prompt (first 500 chars):",
     params.systemPrompt.substring(0, 500),
@@ -627,7 +635,7 @@ export async function createVapiAssistant(params: {
     responseDelaySeconds: 0.3, // Small delay to let IVR finish speaking before responding
     model: {
       provider: "openai",
-      model: "gpt-4.1", // Standard model that supports ElevenLabs voices
+      model: modelName, // Dynamic: GPT-realtime for Deepgram, GPT-4.1 for ElevenLabs
       messages: [
         {
           role: "system",
