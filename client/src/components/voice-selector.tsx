@@ -56,18 +56,13 @@ const deepgramVoices = [
   { value: "aura-2-stella-en", label: "Stella (Female)" },
   { value: "aura-2-athena-en", label: "Athena (Female)" },
   { value: "aura-2-hera-en", label: "Hera (Female)" },
-  { value: "aura-2-thalia-en", label: "Thalia (Female) - Energetic" },
-  { value: "aura-2-andromeda-en", label: "Andromeda (Female) - Casual" },
-  { value: "aura-2-helena-en", label: "Helena (Female) - Caring" },
   { value: "aura-2-orion-en", label: "Orion (Male)" },
-  { value: "aura-2-arcas-en", label: "Arcas (Male) - Smooth" },
+  { value: "aura-2-arcas-en", label: "Arcas (Male)" },
   { value: "aura-2-perseus-en", label: "Perseus (Male)" },
   { value: "aura-2-angus-en", label: "Angus (Male)" },
   { value: "aura-2-orpheus-en", label: "Orpheus (Male)" },
   { value: "aura-2-helios-en", label: "Helios (Male)" },
   { value: "aura-2-zeus-en", label: "Zeus (Male)" },
-  { value: "aura-2-apollo-en", label: "Apollo (Male) - Confident" },
-  { value: "aura-2-aries-en", label: "Aries (Male)" },
 ];
 
 export function VoiceSelector({
@@ -203,7 +198,7 @@ export function VoiceSelector({
             </SelectContent>
           </Select>
           <p className="text-xs text-muted-foreground">
-            Deepgram Aura-2: Ultra-low latency (~100ms) enterprise TTS (17
+            Deepgram Aura-2: Ultra-low latency (~100ms) enterprise TTS (12
             voices)
           </p>
         </TabsContent>
