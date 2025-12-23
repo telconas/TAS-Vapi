@@ -37,7 +37,7 @@ const countryCodes = [
 
 const callerNames = [
   { value: "James Martin", label: "James Martin" },
-  { value: "Mariad Thatcher", label: "Mariad Thatcher" },
+  { value: "Marid Thatcher", label: "Mariad Thatcher" },
   { value: "Kara Robbins", label: "Kara Robins" },
   { value: "Ben Judy", label: "Ben Judy" },
   { value: "Doug Pearce", label: "Douglas Pearce" },
