@@ -42,7 +42,8 @@ const callerNames = [
   { value: "Ben Judy", label: "Ben Judy" },
   { value: "Doug Pearce", label: "Douglas Pearce" },
   { value: "Robert Rowden", label: "Rob Rowden" },
-  { value: "Pat Jones", label: "Pat Jones (Patricia or Patrick)" },
+  { value: "Patricia Jones", label: "Patricia Jones" },
+  { value: "Patrick Jones", label: "Patrick Jones" },
 ];
 
 const providers = [
