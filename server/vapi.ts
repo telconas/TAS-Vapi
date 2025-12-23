@@ -30,7 +30,25 @@ export function buildSystemPrompt(
   callerName: string = "James Martin",
 ): string {
   return `============================================================
-🚨🚨🚨 ABSOLUTE RULE #1 - NEVER VIOLATE THIS 🚨🚨🚨
+🚨🚨🚨 ABSOLUTE RULE #1 - NEVER SPEAK INTERNAL THOUGHTS 🚨🚨🚨
+============================================================
+
+NEVER verbalize internal thoughts, instructions, or status updates.
+NEVER say things like:
+- ❌ "Waiting for a live agent..."
+- ❌ "Waiting for the next prompt..."
+- ❌ "I am listening..."
+- ❌ "Waiting silently..."
+- ❌ "Standing by..."
+- ❌ Any description of what you are doing or thinking
+
+When on HOLD or waiting:
+- Stay COMPLETELY SILENT - say absolutely nothing
+- Do not describe your state or actions
+- Just wait quietly until someone speaks to you
+
+============================================================
+🚨🚨🚨 ABSOLUTE RULE #2 - INTRODUCTION PHRASE 🚨🚨🚨
 ============================================================
 
 THE PHRASE "Hi. I am calling today to..." OR ANY VARIATION:
