@@ -580,8 +580,6 @@ interface VoiceConfig {
   similarityBoost?: number;
   useSpeakerBoost?: boolean;
   style?: number;
-  // Speech speed for all providers
-  speed?: number;
 }
 
 function getVoiceConfig(voiceProvider: string, voice: string): VoiceConfig {
@@ -595,7 +593,6 @@ function getVoiceConfig(voiceProvider: string, voice: string): VoiceConfig {
         similarityBoost: 0.8, // Higher similarity for clearer enunciation
         useSpeakerBoost: true, // Enable speaker boost for enhanced clarity
         style: 0.3, // Moderate style for natural but clear speech
-        speed: 1.0, // Normal speed
       };
     case "deepgram":
       // Extract voice name from Deepgram format (aura-2-asteria-en → asteria)
@@ -603,8 +600,6 @@ function getVoiceConfig(voiceProvider: string, voice: string): VoiceConfig {
       return {
         provider: "deepgram",
         voiceId: voiceName, // Just the voice name (e.g., "asteria")
-        // Note: Deepgram doesn't have volume/gain settings - adjust at telephony level if needed
-        speed: 1.0, // Normal speed
       };
     case "polly":
       // Vapi doesn't support Polly directly, fall back to Deepgram
@@ -614,13 +609,11 @@ function getVoiceConfig(voiceProvider: string, voice: string): VoiceConfig {
       return {
         provider: "deepgram",
         voiceId: "asteria",
-        speed: 1.0,
       };
     default:
       return {
         provider: "deepgram",
         voiceId: "asteria",
-        speed: 1.0,
       };
   }
 }
