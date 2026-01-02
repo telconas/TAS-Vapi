@@ -44,7 +44,7 @@ const callerNames = [
   { value: "Robert Rowden", label: "Rob Rowden" },
   { value: "Patricia Jones", label: "Patricia Jones" },
   { value: "Patrick Jones", label: "Patrick Jones" },
-  { value: "Eric Lester", label: "Eric Lester" },
+  { value: "Fred Castro", label: "Fred Castro" },
   { value: "Felicia White", label: "Felicia White" },
 ];
 
