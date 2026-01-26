@@ -89,6 +89,7 @@ export function PhoneInputForm({
   const [phoneNumber, setPhoneNumber] = useState("");
   const [selectedProvider, setSelectedProvider] = useState("");
   const [callerName, setCallerName] = useState("James Martin");
+  const [useCustomName, setUseCustomName] = useState(false);
   const [prompt, setPrompt] = useState("");
   const [email, setEmail] = useState("jpm@telconassociates.com");
 
@@ -114,32 +115,62 @@ export function PhoneInputForm({
   return (
     <div className="space-y-6">
       <div className="space-y-3">
-        <Label htmlFor="caller-name" className="text-base font-medium">
-          Caller Name
-        </Label>
-        <Select
-          value={callerName}
-          onValueChange={setCallerName}
-          disabled={isCallActive}
-        >
-          <SelectTrigger
-            className="w-full bg-card border-card-border"
-            data-testid="select-caller-name"
+        <div className="flex items-center justify-between">
+          <Label htmlFor="caller-name" className="text-base font-medium">
+            Caller Name
+          </Label>
+          <button
+            type="button"
+            onClick={() => {
+              setUseCustomName(!useCustomName);
+              if (!useCustomName) {
+                setCallerName("");
+              } else {
+                setCallerName("James Martin");
+              }
+            }}
+            className="text-sm text-primary hover:underline"
+            disabled={isCallActive}
+            data-testid="button-toggle-custom-name"
           >
-            <SelectValue placeholder="Select caller name" />
-          </SelectTrigger>
-          <SelectContent>
-            {callerNames.map((name) => (
-              <SelectItem
-                key={name.value}
-                value={name.value}
-                data-testid={`option-caller-${name.value.toLowerCase().replace(/\s+/g, "-")}`}
-              >
-                {name.label}
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
+            {useCustomName ? "Use preset names" : "Type custom name"}
+          </button>
+        </div>
+        {useCustomName ? (
+          <Input
+            id="caller-name"
+            value={callerName}
+            onChange={(e) => setCallerName(e.target.value)}
+            placeholder="Enter caller name"
+            className="w-full bg-card border-card-border"
+            disabled={isCallActive}
+            data-testid="input-caller-name"
+          />
+        ) : (
+          <Select
+            value={callerName}
+            onValueChange={setCallerName}
+            disabled={isCallActive}
+          >
+            <SelectTrigger
+              className="w-full bg-card border-card-border"
+              data-testid="select-caller-name"
+            >
+              <SelectValue placeholder="Select caller name" />
+            </SelectTrigger>
+            <SelectContent>
+              {callerNames.map((name) => (
+                <SelectItem
+                  key={name.value}
+                  value={name.value}
+                  data-testid={`option-caller-${name.value.toLowerCase().replace(/\s+/g, "-")}`}
+                >
+                  {name.label}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        )}
       </div>
 
       <div className="space-y-3">
