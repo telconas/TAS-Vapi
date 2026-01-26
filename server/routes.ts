@@ -532,8 +532,20 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   // Helper function to get the proper public host (for Twilio callbacks)
   function getPublicHost(req: Request): string {
-    // Use REPLIT_DEV_DOMAIN for public access (Twilio can reach this),
-    // fallback to host header for local development
+    // Check for custom production URL first (set this in Secrets for deployed apps)
+    const productionUrl = process.env.PRODUCTION_URL;
+    if (productionUrl) {
+      // Remove protocol prefix if present
+      return productionUrl.replace(/^https?:\/\//, '');
+    }
+    
+    // Check for Replit domains (works in both dev and deployed)
+    const domains = process.env.REPLIT_DOMAINS;
+    if (domains) {
+      return domains.split(',')[0].trim();
+    }
+    
+    // Fallback to dev domain
     return process.env.REPLIT_DEV_DOMAIN || req.get("host") || "localhost:5000";
   }
 

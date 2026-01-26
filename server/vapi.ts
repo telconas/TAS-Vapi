@@ -17,10 +17,26 @@ const vapiClient = axios.create({
 
 // Get public webhook URL for Vapi callbacks
 function getPublicWebhookUrl(path: string): string {
-  const domain = process.env.REPLIT_DEV_DOMAIN;
-  if (domain) {
+  // Check for custom production URL first (set this in Secrets for deployed apps)
+  const productionUrl = process.env.PRODUCTION_URL;
+  if (productionUrl) {
+    return `${productionUrl}${path}`;
+  }
+  
+  // Check for Replit domains (works in both dev and deployed)
+  const domains = process.env.REPLIT_DOMAINS;
+  if (domains) {
+    // REPLIT_DOMAINS can have multiple domains, use the first one
+    const domain = domains.split(',')[0].trim();
     return `https://${domain}${path}`;
   }
+  
+  // Fallback to dev domain
+  const devDomain = process.env.REPLIT_DEV_DOMAIN;
+  if (devDomain) {
+    return `https://${devDomain}${path}`;
+  }
+  
   return `http://localhost:5000${path}`;
 }
 
