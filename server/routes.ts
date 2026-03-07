@@ -820,14 +820,45 @@ ${transcriptText}`;
   // API: Get ElevenLabs voices
   app.get("/api/voices", async (req, res) => {
     try {
+      const pinnedVoiceIds = [
+        "r5iFzIytiA1rzjhWFCjW",
+        "QLAlOeRuLwKX0skeTR7R",
+        "tMXujoAjiboschVOhAnk",
+      ];
+
       const voicesResponse = await elevenLabsClient.voices.getAll();
-      const voices = voicesResponse.voices.map((voice: any) => ({
+      const accountVoices = voicesResponse.voices.map((voice: any) => ({
         voiceId: voice.voice_id,
         name: voice.name,
         previewUrl: voice.preview_url,
       }));
 
-      // Cache voices in database
+      const accountVoiceIds = new Set(accountVoices.map((v: any) => v.voiceId));
+
+      const pinnedToFetch = pinnedVoiceIds.filter((id) => !accountVoiceIds.has(id));
+      const pinnedVoices: { voiceId: string; name: string; previewUrl?: string }[] = [];
+
+      for (const voiceId of pinnedToFetch) {
+        try {
+          const apiKey = process.env.ELEVENLABS_API_KEY;
+          const response = await fetch(`https://api.elevenlabs.io/v1/voices/${voiceId}`, {
+            headers: { "xi-api-key": apiKey || "" },
+          });
+          if (response.ok) {
+            const data = await response.json() as any;
+            pinnedVoices.push({
+              voiceId: data.voice_id,
+              name: data.name,
+              previewUrl: data.preview_url,
+            });
+          }
+        } catch (err) {
+          console.error(`Failed to fetch pinned voice ${voiceId}:`, err);
+        }
+      }
+
+      const voices = [...accountVoices, ...pinnedVoices];
+
       for (const voice of voices) {
         await storage.upsertVoice(voice);
       }
