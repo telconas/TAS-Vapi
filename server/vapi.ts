@@ -15,6 +15,42 @@ const vapiClient = axios.create({
   },
 });
 
+// Cache for ElevenLabs credential ID
+let cachedElevenLabsCredentialId: string | null = null;
+
+// Get or create ElevenLabs credential in Vapi so account voices are accessible
+async function getElevenLabsCredentialId(): Promise<string | null> {
+  if (cachedElevenLabsCredentialId) return cachedElevenLabsCredentialId;
+
+  const elevenLabsApiKey = process.env.ELEVENLABS_API_KEY;
+  if (!elevenLabsApiKey) return null;
+
+  try {
+    // Check if a credential already exists
+    const listResponse = await vapiClient.get("/credential");
+    const existing = listResponse.data?.find(
+      (c: any) => c.provider === "11labs"
+    );
+    if (existing?.id) {
+      cachedElevenLabsCredentialId = existing.id;
+      console.log("[Vapi] Using existing ElevenLabs credential:", existing.id);
+      return existing.id;
+    }
+
+    // Create a new credential
+    const createResponse = await vapiClient.post("/credential", {
+      provider: "11labs",
+      apiKey: elevenLabsApiKey,
+    });
+    cachedElevenLabsCredentialId = createResponse.data?.id || null;
+    console.log("[Vapi] Created ElevenLabs credential:", cachedElevenLabsCredentialId);
+    return cachedElevenLabsCredentialId;
+  } catch (err: any) {
+    console.error("[Vapi] Failed to get/create ElevenLabs credential:", err?.response?.data || err.message);
+    return null;
+  }
+}
+
 // Get public webhook URL for Vapi callbacks
 function getPublicWebhookUrl(path: string): string {
   // Check for custom production URL first (set this in Secrets for deployed apps)
@@ -666,7 +702,16 @@ export async function createVapiAssistant(params: {
   voice: string;
   firstMessageMode?: "assistant-waits-for-user" | "assistant-speaks-first";
 }): Promise<string> {
-  const voiceConfig = getVoiceConfig(params.voiceProvider, params.voice);
+  let voiceConfig: any = getVoiceConfig(params.voiceProvider, params.voice);
+
+  // For ElevenLabs, attach our credential so Vapi uses our account's voices
+  if (params.voiceProvider === "elevenlabs") {
+    const credentialId = await getElevenLabsCredentialId();
+    if (credentialId) {
+      voiceConfig = { ...voiceConfig, credentialId };
+      console.log("[Vapi] Using ElevenLabs credentialId:", credentialId);
+    }
+  }
 
   // Choose model based on voice provider:
   // - GPT-realtime ONLY works with OpenAI's native voices (alloy, echo, etc.)
