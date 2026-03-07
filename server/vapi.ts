@@ -704,13 +704,10 @@ export async function createVapiAssistant(params: {
 }): Promise<string> {
   let voiceConfig: any = getVoiceConfig(params.voiceProvider, params.voice);
 
-  // For ElevenLabs, attach our credential so Vapi uses our account's voices
+  // For ElevenLabs, ensure our API key is registered with Vapi as a credential
+  // so Vapi uses our account's voices (credential is account-level, not per-request)
   if (params.voiceProvider === "elevenlabs") {
-    const credentialId = await getElevenLabsCredentialId();
-    if (credentialId) {
-      voiceConfig = { ...voiceConfig, credentialId };
-      console.log("[Vapi] Using ElevenLabs credentialId:", credentialId);
-    }
+    await getElevenLabsCredentialId();
   }
 
   // Choose model based on voice provider:
