@@ -40,18 +40,23 @@ async function getElevenLabsCredentialId(): Promise<string | null> {
       (c: any) => c.provider === "11labs"
     );
     if (existing?.id) {
-      cachedElevenLabsCredentialId = existing.id;
-      console.log("[Vapi] Using existing ElevenLabs credential:", existing.id);
-      return existing.id;
+      // Delete the existing credential so we can replace it with the current key
+      console.log("[Vapi] Deleting stale 11labs credential:", existing.id);
+      try {
+        await vapiClient.delete(`/credential/${existing.id}`);
+        console.log("[Vapi] Deleted stale credential");
+      } catch (delErr: any) {
+        console.warn("[Vapi] Could not delete existing credential:", delErr?.response?.data || delErr.message);
+      }
     }
 
-    console.log("[Vapi] No existing 11labs credential found — creating one...");
+    // Create a fresh credential with the current ElevenLabs API key
+    console.log("[Vapi] Creating fresh 11labs credential...");
     const createResponse = await vapiClient.post("/credential", {
       provider: "11labs",
       apiKey: elevenLabsApiKey,
     });
     console.log("[Vapi] Create credential response status:", createResponse.status);
-    console.log("[Vapi] Create credential response data:", JSON.stringify(createResponse.data));
     cachedElevenLabsCredentialId = createResponse.data?.id || null;
     console.log("[Vapi] Created ElevenLabs credential:", cachedElevenLabsCredentialId);
     return cachedElevenLabsCredentialId;
