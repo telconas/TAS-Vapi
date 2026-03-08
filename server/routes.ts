@@ -2401,8 +2401,35 @@ ${transcriptText}`;
     const { callId } = req.params;
     const activeCall = activeCalls.get(callId);
 
+    // If not in memory (e.g. server restarted), fall back to DB lookup
     if (!activeCall) {
-      return res.status(404).json({ error: "Call not found" });
+      try {
+        const dbCall = await storage.getCall(callId);
+        if (!dbCall) {
+          return res.status(404).json({ error: "Call not found" });
+        }
+        // End via Vapi if AI call, Twilio if manual
+        if (dbCall.callType === "ai" && dbCall.twilioCallSid) {
+          try {
+            await endVapiCall(dbCall.twilioCallSid);
+            console.log(`[VAPI] Ended call ${callId} via DB fallback`);
+          } catch (e) {
+            console.log(`[VAPI] Could not end call ${callId} - may already be ended`);
+          }
+        } else if (dbCall.twilioCallSid) {
+          try {
+            await twilioClient.calls(dbCall.twilioCallSid).update({ status: "completed" });
+            console.log(`[TWILIO] Ended call ${callId} via DB fallback`);
+          } catch (e) {
+            console.log(`[TWILIO] Could not end call ${callId} - may already be ended`);
+          }
+        }
+        await storage.updateCallStatus(callId, "ended", undefined, new Date());
+        return res.json({ success: true });
+      } catch (error) {
+        console.error("Error hanging up call via DB fallback:", error);
+        return res.status(500).json({ error: "Failed to hang up call" });
+      }
     }
 
     try {
