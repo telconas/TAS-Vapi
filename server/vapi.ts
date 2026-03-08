@@ -20,14 +20,22 @@ let cachedElevenLabsCredentialId: string | null = null;
 
 // Get or create ElevenLabs credential in Vapi so account voices are accessible
 async function getElevenLabsCredentialId(): Promise<string | null> {
-  if (cachedElevenLabsCredentialId) return cachedElevenLabsCredentialId;
+  if (cachedElevenLabsCredentialId) {
+    console.log("[Vapi] Reusing cached ElevenLabs credential:", cachedElevenLabsCredentialId);
+    return cachedElevenLabsCredentialId;
+  }
 
   const elevenLabsApiKey = process.env.ELEVENLABS_API_KEY;
-  if (!elevenLabsApiKey) return null;
+  if (!elevenLabsApiKey) {
+    console.error("[Vapi] ELEVENLABS_API_KEY not set — cannot register credential");
+    return null;
+  }
 
+  console.log("[Vapi] Looking up existing ElevenLabs credentials in Vapi...");
   try {
-    // Check if a credential already exists
     const listResponse = await vapiClient.get("/credential");
+    console.log("[Vapi] Credential list response status:", listResponse.status);
+    console.log("[Vapi] Credentials found:", JSON.stringify(listResponse.data?.map((c: any) => ({ id: c.id, provider: c.provider }))));
     const existing = listResponse.data?.find(
       (c: any) => c.provider === "11labs"
     );
@@ -37,16 +45,19 @@ async function getElevenLabsCredentialId(): Promise<string | null> {
       return existing.id;
     }
 
-    // Create a new credential
+    console.log("[Vapi] No existing 11labs credential found — creating one...");
     const createResponse = await vapiClient.post("/credential", {
       provider: "11labs",
       apiKey: elevenLabsApiKey,
     });
+    console.log("[Vapi] Create credential response status:", createResponse.status);
+    console.log("[Vapi] Create credential response data:", JSON.stringify(createResponse.data));
     cachedElevenLabsCredentialId = createResponse.data?.id || null;
     console.log("[Vapi] Created ElevenLabs credential:", cachedElevenLabsCredentialId);
     return cachedElevenLabsCredentialId;
   } catch (err: any) {
-    console.error("[Vapi] Failed to get/create ElevenLabs credential:", err?.response?.data || err.message);
+    console.error("[Vapi] Failed to get/create ElevenLabs credential:", JSON.stringify(err?.response?.data) || err.message);
+    console.error("[Vapi] Credential error status:", err?.response?.status);
     return null;
   }
 }
