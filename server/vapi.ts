@@ -39,30 +39,46 @@ async function getElevenLabsCredentialId(): Promise<string | null> {
     const existing = listResponse.data?.find(
       (c: any) => c.provider === "11labs"
     );
-    if (existing?.id) {
-      // Delete the existing credential so we can replace it with the current key
-      console.log("[Vapi] Deleting stale 11labs credential:", existing.id);
-      try {
-        await vapiClient.delete(`/credential/${existing.id}`);
-        console.log("[Vapi] Deleted stale credential");
-      } catch (delErr: any) {
-        console.warn("[Vapi] Could not delete existing credential:", delErr?.response?.data || delErr.message);
-      }
-    }
 
-    // Create a fresh credential with the current ElevenLabs API key
+    // Try to create a fresh credential with the current ElevenLabs API key FIRST
+    // Only delete the old one if the new one is created successfully
     console.log("[Vapi] Creating fresh 11labs credential...");
-    const createResponse = await vapiClient.post("/credential", {
-      provider: "11labs",
-      apiKey: elevenLabsApiKey,
-    });
-    console.log("[Vapi] Create credential response status:", createResponse.status);
-    cachedElevenLabsCredentialId = createResponse.data?.id || null;
-    console.log("[Vapi] Created ElevenLabs credential:", cachedElevenLabsCredentialId);
-    return cachedElevenLabsCredentialId;
+    try {
+      const createResponse = await vapiClient.post("/credential", {
+        provider: "11labs",
+        apiKey: elevenLabsApiKey,
+      });
+      console.log("[Vapi] Create credential response status:", createResponse.status);
+      cachedElevenLabsCredentialId = createResponse.data?.id || null;
+      console.log("[Vapi] Created ElevenLabs credential:", cachedElevenLabsCredentialId);
+
+      // New credential created successfully — now clean up old one
+      if (existing?.id) {
+        console.log("[Vapi] Deleting old 11labs credential:", existing.id);
+        try {
+          await vapiClient.delete(`/credential/${existing.id}`);
+          console.log("[Vapi] Deleted old credential");
+        } catch (delErr: any) {
+          console.warn("[Vapi] Could not delete old credential:", delErr?.response?.data || delErr.message);
+        }
+      }
+
+      return cachedElevenLabsCredentialId;
+    } catch (createErr: any) {
+      console.error("[Vapi] Failed to create new ElevenLabs credential:", JSON.stringify(createErr?.response?.data) || createErr.message);
+
+      // Fall back to existing credential if we have one
+      if (existing?.id) {
+        console.log("[Vapi] Falling back to existing credential:", existing.id);
+        cachedElevenLabsCredentialId = existing.id;
+        return cachedElevenLabsCredentialId;
+      }
+
+      console.error("[Vapi] No existing credential to fall back to");
+      return null;
+    }
   } catch (err: any) {
-    console.error("[Vapi] Failed to get/create ElevenLabs credential:", JSON.stringify(err?.response?.data) || err.message);
-    console.error("[Vapi] Credential error status:", err?.response?.status);
+    console.error("[Vapi] Failed to list Vapi credentials:", JSON.stringify(err?.response?.data) || err.message);
     return null;
   }
 }
