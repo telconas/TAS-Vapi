@@ -76,9 +76,9 @@ function broadcastToCall(activeCall: ActiveCall, payload: object): void {
     return;
   }
   // Fallback: broadcast to all connected clients (handles reconnected browsers)
-  for (const client of wsClients.values()) {
+  wsClients.forEach((client) => {
     safeSend(client, payload);
-  }
+  });
 }
 
 // Helper function to build the full system prompt
