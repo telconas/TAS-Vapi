@@ -55,6 +55,31 @@ interface ActiveCall {
 }
 
 const activeCalls = new Map<string, ActiveCall>();
+const wsClients = new Map<string, WebSocket>();
+
+// Helper: safely send to a WebSocket, ignoring errors on closed sockets
+function safeSend(ws: WebSocket | null | undefined, payload: object): void {
+  if (!ws) return;
+  try {
+    if (ws.readyState === WebSocket.OPEN) {
+      ws.send(JSON.stringify(payload));
+    }
+  } catch (_) {
+    // Ignore send errors (stale/closed socket)
+  }
+}
+
+// Helper: send to the active call's WebSocket; if closed/missing, broadcast to all clients
+function broadcastToCall(activeCall: ActiveCall, payload: object): void {
+  if (activeCall.ws && activeCall.ws.readyState === WebSocket.OPEN) {
+    safeSend(activeCall.ws, payload);
+    return;
+  }
+  // Fallback: broadcast to all connected clients (handles reconnected browsers)
+  for (const client of wsClients.values()) {
+    safeSend(client, payload);
+  }
+}
 
 // Helper function to build the full system prompt
 function buildSystemPrompt(userInstructions: string): string {
@@ -392,9 +417,6 @@ async function generateDeepgramAudio(
 export async function registerRoutes(app: Express): Promise<Server> {
   const httpServer = createServer(app);
 
-  // Map to track WebSocket connections per session
-  const wsClients = new Map<string, WebSocket>();
-
   // WebSocket server for real-time communication
   const wss = new WebSocketServer({ server: httpServer, path: "/ws" });
 
@@ -432,6 +454,20 @@ export async function registerRoutes(app: Express): Promise<Server> {
       try {
         const message = JSON.parse(data.toString());
         console.log("Received WebSocket message:", message.type);
+
+        // Handle browser reconnect: re-link new WebSocket to active call
+        if (message.type === "resume") {
+          const { callId } = message.data || {};
+          if (callId) {
+            const activeCall = activeCalls.get(callId);
+            if (activeCall) {
+              activeCall.ws = ws;
+              console.log(`[WS] Resumed WebSocket link for call ${callId}`);
+              ws.send(JSON.stringify({ type: "resumed", data: { callId } }));
+            }
+          }
+          return;
+        }
 
         // Handle operator instructions
         if (message.type === "instruction") {
@@ -1185,8 +1221,7 @@ ${transcriptText}`;
             });
 
             // Send to frontend via WebSocket
-            activeCall.ws?.send(
-              JSON.stringify({
+            broadcastToCall(activeCall, {
                 type: "transcription",
                 data: {
                   callId: activeCall.callId,
@@ -1194,8 +1229,7 @@ ${transcriptText}`;
                   text: transcript,
                   timestamp: Date.now(),
                 },
-              }),
-            );
+              });
 
             // Note: DTMF is handled by the AI using the press_button function tool
             // The Live Call Control API does not support direct DTMF sending
@@ -1233,8 +1267,7 @@ ${transcriptText}`;
             }
 
             // Send to frontend
-            activeCall.ws?.send(
-              JSON.stringify({
+            broadcastToCall(activeCall, {
                 type: "call_status",
                 data: {
                   callId: activeCall.callId,
@@ -1244,8 +1277,7 @@ ${transcriptText}`;
                       ? Math.floor((Date.now() - activeCall.startTime) / 1000)
                       : undefined,
                 },
-              }),
-            );
+              });
 
             // Clean up active call if ended
             if (appStatus === "ended") {
@@ -1524,15 +1556,13 @@ ${transcriptText}`;
     if (CallStatus === "in-progress" && activeCall) {
       await storage.updateCallStatus(callId, "connected");
 
-      activeCall.ws?.send(
-        JSON.stringify({
+      broadcastToCall(activeCall, {
           type: "call_status",
           data: {
             callId,
             status: "connected",
           },
-        }),
-      );
+        });
 
       // AI only speaks when asked a question - no initial greeting
     } else if (CallStatus === "completed" && activeCall) {
@@ -1540,16 +1570,14 @@ ${transcriptText}`;
 
       await storage.updateCallStatus(callId, "ended", duration, new Date());
 
-      activeCall.ws?.send(
-        JSON.stringify({
+      broadcastToCall(activeCall, {
           type: "call_status",
           data: {
             callId,
             status: "ended",
             duration,
           },
-        }),
-      );
+        });
 
       activeCalls.delete(callId);
 
@@ -1579,8 +1607,7 @@ ${transcriptText}`;
       });
 
       // Send to frontend
-      activeCall.ws?.send(
-        JSON.stringify({
+      broadcastToCall(activeCall, {
           type: "transcription",
           data: {
             callId,
@@ -1588,8 +1615,7 @@ ${transcriptText}`;
             text: TranscriptionText,
             timestamp: Date.now(),
           },
-        }),
-      );
+        });
 
       // Generate AI response using the provided prompt
       activeCall.openaiConversation.push({
@@ -1744,8 +1770,7 @@ ${transcriptText}`;
       });
 
       // Send to frontend
-      activeCall.ws?.send(
-        JSON.stringify({
+      broadcastToCall(activeCall, {
           type: "transcription",
           data: {
             callId,
@@ -1753,8 +1778,7 @@ ${transcriptText}`;
             text: aiResponse,
             timestamp: Date.now(),
           },
-        }),
-      );
+        });
 
       // Generate ElevenLabs audio and play it back to caller
       const call = await storage.getCall(callId);
@@ -1820,8 +1844,7 @@ ${transcriptText}`;
       });
 
       // Send to frontend
-      activeCall.ws?.send(
-        JSON.stringify({
+      broadcastToCall(activeCall, {
           type: "transcription",
           data: {
             callId,
@@ -1829,8 +1852,7 @@ ${transcriptText}`;
             text: SpeechResult,
             timestamp: Date.now(),
           },
-        }),
-      );
+        });
 
       const t1 = Date.now();
       console.log(
@@ -1939,8 +1961,7 @@ ${transcriptText}`;
                   text: buttonMessage,
                 });
 
-                activeCall.ws?.send(
-                  JSON.stringify({
+                broadcastToCall(activeCall, {
                     type: "transcription",
                     data: {
                       callId,
@@ -1948,8 +1969,7 @@ ${transcriptText}`;
                       text: buttonMessage,
                       timestamp: Date.now(),
                     },
-                  }),
-                );
+                  });
               } catch (dtmfError) {
                 console.error("Error sending DTMF:", dtmfError);
                 result = {
@@ -1996,8 +2016,7 @@ ${transcriptText}`;
           text: aiResponse,
         });
 
-        activeCall.ws?.send(
-          JSON.stringify({
+        broadcastToCall(activeCall, {
             type: "transcription",
             data: {
               callId,
@@ -2005,8 +2024,7 @@ ${transcriptText}`;
               text: aiResponse,
               timestamp: Date.now(),
             },
-          }),
-        );
+          });
 
         // Generate and play audio
         const call = await storage.getCall(callId);
@@ -2333,15 +2351,13 @@ ${transcriptText}`;
         // The end-of-call-report webhook will handle final status and summary with COMPLETE transcript
 
         // Send WebSocket update to frontend (for UI notification only)
-        activeCall.ws?.send(
-          JSON.stringify({
+        broadcastToCall(activeCall, {
             type: "call_status",
             data: {
               callId,
               status: "transferring",
             },
-          }),
-        );
+          });
 
         res.json({
           success: true,
@@ -2372,16 +2388,14 @@ ${transcriptText}`;
         );
 
         // Send WebSocket update
-        activeCall.ws?.send(
-          JSON.stringify({
+        broadcastToCall(activeCall, {
             type: "call_status",
             data: {
               callId,
               status: "transferred",
               duration,
             },
-          }),
-        );
+          });
 
         // Clean up active call
         activeCalls.delete(callId);
@@ -2453,16 +2467,14 @@ ${transcriptText}`;
       await storage.updateCallStatus(callId, "ended", duration, new Date());
 
       // Send WebSocket update
-      activeCall.ws?.send(
-        JSON.stringify({
+      broadcastToCall(activeCall, {
           type: "call_status",
           data: {
             callId,
             status: "ended",
             duration,
           },
-        }),
-      );
+        });
 
       // Clean up active call
       activeCalls.delete(callId);

@@ -41,6 +41,7 @@ export default function Dashboard() {
   const [callSummary, setCallSummary] = useState<string | null>(null);
   const [listenUrl, setListenUrl] = useState<string | null>(null);
   const wsRef = useRef<WebSocket | null>(null);
+  const currentCallIdRef = useRef<string | null>(null);
   const durationIntervalRef = useRef<NodeJS.Timeout | null>(null);
   const reconnectTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const { toast } = useToast();
@@ -66,6 +67,11 @@ export default function Dashboard() {
     fetchVoices();
   }, []);
 
+  // Keep ref in sync with currentCallId state (accessible inside WS closures)
+  useEffect(() => {
+    currentCallIdRef.current = currentCallId;
+  }, [currentCallId]);
+
   // Initialize WebSocket connection with auto-reconnect
   useEffect(() => {
     let isComponentMounted = true;
@@ -84,10 +90,16 @@ export default function Dashboard() {
       ws.onmessage = (event) => {
         const message = JSON.parse(event.data);
 
-        // Handle session ID
+        // Handle session ID — also re-link to active call if one is in progress
         if (message.type === "session") {
           setSessionId(message.data.sessionId);
           console.log("Session ID received:", message.data.sessionId);
+          // If there's an active call, tell the server to re-link this new socket
+          const activeCallId = currentCallIdRef.current;
+          if (activeCallId) {
+            console.log("Resuming WebSocket for active call:", activeCallId);
+            ws.send(JSON.stringify({ type: "resume", data: { callId: activeCallId } }));
+          }
           return;
         }
 
