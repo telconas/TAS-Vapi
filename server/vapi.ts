@@ -774,7 +774,7 @@ export async function createVapiAssistant(params: {
   // - GPT-realtime ONLY works with OpenAI's native voices (alloy, echo, etc.)
   // - Both Deepgram and ElevenLabs require standard GPT models
   // - When we add OpenAI voices, we can use GPT-realtime for those
-  const modelName = "gpt-4.1-mini";
+  const modelName = "gpt-5";
 
   const webhookUrl = getPublicWebhookUrl("/api/vapi/webhook");
 
