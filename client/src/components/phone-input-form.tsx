@@ -179,7 +179,7 @@ export function PhoneInputForm({
         </Label>
         <Textarea
           id="prompt"
-          placeholder="Tell the AI what to do on this call. For example: 'You are calling to schedule a service appointment. Be friendly and professional.'"
+          placeholder="Paste account information and task here. Include account number, PIN, service address, and specifics of the task the agent you want the agent to accomplish. For example: 'Disconnect the service at 3700 North Edwards Street, Midland, Texas 79705. The account number is 8506321 and the PIN is 4792.'"
           value={prompt}
           onChange={(e) => setPrompt(e.target.value)}
           className="min-h-[100px] bg-card border-card-border resize-none"

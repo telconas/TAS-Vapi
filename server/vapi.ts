@@ -21,13 +21,18 @@ let cachedElevenLabsCredentialId: string | null = null;
 // Get or create ElevenLabs credential in Vapi so account voices are accessible
 async function getElevenLabsCredentialId(): Promise<string | null> {
   if (cachedElevenLabsCredentialId) {
-    console.log("[Vapi] Reusing cached ElevenLabs credential:", cachedElevenLabsCredentialId);
+    console.log(
+      "[Vapi] Reusing cached ElevenLabs credential:",
+      cachedElevenLabsCredentialId,
+    );
     return cachedElevenLabsCredentialId;
   }
 
   const elevenLabsApiKey = process.env.ELEVENLABS_API_KEY;
   if (!elevenLabsApiKey) {
-    console.error("[Vapi] ELEVENLABS_API_KEY not set — cannot register credential");
+    console.error(
+      "[Vapi] ELEVENLABS_API_KEY not set — cannot register credential",
+    );
     return null;
   }
 
@@ -35,9 +40,17 @@ async function getElevenLabsCredentialId(): Promise<string | null> {
   try {
     const listResponse = await vapiClient.get("/credential");
     console.log("[Vapi] Credential list response status:", listResponse.status);
-    console.log("[Vapi] Credentials found:", JSON.stringify(listResponse.data?.map((c: any) => ({ id: c.id, provider: c.provider }))));
+    console.log(
+      "[Vapi] Credentials found:",
+      JSON.stringify(
+        listResponse.data?.map((c: any) => ({
+          id: c.id,
+          provider: c.provider,
+        })),
+      ),
+    );
     const existing = listResponse.data?.find(
-      (c: any) => c.provider === "11labs"
+      (c: any) => c.provider === "11labs",
     );
 
     // Try to create a fresh credential with the current ElevenLabs API key FIRST
@@ -48,9 +61,15 @@ async function getElevenLabsCredentialId(): Promise<string | null> {
         provider: "11labs",
         apiKey: elevenLabsApiKey,
       });
-      console.log("[Vapi] Create credential response status:", createResponse.status);
+      console.log(
+        "[Vapi] Create credential response status:",
+        createResponse.status,
+      );
       cachedElevenLabsCredentialId = createResponse.data?.id || null;
-      console.log("[Vapi] Created ElevenLabs credential:", cachedElevenLabsCredentialId);
+      console.log(
+        "[Vapi] Created ElevenLabs credential:",
+        cachedElevenLabsCredentialId,
+      );
 
       // New credential created successfully — now clean up old one
       if (existing?.id) {
@@ -59,13 +78,19 @@ async function getElevenLabsCredentialId(): Promise<string | null> {
           await vapiClient.delete(`/credential/${existing.id}`);
           console.log("[Vapi] Deleted old credential");
         } catch (delErr: any) {
-          console.warn("[Vapi] Could not delete old credential:", delErr?.response?.data || delErr.message);
+          console.warn(
+            "[Vapi] Could not delete old credential:",
+            delErr?.response?.data || delErr.message,
+          );
         }
       }
 
       return cachedElevenLabsCredentialId;
     } catch (createErr: any) {
-      console.error("[Vapi] Failed to create new ElevenLabs credential:", JSON.stringify(createErr?.response?.data) || createErr.message);
+      console.error(
+        "[Vapi] Failed to create new ElevenLabs credential:",
+        JSON.stringify(createErr?.response?.data) || createErr.message,
+      );
 
       // Fall back to existing credential if we have one
       if (existing?.id) {
@@ -78,7 +103,10 @@ async function getElevenLabsCredentialId(): Promise<string | null> {
       return null;
     }
   } catch (err: any) {
-    console.error("[Vapi] Failed to list Vapi credentials:", JSON.stringify(err?.response?.data) || err.message);
+    console.error(
+      "[Vapi] Failed to list Vapi credentials:",
+      JSON.stringify(err?.response?.data) || err.message,
+    );
     return null;
   }
 }
@@ -90,21 +118,21 @@ function getPublicWebhookUrl(path: string): string {
   if (productionUrl) {
     return `${productionUrl}${path}`;
   }
-  
+
   // Check for Replit domains (works in both dev and deployed)
   const domains = process.env.REPLIT_DOMAINS;
   if (domains) {
     // REPLIT_DOMAINS can have multiple domains, use the first one
-    const domain = domains.split(',')[0].trim();
+    const domain = domains.split(",")[0].trim();
     return `https://${domain}${path}`;
   }
-  
+
   // Fallback to dev domain
   const devDomain = process.env.REPLIT_DEV_DOMAIN;
   if (devDomain) {
     return `https://${devDomain}${path}`;
   }
-  
+
   return `http://localhost:5000${path}`;
 }
 
@@ -746,7 +774,7 @@ export async function createVapiAssistant(params: {
   // - GPT-realtime ONLY works with OpenAI's native voices (alloy, echo, etc.)
   // - Both Deepgram and ElevenLabs require standard GPT models
   // - When we add OpenAI voices, we can use GPT-realtime for those
-  const modelName = "gpt-4.1";
+  const modelName = "gpt-4o-mini";
 
   const webhookUrl = getPublicWebhookUrl("/api/vapi/webhook");
 
@@ -806,7 +834,8 @@ export async function createVapiAssistant(params: {
             {
               type: "number",
               number: "+19134395811", // Hardcoded transfer destination
-              message: "Transferring your call now. Please hold.",
+              message:
+                "Let me transfer the call now. Can you hold for just a sec?",
               description: "Transfer to support line",
             },
           ],
@@ -868,7 +897,7 @@ export async function createVapiAssistant(params: {
       recordingPath: "mono", // Record all audio in mono format
     },
     endCallMessage:
-      "Thank you for your help. I appreciate it. Thanks again, goodbye.",
+      "Thank you for your help. I appreciate it. Have a great day and Thanks again. goodbye.",
     // Enable live monitoring for real-time audio streaming
     monitorPlan: {
       listenEnabled: true, // Enable WebSocket audio streaming for real-time capture
