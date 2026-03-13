@@ -867,6 +867,7 @@ ${transcriptText}`;
         "X2YDLxPMicvGVoyJZkPV",
         "Ifu36BnEjjIY932etsqk",
         "dXtC3XhB9GtPusIpNtQx",
+        "S9NKLs1GeSTKzXd9D0Lf",
       ];
 
       const voicesResponse = await elevenLabsClient.voices.getAll();
