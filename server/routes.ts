@@ -296,31 +296,40 @@ ${transcriptText}`;
 async function pollForRecording(vapiCallId: string, dbCallId: string) {
   const maxAttempts = 10;
   const delayMs = 5000; // 5 seconds between attempts
-  
+
   for (let attempt = 1; attempt <= maxAttempts; attempt++) {
-    await new Promise(resolve => setTimeout(resolve, delayMs));
-    
+    await new Promise((resolve) => setTimeout(resolve, delayMs));
+
     try {
-      console.log(`[VAPI POLL] Attempt ${attempt}/${maxAttempts} - Checking for recording...`);
+      console.log(
+        `[VAPI POLL] Attempt ${attempt}/${maxAttempts} - Checking for recording...`,
+      );
       const vapiCall = await getVapiCall(vapiCallId);
-      
-      const recordingUrl = vapiCall?.artifact?.recordingUrl || 
-                           vapiCall?.artifact?.stereoRecordingUrl ||
-                           vapiCall?.recordingUrl;
-      
+
+      const recordingUrl =
+        vapiCall?.artifact?.recordingUrl ||
+        vapiCall?.artifact?.stereoRecordingUrl ||
+        vapiCall?.recordingUrl;
+
       if (recordingUrl) {
-        console.log(`[VAPI POLL] ✓ Recording URL found: ${recordingUrl.substring(0, 50)}...`);
+        console.log(
+          `[VAPI POLL] ✓ Recording URL found: ${recordingUrl.substring(0, 50)}...`,
+        );
         await storage.updateCall(dbCallId, { recordingUrl });
         return;
       }
-      
-      console.log(`[VAPI POLL] Recording not ready yet (attempt ${attempt}/${maxAttempts})`);
+
+      console.log(
+        `[VAPI POLL] Recording not ready yet (attempt ${attempt}/${maxAttempts})`,
+      );
     } catch (error) {
       console.error(`[VAPI POLL] Error fetching call:`, error);
     }
   }
-  
-  console.log(`[VAPI POLL] Recording not available after ${maxAttempts} attempts`);
+
+  console.log(
+    `[VAPI POLL] Recording not available after ${maxAttempts} attempts`,
+  );
 }
 
 // Helper function to generate and save ElevenLabs audio
@@ -478,9 +487,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
             try {
               // Send instruction to Vapi assistant via Live Call Control API
               // Use "system" role - detect if it's a button press or general instruction
-              const isButtonPress = /^(press|dial|enter|push)\s*\d/i.test(instruction.trim()) || 
-                                    /^\d+$/.test(instruction.trim());
-              
+              const isButtonPress =
+                /^(press|dial|enter|push)\s*\d/i.test(instruction.trim()) ||
+                /^\d+$/.test(instruction.trim());
+
               let instructionContent: string;
               if (isButtonPress) {
                 // For button pressing instructions
@@ -489,7 +499,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
                 // For general instructions (speak, provide info, etc.)
                 instructionContent = `OPERATOR INSTRUCTION: ${instruction}. Follow this instruction immediately in your next response.`;
               }
-              
+
               const response = await fetch(activeCall.controlUrl, {
                 method: "POST",
                 headers: {
@@ -572,15 +582,15 @@ export async function registerRoutes(app: Express): Promise<Server> {
     const productionUrl = process.env.PRODUCTION_URL;
     if (productionUrl) {
       // Remove protocol prefix if present
-      return productionUrl.replace(/^https?:\/\//, '');
+      return productionUrl.replace(/^https?:\/\//, "");
     }
-    
+
     // Check for Replit domains (works in both dev and deployed)
     const domains = process.env.REPLIT_DOMAINS;
     if (domains) {
-      return domains.split(',')[0].trim();
+      return domains.split(",")[0].trim();
     }
-    
+
     // Fallback to dev domain
     return process.env.REPLIT_DEV_DOMAIN || req.get("host") || "localhost:5000";
   }
@@ -871,6 +881,7 @@ ${transcriptText}`;
         "yj30vwTGJxSHezdAGsv9",
         "vDchjyOZZytffNeZXfZK",
         "3svOJAOhuPHXwQC2H5eq",
+        "wrxvN1LZJIfL3HHvffqe",
       ];
 
       const voicesResponse = await elevenLabsClient.voices.getAll();
@@ -882,17 +893,26 @@ ${transcriptText}`;
 
       const accountVoiceIds = new Set(accountVoices.map((v: any) => v.voiceId));
 
-      const pinnedToFetch = pinnedVoiceIds.filter((id) => !accountVoiceIds.has(id));
-      const pinnedVoices: { voiceId: string; name: string; previewUrl?: string }[] = [];
+      const pinnedToFetch = pinnedVoiceIds.filter(
+        (id) => !accountVoiceIds.has(id),
+      );
+      const pinnedVoices: {
+        voiceId: string;
+        name: string;
+        previewUrl?: string;
+      }[] = [];
 
       for (const voiceId of pinnedToFetch) {
         try {
           const apiKey = process.env.ELEVENLABS_API_KEY;
-          const response = await fetch(`https://api.elevenlabs.io/v1/voices/${voiceId}`, {
-            headers: { "xi-api-key": apiKey || "" },
-          });
+          const response = await fetch(
+            `https://api.elevenlabs.io/v1/voices/${voiceId}`,
+            {
+              headers: { "xi-api-key": apiKey || "" },
+            },
+          );
           if (response.ok) {
-            const data = await response.json() as any;
+            const data = (await response.json()) as any;
             pinnedVoices.push({
               voiceId: data.voice_id,
               name: data.name,
@@ -1227,14 +1247,14 @@ ${transcriptText}`;
 
             // Send to frontend via WebSocket
             broadcastToCall(activeCall, {
-                type: "transcription",
-                data: {
-                  callId: activeCall.callId,
-                  speaker,
-                  text: transcript,
-                  timestamp: Date.now(),
-                },
-              });
+              type: "transcription",
+              data: {
+                callId: activeCall.callId,
+                speaker,
+                text: transcript,
+                timestamp: Date.now(),
+              },
+            });
 
             // Note: DTMF is handled by the AI using the press_button function tool
             // The Live Call Control API does not support direct DTMF sending
@@ -1273,16 +1293,16 @@ ${transcriptText}`;
 
             // Send to frontend
             broadcastToCall(activeCall, {
-                type: "call_status",
-                data: {
-                  callId: activeCall.callId,
-                  status: appStatus,
-                  duration:
-                    appStatus === "ended"
-                      ? Math.floor((Date.now() - activeCall.startTime) / 1000)
-                      : undefined,
-                },
-              });
+              type: "call_status",
+              data: {
+                callId: activeCall.callId,
+                status: appStatus,
+                duration:
+                  appStatus === "ended"
+                    ? Math.floor((Date.now() - activeCall.startTime) / 1000)
+                    : undefined,
+              },
+            });
 
             // Clean up active call if ended
             if (appStatus === "ended") {
@@ -1297,7 +1317,10 @@ ${transcriptText}`;
           const { call: vapiCall } = message;
 
           // Log full vapiCall object to debug duration field
-          console.log("[VAPI] End-of-call-report FULL payload:", JSON.stringify(vapiCall, null, 2));
+          console.log(
+            "[VAPI] End-of-call-report FULL payload:",
+            JSON.stringify(vapiCall, null, 2),
+          );
 
           console.log("[VAPI] End-of-call-report received:", {
             hasActiveCall: !!activeCall,
@@ -1330,27 +1353,37 @@ ${transcriptText}`;
 
             // Extract duration - Vapi may use different field names
             // Try: duration, durationSeconds, durationMs, or calculate from timestamps
-            let callDuration = 
-              vapiCall.duration || 
-              vapiCall.durationSeconds || 
-              (vapiCall.durationMs ? Math.floor(vapiCall.durationMs / 1000) : 0) ||
-              (vapiCall.endedAt && vapiCall.startedAt ? 
-                Math.floor((new Date(vapiCall.endedAt).getTime() - new Date(vapiCall.startedAt).getTime()) / 1000) : 0);
-            
+            let callDuration =
+              vapiCall.duration ||
+              vapiCall.durationSeconds ||
+              (vapiCall.durationMs
+                ? Math.floor(vapiCall.durationMs / 1000)
+                : 0) ||
+              (vapiCall.endedAt && vapiCall.startedAt
+                ? Math.floor(
+                    (new Date(vapiCall.endedAt).getTime() -
+                      new Date(vapiCall.startedAt).getTime()) /
+                      1000,
+                  )
+                : 0);
+
             // Fallback: calculate from activeCall start time if still no duration
             if (!callDuration && activeCall) {
-              callDuration = Math.floor((Date.now() - activeCall.startTime) / 1000);
+              callDuration = Math.floor(
+                (Date.now() - activeCall.startTime) / 1000,
+              );
             }
-            
+
             // Final fallback: use dbCall.duration if it was already set
             if (!callDuration && dbCall.duration) {
               callDuration = dbCall.duration;
             }
 
             // Extract recording URL from artifact object (Vapi's structure)
-            const recordingUrl = vapiCall.artifact?.recordingUrl || 
-                                 vapiCall.artifact?.stereoRecordingUrl ||
-                                 vapiCall.recordingUrl;
+            const recordingUrl =
+              vapiCall.artifact?.recordingUrl ||
+              vapiCall.artifact?.stereoRecordingUrl ||
+              vapiCall.recordingUrl;
 
             console.log("[VAPI] End of call report for call:", dbCall.id, {
               vapiDuration: vapiCall.duration,
@@ -1374,7 +1407,9 @@ ${transcriptText}`;
 
             // If no recording URL, poll Vapi API for it (recording processing may take time)
             if (!recordingUrl && vapiCall.id) {
-              console.log("[VAPI] No recording URL in webhook, will poll Vapi API...");
+              console.log(
+                "[VAPI] No recording URL in webhook, will poll Vapi API...",
+              );
               pollForRecording(vapiCall.id, dbCall.id);
             }
 
@@ -1427,27 +1462,28 @@ ${transcriptText}`;
                 console.log(
                   `[EMAIL] Scheduling summary email to ${dbCall.emailRecipient} in 3 minutes (recording URL will be refreshed)...`,
                 );
-                
+
                 // Store the call ID to fetch fresh recording URL after delay
                 const callIdForEmail = dbCall.id;
                 const emailRecipient = dbCall.emailRecipient;
                 const phoneNumber = dbCall.phoneNumber;
                 const emailSummary = summary;
                 const emailDuration = callDuration;
-                
+
                 setTimeout(async () => {
                   try {
                     // Fetch the latest call data to get the most current recording URL
                     const freshCallData = await storage.getCall(callIdForEmail);
-                    const freshRecordingUrl = freshCallData?.recordingUrl || recordingUrl;
-                    
+                    const freshRecordingUrl =
+                      freshCallData?.recordingUrl || recordingUrl;
+
                     console.log(
                       `[EMAIL] Now sending delayed summary to ${emailRecipient}...`,
                     );
                     console.log(
-                      `[EMAIL] Recording URL: ${freshRecordingUrl || 'not available'}`,
+                      `[EMAIL] Recording URL: ${freshRecordingUrl || "not available"}`,
                     );
-                    
+
                     await sendCallSummaryEmail(
                       emailRecipient,
                       phoneNumber,
@@ -1562,12 +1598,12 @@ ${transcriptText}`;
       await storage.updateCallStatus(callId, "connected");
 
       broadcastToCall(activeCall, {
-          type: "call_status",
-          data: {
-            callId,
-            status: "connected",
-          },
-        });
+        type: "call_status",
+        data: {
+          callId,
+          status: "connected",
+        },
+      });
 
       // AI only speaks when asked a question - no initial greeting
     } else if (CallStatus === "completed" && activeCall) {
@@ -1576,13 +1612,13 @@ ${transcriptText}`;
       await storage.updateCallStatus(callId, "ended", duration, new Date());
 
       broadcastToCall(activeCall, {
-          type: "call_status",
-          data: {
-            callId,
-            status: "ended",
-            duration,
-          },
-        });
+        type: "call_status",
+        data: {
+          callId,
+          status: "ended",
+          duration,
+        },
+      });
 
       activeCalls.delete(callId);
 
@@ -1613,14 +1649,14 @@ ${transcriptText}`;
 
       // Send to frontend
       broadcastToCall(activeCall, {
-          type: "transcription",
-          data: {
-            callId,
-            speaker: "caller",
-            text: TranscriptionText,
-            timestamp: Date.now(),
-          },
-        });
+        type: "transcription",
+        data: {
+          callId,
+          speaker: "caller",
+          text: TranscriptionText,
+          timestamp: Date.now(),
+        },
+      });
 
       // Generate AI response using the provided prompt
       activeCall.openaiConversation.push({
@@ -1776,14 +1812,14 @@ ${transcriptText}`;
 
       // Send to frontend
       broadcastToCall(activeCall, {
-          type: "transcription",
-          data: {
-            callId,
-            speaker: "ai",
-            text: aiResponse,
-            timestamp: Date.now(),
-          },
-        });
+        type: "transcription",
+        data: {
+          callId,
+          speaker: "ai",
+          text: aiResponse,
+          timestamp: Date.now(),
+        },
+      });
 
       // Generate ElevenLabs audio and play it back to caller
       const call = await storage.getCall(callId);
@@ -1850,14 +1886,14 @@ ${transcriptText}`;
 
       // Send to frontend
       broadcastToCall(activeCall, {
-          type: "transcription",
-          data: {
-            callId,
-            speaker: "caller",
-            text: SpeechResult,
-            timestamp: Date.now(),
-          },
-        });
+        type: "transcription",
+        data: {
+          callId,
+          speaker: "caller",
+          text: SpeechResult,
+          timestamp: Date.now(),
+        },
+      });
 
       const t1 = Date.now();
       console.log(
@@ -1967,14 +2003,14 @@ ${transcriptText}`;
                 });
 
                 broadcastToCall(activeCall, {
-                    type: "transcription",
-                    data: {
-                      callId,
-                      speaker: "ai",
-                      text: buttonMessage,
-                      timestamp: Date.now(),
-                    },
-                  });
+                  type: "transcription",
+                  data: {
+                    callId,
+                    speaker: "ai",
+                    text: buttonMessage,
+                    timestamp: Date.now(),
+                  },
+                });
               } catch (dtmfError) {
                 console.error("Error sending DTMF:", dtmfError);
                 result = {
@@ -2022,14 +2058,14 @@ ${transcriptText}`;
         });
 
         broadcastToCall(activeCall, {
-            type: "transcription",
-            data: {
-              callId,
-              speaker: "ai",
-              text: aiResponse,
-              timestamp: Date.now(),
-            },
-          });
+          type: "transcription",
+          data: {
+            callId,
+            speaker: "ai",
+            text: aiResponse,
+            timestamp: Date.now(),
+          },
+        });
 
         // Generate and play audio
         const call = await storage.getCall(callId);
@@ -2357,12 +2393,12 @@ ${transcriptText}`;
 
         // Send WebSocket update to frontend (for UI notification only)
         broadcastToCall(activeCall, {
-            type: "call_status",
-            data: {
-              callId,
-              status: "transferring",
-            },
-          });
+          type: "call_status",
+          data: {
+            callId,
+            status: "transferring",
+          },
+        });
 
         res.json({
           success: true,
@@ -2394,13 +2430,13 @@ ${transcriptText}`;
 
         // Send WebSocket update
         broadcastToCall(activeCall, {
-            type: "call_status",
-            data: {
-              callId,
-              status: "transferred",
-              duration,
-            },
-          });
+          type: "call_status",
+          data: {
+            callId,
+            status: "transferred",
+            duration,
+          },
+        });
 
         // Clean up active call
         activeCalls.delete(callId);
@@ -2433,14 +2469,20 @@ ${transcriptText}`;
             await endVapiCall(dbCall.twilioCallSid);
             console.log(`[VAPI] Ended call ${callId} via DB fallback`);
           } catch (e) {
-            console.log(`[VAPI] Could not end call ${callId} - may already be ended`);
+            console.log(
+              `[VAPI] Could not end call ${callId} - may already be ended`,
+            );
           }
         } else if (dbCall.twilioCallSid) {
           try {
-            await twilioClient.calls(dbCall.twilioCallSid).update({ status: "completed" });
+            await twilioClient
+              .calls(dbCall.twilioCallSid)
+              .update({ status: "completed" });
             console.log(`[TWILIO] Ended call ${callId} via DB fallback`);
           } catch (e) {
-            console.log(`[TWILIO] Could not end call ${callId} - may already be ended`);
+            console.log(
+              `[TWILIO] Could not end call ${callId} - may already be ended`,
+            );
           }
         }
         await storage.updateCallStatus(callId, "ended", undefined, new Date());
@@ -2473,13 +2515,13 @@ ${transcriptText}`;
 
       // Send WebSocket update
       broadcastToCall(activeCall, {
-          type: "call_status",
-          data: {
-            callId,
-            status: "ended",
-            duration,
-          },
-        });
+        type: "call_status",
+        data: {
+          callId,
+          status: "ended",
+          duration,
+        },
+      });
 
       // Clean up active call
       activeCalls.delete(callId);
@@ -2490,11 +2532,16 @@ ${transcriptText}`;
         try {
           const call = await storage.getCall(callId);
           if (call && !call.summary) {
-            console.log(`[SUMMARY FALLBACK] Generating summary for call ${callId} (webhook didn't arrive)`);
+            console.log(
+              `[SUMMARY FALLBACK] Generating summary for call ${callId} (webhook didn't arrive)`,
+            );
             await generateCallSummary(callId);
           }
         } catch (error) {
-          console.error(`[SUMMARY FALLBACK] Error generating summary for ${callId}:`, error);
+          console.error(
+            `[SUMMARY FALLBACK] Error generating summary for ${callId}:`,
+            error,
+          );
         }
       }, 10000); // 10 second delay to allow webhook to arrive first
 
@@ -2519,21 +2566,36 @@ ${transcriptText}`;
 
       // Log configuration status with format hints (not the actual values)
       console.log(`[MANUAL CALL] Config check:`);
-      console.log(`  - AccountSID: ${accountSid ? `SET (starts with: ${accountSid.substring(0, 2)})` : 'MISSING'}`);
-      console.log(`  - API Key SID: ${apiKeySid ? `SET (starts with: ${apiKeySid.substring(0, 2)}, length: ${apiKeySid.length})` : 'MISSING'} [Should start with SK]`);
-      console.log(`  - API Key Secret: ${apiKeySecret ? `SET (length: ${apiKeySecret.length})` : 'MISSING'}`);
-      console.log(`  - TwiML App SID: ${twimlAppSid ? `SET (starts with: ${twimlAppSid.substring(0, 2)})` : 'MISSING'} [Should start with AP]`);
+      console.log(
+        `  - AccountSID: ${accountSid ? `SET (starts with: ${accountSid.substring(0, 2)})` : "MISSING"}`,
+      );
+      console.log(
+        `  - API Key SID: ${apiKeySid ? `SET (starts with: ${apiKeySid.substring(0, 2)}, length: ${apiKeySid.length})` : "MISSING"} [Should start with SK]`,
+      );
+      console.log(
+        `  - API Key Secret: ${apiKeySecret ? `SET (length: ${apiKeySecret.length})` : "MISSING"}`,
+      );
+      console.log(
+        `  - TwiML App SID: ${twimlAppSid ? `SET (starts with: ${twimlAppSid.substring(0, 2)})` : "MISSING"} [Should start with AP]`,
+      );
 
       if (!accountSid) {
-        return res.status(500).json({ error: "Twilio Account SID not configured" });
+        return res
+          .status(500)
+          .json({ error: "Twilio Account SID not configured" });
       }
 
       if (!apiKeySid || !apiKeySecret) {
-        return res.status(500).json({ error: "Twilio API Key credentials not configured. Please add TWILIO_API_KEY_SID and TWILIO_API_KEY_SECRET." });
+        return res.status(500).json({
+          error:
+            "Twilio API Key credentials not configured. Please add TWILIO_API_KEY_SID and TWILIO_API_KEY_SECRET.",
+        });
       }
 
       if (!twimlAppSid) {
-        return res.status(500).json({ error: "Twilio TwiML App SID not configured" });
+        return res
+          .status(500)
+          .json({ error: "Twilio TwiML App SID not configured" });
       }
 
       const { identity } = req.body;
@@ -2542,12 +2604,9 @@ ${transcriptText}`;
       const AccessToken = twilio.jwt.AccessToken;
       const VoiceGrant = AccessToken.VoiceGrant;
 
-      const token = new AccessToken(
-        accountSid,
-        apiKeySid,
-        apiKeySecret,
-        { identity: tokenIdentity }
-      );
+      const token = new AccessToken(accountSid, apiKeySid, apiKeySecret, {
+        identity: tokenIdentity,
+      });
 
       const voiceGrant = new VoiceGrant({
         outgoingApplicationSid: twimlAppSid,
@@ -2555,7 +2614,9 @@ ${transcriptText}`;
       });
       token.addGrant(voiceGrant);
 
-      console.log(`[MANUAL CALL] Generated token for identity: ${tokenIdentity}, TwiML App: ${twimlAppSid.substring(0, 10)}...`);
+      console.log(
+        `[MANUAL CALL] Generated token for identity: ${tokenIdentity}, TwiML App: ${twimlAppSid.substring(0, 10)}...`,
+      );
       res.json({ token: token.toJwt(), identity: tokenIdentity });
     } catch (error) {
       console.error("[MANUAL CALL] Error generating token:", error);
@@ -2570,7 +2631,9 @@ ${transcriptText}`;
       const twimlAppSid = process.env.TWILIO_TWIML_APP_SID;
 
       if (!accountSid || !authToken) {
-        return res.status(500).json({ error: "Twilio credentials not configured" });
+        return res
+          .status(500)
+          .json({ error: "Twilio credentials not configured" });
       }
 
       // Create an access token for Twilio Voice
@@ -2582,7 +2645,7 @@ ${transcriptText}`;
         accountSid,
         process.env.TWILIO_API_KEY_SID || accountSid,
         process.env.TWILIO_API_KEY_SECRET || authToken,
-        { identity }
+        { identity },
       );
 
       // Grant voice access
@@ -2636,10 +2699,12 @@ ${transcriptText}`;
 
       // Notify via WebSocket if available
       if (ws) {
-        ws.send(JSON.stringify({
-          type: "call_status",
-          data: { callId, status: "ringing", callType: "manual" }
-        }));
+        ws.send(
+          JSON.stringify({
+            type: "call_status",
+            data: { callId, status: "ringing", callType: "manual" },
+          }),
+        );
       }
 
       // Return the callId - the actual call is made by browser Device.connect()
@@ -2656,7 +2721,9 @@ ${transcriptText}`;
     const { To, CallId, From } = req.body;
     const host = getPublicHost(req);
 
-    console.log(`[TWILIO VOICE] Incoming voice request - To: ${To}, CallId: ${CallId}, From: ${From}`);
+    console.log(
+      `[TWILIO VOICE] Incoming voice request - To: ${To}, CallId: ${CallId}, From: ${From}`,
+    );
 
     if (!To) {
       const twiml = `<?xml version="1.0" encoding="UTF-8"?>
@@ -2726,8 +2793,11 @@ ${transcriptText}`;
     }
 
     // Update database
-    const duration = CallDuration ? parseInt(CallDuration) : 
-      (activeCall ? Math.floor((Date.now() - activeCall.startTime) / 1000) : 0);
+    const duration = CallDuration
+      ? parseInt(CallDuration)
+      : activeCall
+        ? Math.floor((Date.now() - activeCall.startTime) / 1000)
+        : 0;
 
     if (status === "ended") {
       await storage.updateCallStatus(callId, status, duration, new Date());
@@ -2738,67 +2808,82 @@ ${transcriptText}`;
 
     // Notify via WebSocket
     if (activeCall?.ws) {
-      activeCall.ws?.send(JSON.stringify({
-        type: "call_status",
-        data: { callId, status, duration, callType: "manual" }
-      }));
+      activeCall.ws?.send(
+        JSON.stringify({
+          type: "call_status",
+          data: { callId, status, duration, callType: "manual" },
+        }),
+      );
     }
 
     res.sendStatus(200);
   });
 
   // Recording callback for manual calls
-  app.post("/api/twilio/manual-recording-callback/:callId", async (req, res) => {
-    const { callId } = req.params;
-    const { RecordingUrl, RecordingDuration } = req.body;
+  app.post(
+    "/api/twilio/manual-recording-callback/:callId",
+    async (req, res) => {
+      const { callId } = req.params;
+      const { RecordingUrl, RecordingDuration } = req.body;
 
-    console.log(`[MANUAL CALL] Recording callback for ${callId}: ${RecordingUrl}`);
+      console.log(
+        `[MANUAL CALL] Recording callback for ${callId}: ${RecordingUrl}`,
+      );
 
-    if (RecordingUrl) {
-      const duration = RecordingDuration ? parseInt(RecordingDuration) : 0;
-      
-      // Update call with recording URL
-      await storage.updateCallRecording(callId, RecordingUrl);
+      if (RecordingUrl) {
+        const duration = RecordingDuration ? parseInt(RecordingDuration) : 0;
 
-      // Get call details for summary
-      const call = await storage.getCall(callId);
-      if (call) {
-        // Generate summary from recording (for manual calls, we'll note it's a manual call)
-        const summary = `Manual call to ${call.phoneNumber} by ${call.callerName || "unknown caller"}. Duration: ${Math.floor(duration / 60)}m ${duration % 60}s. Recording available.`;
-        
-        await storage.updateCallSummary(callId, summary);
+        // Update call with recording URL
+        await storage.updateCallRecording(callId, RecordingUrl);
 
-        // Send email if recipient specified
-        if (call.emailRecipient) {
-          console.log(`[MANUAL CALL EMAIL] Scheduling summary email to ${call.emailRecipient} in 3 minutes...`);
-          
-          setTimeout(async () => {
-            try {
-              const updatedCall = await storage.getCall(callId);
-              const recordingUrl = updatedCall?.recordingUrl || RecordingUrl;
-              
-              console.log(`[MANUAL CALL EMAIL] Sending email for call ${callId}`);
-              console.log(`[MANUAL CALL EMAIL] Recording URL: ${recordingUrl}`);
-              
-              await sendCallSummaryEmail(
-                call.emailRecipient!,
-                call.phoneNumber,
-                summary,
-                duration,
-                recordingUrl
-              );
-              
-              console.log(`[MANUAL CALL EMAIL] ✓ Email sent to ${call.emailRecipient}`);
-            } catch (error) {
-              console.error(`[MANUAL CALL EMAIL] Failed:`, error);
-            }
-          }, 180000); // 3 minute delay
+        // Get call details for summary
+        const call = await storage.getCall(callId);
+        if (call) {
+          // Generate summary from recording (for manual calls, we'll note it's a manual call)
+          const summary = `Manual call to ${call.phoneNumber} by ${call.callerName || "unknown caller"}. Duration: ${Math.floor(duration / 60)}m ${duration % 60}s. Recording available.`;
+
+          await storage.updateCallSummary(callId, summary);
+
+          // Send email if recipient specified
+          if (call.emailRecipient) {
+            console.log(
+              `[MANUAL CALL EMAIL] Scheduling summary email to ${call.emailRecipient} in 3 minutes...`,
+            );
+
+            setTimeout(async () => {
+              try {
+                const updatedCall = await storage.getCall(callId);
+                const recordingUrl = updatedCall?.recordingUrl || RecordingUrl;
+
+                console.log(
+                  `[MANUAL CALL EMAIL] Sending email for call ${callId}`,
+                );
+                console.log(
+                  `[MANUAL CALL EMAIL] Recording URL: ${recordingUrl}`,
+                );
+
+                await sendCallSummaryEmail(
+                  call.emailRecipient!,
+                  call.phoneNumber,
+                  summary,
+                  duration,
+                  recordingUrl,
+                );
+
+                console.log(
+                  `[MANUAL CALL EMAIL] ✓ Email sent to ${call.emailRecipient}`,
+                );
+              } catch (error) {
+                console.error(`[MANUAL CALL EMAIL] Failed:`, error);
+              }
+            }, 180000); // 3 minute delay
+          }
         }
       }
-    }
 
-    res.sendStatus(200);
-  });
+      res.sendStatus(200);
+    },
+  );
 
   // Hang up manual call
   app.post("/api/manual-call/:callId/hangup", async (req, res) => {
@@ -2810,20 +2895,24 @@ ${transcriptText}`;
     }
 
     try {
-      await twilioClient.calls(activeCall.twilioCallSid).update({ status: "completed" });
-      
+      await twilioClient
+        .calls(activeCall.twilioCallSid)
+        .update({ status: "completed" });
+
       const duration = Math.floor((Date.now() - activeCall.startTime) / 1000);
       await storage.updateCallStatus(callId, "ended", duration, new Date());
-      
+
       if (activeCall.ws) {
-        activeCall.ws?.send(JSON.stringify({
-          type: "call_status",
-          data: { callId, status: "ended", duration, callType: "manual" }
-        }));
+        activeCall.ws?.send(
+          JSON.stringify({
+            type: "call_status",
+            data: { callId, status: "ended", duration, callType: "manual" },
+          }),
+        );
       }
-      
+
       activeCalls.delete(callId);
-      
+
       console.log(`[MANUAL CALL] Hung up call ${callId}`);
       res.json({ success: true, duration });
     } catch (error) {
@@ -2844,11 +2933,10 @@ ${transcriptText}`;
 
     try {
       // Use Twilio's DTMF API to send tones
-      await twilioClient.calls(activeCall.twilioCallSid)
-        .update({
-          twiml: `<Response><Play digits="${digits}"/><Pause length="60"/></Response>`
-        });
-      
+      await twilioClient.calls(activeCall.twilioCallSid).update({
+        twiml: `<Response><Play digits="${digits}"/><Pause length="60"/></Response>`,
+      });
+
       console.log(`[MANUAL CALL] Sent DTMF ${digits} for call ${callId}`);
       res.json({ success: true, digits });
     } catch (error) {
