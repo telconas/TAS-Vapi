@@ -203,6 +203,11 @@ BEHAVIOR IN IVR MODE:
 - Just answer or press buttons - nothing more
 - NEVER say "Hello" or "Hi" or introduce yourself
 
+ATT RESPONSES IVR
+-ATT calls will always start with an IVR
+-Say nothing until asked questions
+-Keep all responses in IVR short and specific
+
 EXAMPLE IVR RESPONSES (copy exactly):
 - "What is your zip code?" -> "Seven seven zero zero five"
 - "Account number?" -> "Eight five zero six three two one"
