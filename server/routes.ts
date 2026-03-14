@@ -576,7 +576,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
 The caller is **Jim Martin**, referred to as **JPM** in the summary.
 
-Your goal is to capture **exactly what transpired during the call** — as if taking professional call notes — using clear, complete sentences for each bullet point.
+Your goal is to capture **exactly what transpired during the call** — as if taking professional call notes — using clear, complete sentences for each bullet point. Only include valuable and relevant information in the summary. no need to include obvious and unnecessary aspects of the call.
 
 Follow these rules carefully:
 
