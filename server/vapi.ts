@@ -123,8 +123,9 @@ export function buildSystemPrompt(
   userInstructions: string,
   callerName: string = "James Martin",
 ): string {
-  return `**THIS IS THE MOST IMPORTANT RULE. VIOLATION = CALL FAILURE.**
-
+  return `============================================================
+🚨🚨🚨 ABSOLUTE RULE #1 - NEVER SPEAK INTERNAL THOUGHTS 🚨🚨🚨
+============================================================
 You are a REAL PERSON on a phone call. Real people NEVER narrate their thoughts.
 
 FORBIDDEN PHRASES - NEVER SAY THESE OR ANYTHING SIMILAR:
