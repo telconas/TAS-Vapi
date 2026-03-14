@@ -6,7 +6,6 @@ import { AudioPlayer } from "@/components/audio-player";
 import { VoiceSelector } from "@/components/voice-selector";
 import { CallSummary } from "@/components/call-summary";
 import { InstructionInput } from "@/components/instruction-input";
-import { ManualCallPanel } from "@/components/manual-call-panel";
 import { Card } from "@/components/ui/card";
 import { useToast } from "@/hooks/use-toast";
 import type { TranscriptMessage } from "@shared/schema";
@@ -324,17 +323,6 @@ export default function Dashboard() {
               />
             )}
 
-            {!isCallActive && (
-              <ManualCallPanel
-                sessionId={null}
-                onCallStarted={(callId) => {
-                  console.log("Manual call started:", callId);
-                }}
-                onCallEnded={(callId, dur) => {
-                  console.log("Manual call ended:", callId, dur);
-                }}
-              />
-            )}
           </div>
 
           <div className="lg:col-span-3 space-y-6">
