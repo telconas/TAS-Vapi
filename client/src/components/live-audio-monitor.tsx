@@ -69,6 +69,7 @@ export function LiveAudioMonitor({ listenUrl, callStatus, onClose }: LiveAudioMo
       ws.binaryType = 'arraybuffer';
       wsRef.current = ws;
 
+      let msgCount = 0;
       ws.onopen = () => {
         console.log(`[LIVE MONITOR] WS connected. AudioContext sampleRate=${ctx.sampleRate}, input=${VAPI_INPUT_SAMPLE_RATE}Hz, ratio=${(VAPI_INPUT_SAMPLE_RATE / ctx.sampleRate).toFixed(4)}`);
         setIsMonitoring(true);
@@ -77,6 +78,17 @@ export function LiveAudioMonitor({ listenUrl, callStatus, onClose }: LiveAudioMo
       };
 
       ws.onmessage = (event) => {
+        msgCount++;
+        if (msgCount <= 3) {
+          if (event.data instanceof ArrayBuffer) {
+            console.log(`[LIVE MONITOR] msg #${msgCount}: ArrayBuffer byteLength=${event.data.byteLength}`);
+          } else if (typeof event.data === 'string') {
+            console.log(`[LIVE MONITOR] msg #${msgCount}: text="${event.data.substring(0, 200)}"`);
+          } else {
+            console.log(`[LIVE MONITOR] msg #${msgCount}: unknown type`, typeof event.data);
+          }
+        }
+
         if (!(event.data instanceof ArrayBuffer) || event.data.byteLength === 0) return;
         const node = workletNodeRef.current;
         if (!node) return;
