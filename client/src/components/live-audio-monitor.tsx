@@ -5,7 +5,7 @@ import { Volume2, VolumeX, Radio } from 'lucide-react';
 import { Progress } from '@/components/ui/progress';
 
 const SOURCE_SAMPLE_RATE = 8000;
-const BUFFER_AHEAD_SECONDS = 0.2;
+const BUFFER_AHEAD_SECONDS = 0.3;
 
 interface LiveAudioMonitorProps {
   listenUrl: string | null | undefined;
@@ -36,13 +36,16 @@ export function LiveAudioMonitor({ listenUrl, callStatus, onClose }: LiveAudioMo
   const rafRef = useRef<number | null>(null);
 
   useEffect(() => {
-    if (listenUrl && (callStatus === 'connected' || callStatus === 'ringing')) {
-      startMonitoring();
+    if (callStatus === 'ended') {
+      stopMonitoring();
     }
+  }, [callStatus]);
+
+  useEffect(() => {
     return () => {
       stopMonitoring();
     };
-  }, [listenUrl, callStatus]);
+  }, []);
 
   const scheduleChunk = (audioData: Float32Array) => {
     const ctx = audioContextRef.current;
@@ -51,6 +54,7 @@ export function LiveAudioMonitor({ listenUrl, callStatus, onClose }: LiveAudioMo
 
     if (ctx.state === 'suspended') {
       ctx.resume();
+      return;
     }
 
     const audioBuffer = ctx.createBuffer(1, audioData.length, SOURCE_SAMPLE_RATE);
@@ -72,7 +76,7 @@ export function LiveAudioMonitor({ listenUrl, callStatus, onClose }: LiveAudioMo
     if (wsRef.current && wsRef.current.readyState === WebSocket.OPEN) return;
 
     try {
-      const ctx = new AudioContext({ sampleRate: 8000 });
+      const ctx = new AudioContext();
       audioContextRef.current = ctx;
       gainNodeRef.current = ctx.createGain();
       analyserRef.current = ctx.createAnalyser();
