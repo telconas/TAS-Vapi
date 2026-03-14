@@ -10,28 +10,13 @@ interface LiveAudioMonitorProps {
   onClose?: () => void;
 }
 
-// mu-law decoder lookup table
-const MULAW_DECODE_TABLE = (() => {
-  const table = new Int16Array(256);
-  for (let i = 0; i < 256; i++) {
-    const mulaw = ~i;
-    const sign = mulaw & 0x80;
-    const exponent = (mulaw >> 4) & 0x07;
-    const mantissa = mulaw & 0x0F;
-    let sample = ((mantissa << 3) + 0x84) << exponent;
-    if (sign !== 0) sample = -sample;
-    table[i] = sample;
+function decodePCMS16LE(buffer: ArrayBuffer): Float32Array {
+  const int16 = new Int16Array(buffer);
+  const float32 = new Float32Array(int16.length);
+  for (let i = 0; i < int16.length; i++) {
+    float32[i] = int16[i] / 32768.0;
   }
-  return table;
-})();
-
-function decodeMuLaw(mulawData: Uint8Array): Float32Array {
-  const pcmData = new Float32Array(mulawData.length);
-  for (let i = 0; i < mulawData.length; i++) {
-    // Decode mu-law to PCM Int16, then normalize to Float32 [-1, 1]
-    pcmData[i] = MULAW_DECODE_TABLE[mulawData[i]] / 32768.0;
-  }
-  return pcmData;
+  return float32;
 }
 
 export function LiveAudioMonitor({ listenUrl, callStatus, onClose }: LiveAudioMonitorProps) {
@@ -77,36 +62,25 @@ export function LiveAudioMonitor({ listenUrl, callStatus, onClose }: LiveAudioMo
 
       wsRef.current.onopen = () => {
         const actualRate = audioContextRef.current?.sampleRate || 8000;
-        console.log(`[LIVE MONITOR] Connected to audio stream (8kHz mu-law, AudioContext: ${actualRate}Hz)`);
-        if (actualRate !== 8000) {
-          console.warn(`[LIVE MONITOR] AudioContext using ${actualRate}Hz instead of 8000Hz - will resample`);
-        }
+        console.log(`[LIVE MONITOR] Connected to audio stream (pcm_s16le 8kHz, AudioContext: ${actualRate}Hz)`);
         setIsMonitoring(true);
         setError(null);
       };
 
       wsRef.current.onmessage = (event) => {
         if (event.data instanceof ArrayBuffer) {
-          // Validate that we received data
-          if (event.data.byteLength === 0) {
-            console.warn('[LIVE MONITOR] Received empty audio chunk');
-            return;
-          }
+          if (event.data.byteLength === 0) return;
 
-          // Vapi sends 8-bit mu-law PCM, decode to Float32
-          const mulawData = new Uint8Array(event.data);
-          const audioData = decodeMuLaw(mulawData);
-
-          // Add to queue
+          const audioData = decodePCMS16LE(event.data);
           audioQueueRef.current.push(audioData);
 
-          // Start playback if not already playing
           if (!isPlayingRef.current) {
             playNextChunk();
           }
 
-          // Update volume visualization
           updateVolumeLevel();
+        } else if (typeof event.data === 'string') {
+          // Vapi also sends JSON control messages over the same socket — ignore them
         }
       };
 
@@ -246,7 +220,7 @@ export function LiveAudioMonitor({ listenUrl, callStatus, onClose }: LiveAudioMo
 
         {isMonitoring && (
           <div className="text-xs text-muted-foreground text-center" data-testid="text-monitoring-status">
-            Monitoring live audio stream (8kHz mu-law)
+            Monitoring live audio stream
           </div>
         )}
       </CardContent>
