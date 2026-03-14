@@ -161,7 +161,7 @@ async function createVapiAssistant(params: {
 
   const assistantPayload = {
     name: params.name,
-    firstMessageMode: "assistant-speaks-first",
+    firstMessageMode: "assistant-waits-for-user",
     responseDelaySeconds: 0.3,
     model: {
       provider: "openai",
