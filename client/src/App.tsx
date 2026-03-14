@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import { Switch, Route } from "wouter";
 import { queryClient } from "./lib/queryClient";
 import { QueryClientProvider } from "@tanstack/react-query";
@@ -18,16 +18,9 @@ function Router() {
 }
 
 function App() {
-  const [isAuthenticated, setIsAuthenticated] = useState<boolean | null>(null);
-
-  useEffect(() => {
-    const auth = localStorage.getItem("authenticated");
-    setIsAuthenticated(auth === "true");
-  }, []);
-
-  if (isAuthenticated === null) {
-    return null;
-  }
+  const [isAuthenticated, setIsAuthenticated] = useState<boolean>(
+    () => localStorage.getItem("authenticated") === "true"
+  );
 
   if (!isAuthenticated) {
     return (
