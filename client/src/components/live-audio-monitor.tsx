@@ -4,9 +4,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Volume2, VolumeX, Radio } from 'lucide-react';
 import { Progress } from '@/components/ui/progress';
 
-// Vapi monitor.listenUrl for phone calls always sends PCM S16LE at 16000 Hz
 const VAPI_SAMPLE_RATE = 16000;
-const BUFFER_AHEAD_SECONDS = 0.1;
 
 interface LiveAudioMonitorProps {
   listenUrl: string | null | undefined;
@@ -22,9 +20,9 @@ export function LiveAudioMonitor({ listenUrl, callStatus, onClose }: LiveAudioMo
 
   const wsRef = useRef<WebSocket | null>(null);
   const audioContextRef = useRef<AudioContext | null>(null);
+  const workletNodeRef = useRef<AudioWorkletNode | null>(null);
   const gainNodeRef = useRef<GainNode | null>(null);
   const analyserRef = useRef<AnalyserNode | null>(null);
-  const nextPlayTimeRef = useRef<number>(0);
   const rafRef = useRef<number | null>(null);
 
   useEffect(() => {
@@ -39,87 +37,65 @@ export function LiveAudioMonitor({ listenUrl, callStatus, onClose }: LiveAudioMo
     };
   }, []);
 
-  const scheduleChunk = (buffer: ArrayBuffer) => {
-    const ctx = audioContextRef.current;
-    const gain = gainNodeRef.current;
-    if (!ctx || !gain || ctx.state === 'closed') return;
-
-    // PCM S16LE: 2 bytes per sample, little-endian, signed 16-bit
-    const int16 = new Int16Array(buffer);
-    const numSamples = int16.length;
-    if (numSamples === 0) return;
-
-    const ctxRate = ctx.sampleRate;
-
-    // Decode S16LE → Float32
-    const float32 = new Float32Array(numSamples);
-    for (let i = 0; i < numSamples; i++) {
-      float32[i] = int16[i] / 32768.0;
-    }
-
-    // Tell the browser this buffer IS at VAPI_SAMPLE_RATE; it will resample to ctx rate internally
-    const audioBuffer = ctx.createBuffer(1, float32.length, VAPI_SAMPLE_RATE);
-    audioBuffer.copyToChannel(float32, 0);
-
-    const source = ctx.createBufferSource();
-    source.buffer = audioBuffer;
-    source.connect(gain);
-
-    const chunkDuration = float32.length / VAPI_SAMPLE_RATE;
-    const now = ctx.currentTime;
-    const startAt = Math.max(now + BUFFER_AHEAD_SECONDS, nextPlayTimeRef.current);
-    source.start(startAt);
-    nextPlayTimeRef.current = startAt + chunkDuration;
-  };
-
   const startMonitoring = async () => {
     if (!listenUrl) return;
     if (wsRef.current && wsRef.current.readyState === WebSocket.OPEN) return;
 
     try {
-      const ctx = new AudioContext();
+      const ctx = new AudioContext({ sampleRate: VAPI_SAMPLE_RATE });
       audioContextRef.current = ctx;
-
-      gainNodeRef.current = ctx.createGain();
-      gainNodeRef.current.gain.value = 1;
-
-      analyserRef.current = ctx.createAnalyser();
-      analyserRef.current.fftSize = 256;
-
-      gainNodeRef.current.connect(analyserRef.current);
-      analyserRef.current.connect(ctx.destination);
-
       await ctx.resume();
 
-      nextPlayTimeRef.current = 0;
+      await ctx.audioWorklet.addModule('/pcm-player-processor.js');
 
-      wsRef.current = new WebSocket(listenUrl);
-      wsRef.current.binaryType = 'arraybuffer';
+      const workletNode = new AudioWorkletNode(ctx, 'pcm-player-processor');
+      workletNodeRef.current = workletNode;
 
-      wsRef.current.onopen = () => {
-        console.log('[LIVE MONITOR] Connected — PCM S16LE @ 16000 Hz, ctx rate:', ctx.sampleRate);
+      const gain = ctx.createGain();
+      gain.gain.value = 1;
+      gainNodeRef.current = gain;
+
+      const analyser = ctx.createAnalyser();
+      analyser.fftSize = 256;
+      analyserRef.current = analyser;
+
+      workletNode.connect(gain);
+      gain.connect(analyser);
+      analyser.connect(ctx.destination);
+
+      const ws = new WebSocket(listenUrl);
+      ws.binaryType = 'arraybuffer';
+      wsRef.current = ws;
+
+      ws.onopen = () => {
+        console.log('[LIVE MONITOR] WS connected, streaming PCM S16LE @ 16kHz via AudioWorklet');
         setIsMonitoring(true);
         setError(null);
+        startVolumeMeter();
       };
 
-      wsRef.current.onmessage = (event) => {
-        if (event.data instanceof ArrayBuffer) {
-          if (event.data.byteLength === 0) return;
-          scheduleChunk(event.data);
+      ws.onmessage = (event) => {
+        if (!(event.data instanceof ArrayBuffer) || event.data.byteLength === 0) return;
+        const node = workletNodeRef.current;
+        if (!node) return;
+
+        const int16 = new Int16Array(event.data);
+        const float32 = new Float32Array(int16.length);
+        for (let i = 0; i < int16.length; i++) {
+          float32[i] = int16[i] / 32768.0;
         }
-        // ignore text/JSON control frames
+        node.port.postMessage(float32, [float32.buffer]);
       };
 
-      wsRef.current.onerror = () => {
+      ws.onerror = () => {
         setError('Failed to connect to audio stream');
       };
 
-      wsRef.current.onclose = () => {
+      ws.onclose = () => {
         setIsMonitoring(false);
         stopVolumeMeter();
+        setVolumeLevel(0);
       };
-
-      startVolumeMeter();
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to start monitoring');
     }
@@ -155,11 +131,16 @@ export function LiveAudioMonitor({ listenUrl, callStatus, onClose }: LiveAudioMo
       wsRef.current.close();
       wsRef.current = null;
     }
+    if (workletNodeRef.current) {
+      workletNodeRef.current.disconnect();
+      workletNodeRef.current = null;
+    }
     if (audioContextRef.current) {
       audioContextRef.current.close();
       audioContextRef.current = null;
     }
-    nextPlayTimeRef.current = 0;
+    gainNodeRef.current = null;
+    analyserRef.current = null;
     setIsMonitoring(false);
     setVolumeLevel(0);
   };
@@ -216,7 +197,7 @@ export function LiveAudioMonitor({ listenUrl, callStatus, onClose }: LiveAudioMo
 
         {isMonitoring && (
           <div className="text-xs text-muted-foreground text-center">
-            Monitoring live — PCM 16-bit @ 16kHz
+            Live — real-time PCM stream
           </div>
         )}
       </CardContent>
