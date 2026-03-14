@@ -89,6 +89,7 @@ export default function Dashboard() {
           callActiveRef.current = false;
           stopDurationCounter();
           setIsAudioPlaying(false);
+          setListenUrl(null);
           if (payload.callId) fetchCallDetails(payload.callId);
         }
       })
@@ -239,18 +240,24 @@ export default function Dashboard() {
   };
 
   const handleHangUp = async () => {
-    callActiveRef.current = false;
-    setCallStatus("ended");
     stopDurationCounter();
     setIsAudioPlaying(false);
-    toast({ title: "Call Ended", description: "The call has been disconnected." });
+    callActiveRef.current = false;
+
     if (currentCallId) {
       try {
-        await edgeFetch(`/api-calls/calls/${currentCallId}/hangup`, { method: "POST" });
+        const response = await edgeFetch(`/api-calls/calls/${currentCallId}/hangup`, { method: "POST" });
+        if (!response.ok) {
+          console.error("Hangup request failed:", response.status);
+        }
       } catch (error) {
         console.error("Error hanging up call:", error);
       }
     }
+
+    setCallStatus("ended");
+    setListenUrl(null);
+    toast({ title: "Call Ended", description: "The call has been disconnected." });
   };
 
   const handleTransfer = async () => {

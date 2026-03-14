@@ -261,7 +261,18 @@ async function makeVapiCall(params: {
   };
 }
 
-async function endVapiCall(vapiCallId: string): Promise<void> {
+async function endVapiCall(vapiCallId: string, controlUrl?: string): Promise<void> {
+  if (controlUrl) {
+    const response = await fetch(controlUrl, {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${VAPI_API_KEY}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({ type: "end-call" }),
+    });
+    if (response.ok) return;
+  }
   await vapiRequest("DELETE", `/call/${vapiCallId}`);
 }
 
@@ -571,7 +582,7 @@ Deno.serve(async (req: Request) => {
 
       if (call.twilio_call_sid) {
         try {
-          await endVapiCall(call.twilio_call_sid);
+          await endVapiCall(call.twilio_call_sid, call.control_url || undefined);
         } catch (_) {
           // May already be ended — continue with local cleanup
         }
