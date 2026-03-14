@@ -4,7 +4,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Volume2, VolumeX, Radio } from 'lucide-react';
 import { Progress } from '@/components/ui/progress';
 
-const VAPI_SAMPLE_RATE = 8000;
+const VAPI_INPUT_SAMPLE_RATE = 8000;
 
 interface LiveAudioMonitorProps {
   listenUrl: string | null | undefined;
@@ -42,13 +42,15 @@ export function LiveAudioMonitor({ listenUrl, callStatus, onClose }: LiveAudioMo
     if (wsRef.current && wsRef.current.readyState === WebSocket.OPEN) return;
 
     try {
-      const ctx = new AudioContext({ sampleRate: VAPI_SAMPLE_RATE });
+      const ctx = new AudioContext();
       audioContextRef.current = ctx;
       await ctx.resume();
 
       await ctx.audioWorklet.addModule('/pcm-player-processor.js');
 
-      const workletNode = new AudioWorkletNode(ctx, 'pcm-player-processor');
+      const workletNode = new AudioWorkletNode(ctx, 'pcm-player-processor', {
+        processorOptions: { inputSampleRate: VAPI_INPUT_SAMPLE_RATE },
+      });
       workletNodeRef.current = workletNode;
 
       const gain = ctx.createGain();
@@ -68,22 +70,16 @@ export function LiveAudioMonitor({ listenUrl, callStatus, onClose }: LiveAudioMo
       wsRef.current = ws;
 
       ws.onopen = () => {
-        console.log(`[LIVE MONITOR] WS connected. AudioContext sampleRate=${ctx.sampleRate} (requested ${VAPI_SAMPLE_RATE}Hz)`);
+        console.log(`[LIVE MONITOR] WS connected. AudioContext sampleRate=${ctx.sampleRate}, input=${VAPI_INPUT_SAMPLE_RATE}Hz, ratio=${(VAPI_INPUT_SAMPLE_RATE / ctx.sampleRate).toFixed(4)}`);
         setIsMonitoring(true);
         setError(null);
         startVolumeMeter();
       };
 
-      let packetCount = 0;
       ws.onmessage = (event) => {
         if (!(event.data instanceof ArrayBuffer) || event.data.byteLength === 0) return;
         const node = workletNodeRef.current;
         if (!node) return;
-
-        packetCount++;
-        if (packetCount <= 3) {
-          console.log(`[LIVE MONITOR] Packet #${packetCount}: byteLength=${event.data.byteLength}, samples=${event.data.byteLength / 2}, ~${(event.data.byteLength / 2 / VAPI_SAMPLE_RATE * 1000).toFixed(1)}ms`);
-        }
 
         const int16 = new Int16Array(event.data);
         const float32 = new Float32Array(int16.length);
@@ -95,6 +91,7 @@ export function LiveAudioMonitor({ listenUrl, callStatus, onClose }: LiveAudioMo
 
       ws.onerror = () => {
         setError('Failed to connect to audio stream');
+        stopVolumeMeter();
       };
 
       ws.onclose = () => {
