@@ -121,7 +121,7 @@ function getPublicWebhookUrl(path: string): string {
 
 export function buildSystemPrompt(
   userInstructions: string,
-  callerName: string = "James Martin",
+  callerName: string = ${callerName},
 ): string {
   return ``============================================================
 }
