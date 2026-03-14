@@ -48,6 +48,7 @@ export default function Dashboard() {
   const [callSummary, setCallSummary] = useState<string | null>(null);
   const durationIntervalRef = useRef<NodeJS.Timeout | null>(null);
   const callActiveRef = useRef(false);
+  const currentCallIdRef = useRef<string | null>(null);
   const channelRef = useRef<ReturnType<typeof supabase.channel> | null>(null);
   const { toast } = useToast();
 
@@ -93,6 +94,7 @@ export default function Dashboard() {
       })
       .on("broadcast", { event: "transcription" }, ({ payload }) => {
         if (!callActiveRef.current) return;
+        if (currentCallIdRef.current && payload.callId !== currentCallIdRef.current) return;
         const newMessage: TranscriptMessage = {
           id: Math.random().toString(36).substr(2, 9),
           callId: payload.callId,
@@ -173,6 +175,7 @@ export default function Dashboard() {
   const handleStartCall = async (phone: string, prompt: string, callerName: string, email?: string) => {
     try {
       callActiveRef.current = true;
+      currentCallIdRef.current = null;
       setPhoneNumber(phone);
       setCallStatus("ringing");
       setDuration(0);
@@ -197,6 +200,7 @@ export default function Dashboard() {
 
       const data = await response.json();
       setCurrentCallId(data.callId);
+      currentCallIdRef.current = data.callId;
       if (data.listenUrl) setListenUrl(data.listenUrl);
 
       toast({ title: "Call Initiated", description: `Calling ${phone}...` });
