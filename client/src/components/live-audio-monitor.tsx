@@ -4,6 +4,8 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Volume2, VolumeX, Radio } from 'lucide-react';
 import { Progress } from '@/components/ui/progress';
 
+const SOURCE_SAMPLE_RATE = 8000;
+
 interface LiveAudioMonitorProps {
   listenUrl: string | null | undefined;
   callStatus: string;
@@ -24,31 +26,45 @@ export function LiveAudioMonitor({ listenUrl, callStatus, onClose }: LiveAudioMo
   const [isMuted, setIsMuted] = useState(false);
   const [volumeLevel, setVolumeLevel] = useState(0);
   const [error, setError] = useState<string | null>(null);
-  
+
   const wsRef = useRef<WebSocket | null>(null);
   const audioContextRef = useRef<AudioContext | null>(null);
   const gainNodeRef = useRef<GainNode | null>(null);
   const analyserRef = useRef<AnalyserNode | null>(null);
-  const audioQueueRef = useRef<Float32Array[]>([]);
-  const isPlayingRef = useRef(false);
+  const nextPlayTimeRef = useRef<number>(0);
 
   useEffect(() => {
-    // Auto-start monitoring when listenUrl is available and call is active
     if (listenUrl && (callStatus === 'connected' || callStatus === 'ringing')) {
       startMonitoring();
     }
-
     return () => {
       stopMonitoring();
     };
   }, [listenUrl, callStatus]);
 
+  const scheduleChunk = (audioData: Float32Array) => {
+    const ctx = audioContextRef.current;
+    const gain = gainNodeRef.current;
+    if (!ctx || !gain) return;
+
+    const audioBuffer = ctx.createBuffer(1, audioData.length, SOURCE_SAMPLE_RATE);
+    audioBuffer.copyToChannel(audioData, 0);
+
+    const source = ctx.createBufferSource();
+    source.buffer = audioBuffer;
+    source.connect(gain);
+
+    const chunkDuration = audioData.length / SOURCE_SAMPLE_RATE;
+    const startAt = Math.max(ctx.currentTime + 0.05, nextPlayTimeRef.current);
+    source.start(startAt);
+    nextPlayTimeRef.current = startAt + chunkDuration;
+  };
+
   const startMonitoring = async () => {
     if (!listenUrl || isMonitoring) return;
 
     try {
-      // Initialize Web Audio API with correct sample rate for Vapi (8kHz mu-law)
-      audioContextRef.current = new AudioContext({ sampleRate: 8000 });
+      audioContextRef.current = new AudioContext();
       gainNodeRef.current = audioContextRef.current.createGain();
       analyserRef.current = audioContextRef.current.createAnalyser();
       analyserRef.current.fftSize = 256;
@@ -56,85 +72,40 @@ export function LiveAudioMonitor({ listenUrl, callStatus, onClose }: LiveAudioMo
       gainNodeRef.current.connect(analyserRef.current);
       analyserRef.current.connect(audioContextRef.current.destination);
 
-      // Connect to WebSocket
+      nextPlayTimeRef.current = 0;
+
       wsRef.current = new WebSocket(listenUrl);
       wsRef.current.binaryType = 'arraybuffer';
 
       wsRef.current.onopen = () => {
-        const actualRate = audioContextRef.current?.sampleRate || 8000;
-        console.log(`[LIVE MONITOR] Connected to audio stream (pcm_s16le 8kHz, AudioContext: ${actualRate}Hz)`);
+        console.log('[LIVE MONITOR] Connected, ctx sample rate:', audioContextRef.current?.sampleRate);
         setIsMonitoring(true);
         setError(null);
       };
 
       wsRef.current.onmessage = (event) => {
-        if (event.data instanceof ArrayBuffer) {
-          if (event.data.byteLength === 0) return;
-
-          const audioData = decodePCMS16LE(event.data);
-          audioQueueRef.current.push(audioData);
-
-          if (!isPlayingRef.current) {
-            playNextChunk();
-          }
-
-          updateVolumeLevel();
-        } else if (typeof event.data === 'string') {
-          // Vapi also sends JSON control messages over the same socket — ignore them
-        }
+        if (!(event.data instanceof ArrayBuffer) || event.data.byteLength === 0) return;
+        const audioData = decodePCMS16LE(event.data);
+        scheduleChunk(audioData);
+        updateVolumeLevel();
       };
 
-      wsRef.current.onerror = (error) => {
-        console.error('[LIVE MONITOR] WebSocket error:', error);
+      wsRef.current.onerror = () => {
         setError('Failed to connect to audio stream');
       };
 
       wsRef.current.onclose = () => {
-        console.log('[LIVE MONITOR] Disconnected from audio stream');
         setIsMonitoring(false);
       };
     } catch (err) {
-      console.error('[LIVE MONITOR] Error starting monitor:', err);
       setError(err instanceof Error ? err.message : 'Failed to start monitoring');
     }
   };
 
-  const playNextChunk = async () => {
-    if (!audioContextRef.current || !gainNodeRef.current || audioQueueRef.current.length === 0) {
-      isPlayingRef.current = false;
-      return;
-    }
-
-    isPlayingRef.current = true;
-    const audioData = audioQueueRef.current.shift()!;
-
-    // Create buffer at the actual source sample rate (8000 Hz), not the context rate
-    // This ensures correct playback speed even if browser uses 44100/48000 Hz context
-    const audioBuffer = audioContextRef.current.createBuffer(
-      1,
-      audioData.length,
-      8000  // Vapi stream is always 8kHz
-    );
-    
-    audioBuffer.copyToChannel(audioData, 0);
-
-    const source = audioContextRef.current.createBufferSource();
-    source.buffer = audioBuffer;
-    source.connect(gainNodeRef.current);
-
-    source.onended = () => {
-      playNextChunk();
-    };
-
-    source.start();
-  };
-
   const updateVolumeLevel = () => {
     if (!analyserRef.current) return;
-
     const dataArray = new Uint8Array(analyserRef.current.frequencyBinCount);
     analyserRef.current.getByteFrequencyData(dataArray);
-
     const average = dataArray.reduce((a, b) => a + b, 0) / dataArray.length;
     setVolumeLevel(Math.min(100, (average / 255) * 100));
   };
@@ -144,14 +115,11 @@ export function LiveAudioMonitor({ listenUrl, callStatus, onClose }: LiveAudioMo
       wsRef.current.close();
       wsRef.current = null;
     }
-
     if (audioContextRef.current) {
       audioContextRef.current.close();
       audioContextRef.current = null;
     }
-
-    audioQueueRef.current = [];
-    isPlayingRef.current = false;
+    nextPlayTimeRef.current = 0;
     setIsMonitoring(false);
     setVolumeLevel(0);
   };
@@ -163,9 +131,7 @@ export function LiveAudioMonitor({ listenUrl, callStatus, onClose }: LiveAudioMo
     }
   };
 
-  if (!listenUrl) {
-    return null;
-  }
+  if (!listenUrl) return null;
 
   return (
     <Card className="border-primary/20" data-testid="card-live-monitor">
