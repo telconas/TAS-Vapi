@@ -8,7 +8,7 @@ import {
 } from "@/components/ui/select";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { Button } from "@/components/ui/button";
-import { Volume2, Loader2 } from "lucide-react";
+import { Volume2, Loader as Loader2 } from "lucide-react";
 import { useState } from "react";
 
 interface Voice {
@@ -92,7 +92,15 @@ export function VoiceSelector({
 
       setPreviewingVoice(voiceId);
 
-      const audio = new Audio(`/api/voices/${voiceId}/preview`);
+      const supabaseUrl = import.meta.env.VITE_SUPABASE_URL as string;
+      const anonKey = import.meta.env.VITE_SUPABASE_ANON_KEY as string;
+      const previewUrl = `${supabaseUrl}/functions/v1/api-voices/voices/${voiceId}/preview`;
+      const response = await fetch(previewUrl, {
+        headers: { Authorization: `Bearer ${anonKey}`, Apikey: anonKey },
+      });
+      const blob = await response.blob();
+      const objectUrl = URL.createObjectURL(blob);
+      const audio = new Audio(objectUrl);
       setAudioElement(audio);
 
       audio.onended = () => {
