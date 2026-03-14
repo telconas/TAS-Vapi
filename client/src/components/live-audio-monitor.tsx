@@ -5,6 +5,7 @@ import { Volume2, VolumeX, Radio } from 'lucide-react';
 import { Progress } from '@/components/ui/progress';
 
 const SOURCE_SAMPLE_RATE = 8000;
+const BUFFER_AHEAD_SECONDS = 0.2;
 
 interface LiveAudioMonitorProps {
   listenUrl: string | null | undefined;
@@ -32,6 +33,7 @@ export function LiveAudioMonitor({ listenUrl, callStatus, onClose }: LiveAudioMo
   const gainNodeRef = useRef<GainNode | null>(null);
   const analyserRef = useRef<AnalyserNode | null>(null);
   const nextPlayTimeRef = useRef<number>(0);
+  const rafRef = useRef<number | null>(null);
 
   useEffect(() => {
     if (listenUrl && (callStatus === 'connected' || callStatus === 'ringing')) {
@@ -47,6 +49,10 @@ export function LiveAudioMonitor({ listenUrl, callStatus, onClose }: LiveAudioMo
     const gain = gainNodeRef.current;
     if (!ctx || !gain) return;
 
+    if (ctx.state === 'suspended') {
+      ctx.resume();
+    }
+
     const audioBuffer = ctx.createBuffer(1, audioData.length, SOURCE_SAMPLE_RATE);
     audioBuffer.copyToChannel(audioData, 0);
 
@@ -55,22 +61,27 @@ export function LiveAudioMonitor({ listenUrl, callStatus, onClose }: LiveAudioMo
     source.connect(gain);
 
     const chunkDuration = audioData.length / SOURCE_SAMPLE_RATE;
-    const startAt = Math.max(ctx.currentTime + 0.05, nextPlayTimeRef.current);
+    const now = ctx.currentTime;
+    const startAt = Math.max(now + BUFFER_AHEAD_SECONDS, nextPlayTimeRef.current);
     source.start(startAt);
     nextPlayTimeRef.current = startAt + chunkDuration;
   };
 
   const startMonitoring = async () => {
-    if (!listenUrl || isMonitoring) return;
+    if (!listenUrl) return;
+    if (wsRef.current && wsRef.current.readyState === WebSocket.OPEN) return;
 
     try {
-      audioContextRef.current = new AudioContext();
-      gainNodeRef.current = audioContextRef.current.createGain();
-      analyserRef.current = audioContextRef.current.createAnalyser();
+      const ctx = new AudioContext({ sampleRate: 8000 });
+      audioContextRef.current = ctx;
+      gainNodeRef.current = ctx.createGain();
+      analyserRef.current = ctx.createAnalyser();
       analyserRef.current.fftSize = 256;
 
       gainNodeRef.current.connect(analyserRef.current);
-      analyserRef.current.connect(audioContextRef.current.destination);
+      analyserRef.current.connect(ctx.destination);
+
+      await ctx.resume();
 
       nextPlayTimeRef.current = 0;
 
@@ -78,7 +89,7 @@ export function LiveAudioMonitor({ listenUrl, callStatus, onClose }: LiveAudioMo
       wsRef.current.binaryType = 'arraybuffer';
 
       wsRef.current.onopen = () => {
-        console.log('[LIVE MONITOR] Connected, ctx sample rate:', audioContextRef.current?.sampleRate);
+        console.log('[LIVE MONITOR] Connected, ctx state:', audioContextRef.current?.state);
         setIsMonitoring(true);
         setError(null);
       };
@@ -87,7 +98,6 @@ export function LiveAudioMonitor({ listenUrl, callStatus, onClose }: LiveAudioMo
         if (!(event.data instanceof ArrayBuffer) || event.data.byteLength === 0) return;
         const audioData = decodePCMS16LE(event.data);
         scheduleChunk(audioData);
-        updateVolumeLevel();
       };
 
       wsRef.current.onerror = () => {
@@ -96,21 +106,41 @@ export function LiveAudioMonitor({ listenUrl, callStatus, onClose }: LiveAudioMo
 
       wsRef.current.onclose = () => {
         setIsMonitoring(false);
+        stopVolumeMeter();
       };
+
+      startVolumeMeter();
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to start monitoring');
     }
   };
 
-  const updateVolumeLevel = () => {
-    if (!analyserRef.current) return;
-    const dataArray = new Uint8Array(analyserRef.current.frequencyBinCount);
-    analyserRef.current.getByteFrequencyData(dataArray);
-    const average = dataArray.reduce((a, b) => a + b, 0) / dataArray.length;
-    setVolumeLevel(Math.min(100, (average / 255) * 100));
+  const startVolumeMeter = () => {
+    const tick = () => {
+      if (!analyserRef.current) return;
+      const dataArray = new Uint8Array(analyserRef.current.frequencyBinCount);
+      analyserRef.current.getByteTimeDomainData(dataArray);
+      let sumSquares = 0;
+      for (let i = 0; i < dataArray.length; i++) {
+        const norm = (dataArray[i] - 128) / 128;
+        sumSquares += norm * norm;
+      }
+      const rms = Math.sqrt(sumSquares / dataArray.length);
+      setVolumeLevel(Math.min(100, rms * 400));
+      rafRef.current = requestAnimationFrame(tick);
+    };
+    rafRef.current = requestAnimationFrame(tick);
+  };
+
+  const stopVolumeMeter = () => {
+    if (rafRef.current !== null) {
+      cancelAnimationFrame(rafRef.current);
+      rafRef.current = null;
+    }
   };
 
   const stopMonitoring = () => {
+    stopVolumeMeter();
     if (wsRef.current) {
       wsRef.current.close();
       wsRef.current = null;
