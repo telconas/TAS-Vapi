@@ -11,6 +11,7 @@ const OPENAI_API_KEY = Deno.env.get("OPENAI_API_KEY") || "";
 const SENDGRID_API_KEY = Deno.env.get("SENDGRID_API_KEY") || "";
 const SENDGRID_FROM_EMAIL = Deno.env.get("SENDGRID_FROM_EMAIL") || "avb@telconassociates.com";
 const VAPI_API_KEY = Deno.env.get("VAPI_API_KEY") || "";
+const TRANSFER_NUMBER = Deno.env.get("TRANSFER_NUMBER") || "+19134395811";
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL") || "";
 const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") || "";
 
@@ -54,8 +55,8 @@ Transcript:
 ${transcriptText}`;
 }
 
-async function pollForRecording(supabase: any, vapiCallId: string, dbCallId: string): Promise<void> {
-  const maxAttempts = 10;
+async function pollForRecording(supabase: any, vapiCallId: string, dbCallId: string): Promise<string | null> {
+  const maxAttempts = 12;
   const delayMs = 5000;
 
   for (let attempt = 1; attempt <= maxAttempts; attempt++) {
@@ -76,12 +77,13 @@ async function pollForRecording(supabase: any, vapiCallId: string, dbCallId: str
 
       if (recordingUrl) {
         await supabase.from("calls").update({ recording_url: recordingUrl }).eq("id", dbCallId);
-        return;
+        return recordingUrl;
       }
     } catch (_) {
       // continue polling
     }
   }
+  return null;
 }
 
 async function generateSummaryAndEmail(supabase: any, callId: string, recordingUrl?: string): Promise<void> {
@@ -272,7 +274,7 @@ Deno.serve(async (req: Request) => {
                   )
                 : 0);
 
-            const recordingUrl =
+            let recordingUrl =
               vapiCall.artifact?.recordingUrl ||
               vapiCall.artifact?.stereoRecordingUrl ||
               vapiCall.recordingUrl;
@@ -283,11 +285,12 @@ Deno.serve(async (req: Request) => {
 
             await supabase.from("calls").update(updateData).eq("id", dbCall.id);
 
-            if (!recordingUrl && vapiCall.id) {
-              EdgeRuntime.waitUntil(pollForRecording(supabase, vapiCall.id, dbCall.id));
-            }
-
-            EdgeRuntime.waitUntil(generateSummaryAndEmail(supabase, dbCall.id, recordingUrl));
+            EdgeRuntime.waitUntil((async () => {
+              if (!recordingUrl && vapiCall.id) {
+                recordingUrl = await pollForRecording(supabase, vapiCall.id, dbCall.id);
+              }
+              await generateSummaryAndEmail(supabase, dbCall.id, recordingUrl || undefined);
+            })());
           }
         }
         break;
@@ -309,6 +312,9 @@ Deno.serve(async (req: Request) => {
     return new Response("OK", { status: 200, headers: corsHeaders });
   } catch (error: any) {
     console.error("Error in vapi-webhook:", error);
-    return new Response("OK", { status: 200, headers: corsHeaders });
+    return new Response(JSON.stringify({ error: error.message || "Internal server error" }), {
+      status: 500,
+      headers: { ...corsHeaders, "Content-Type": "application/json" },
+    });
   }
 });

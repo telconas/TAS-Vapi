@@ -13,6 +13,7 @@ const OPENAI_API_KEY = Deno.env.get("OPENAI_API_KEY") || "";
 const SENDGRID_API_KEY = Deno.env.get("SENDGRID_API_KEY") || "";
 const SENDGRID_FROM_EMAIL = Deno.env.get("SENDGRID_FROM_EMAIL") || "avb@telconassociates.com";
 const PHONE_NUMBER_ID = Deno.env.get("PHONE_NUMBER_ID") || "";
+const TRANSFER_NUMBER = Deno.env.get("TRANSFER_NUMBER") || "+19134395811";
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL") || "";
 const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") || "";
 
@@ -184,7 +185,7 @@ async function createVapiAssistant(params: {
           destinations: [
             {
               type: "number",
-              number: "+19134395811",
+              number: TRANSFER_NUMBER,
               message: "Let me transfer the call now. Can you hold for just a sec?",
               description: "Transfer to support line",
             },
@@ -312,9 +313,41 @@ Transcript:
 ${transcriptText}`;
 }
 
+async function pollForRecording(supabase: any, vapiCallId: string, dbCallId: string): Promise<string | null> {
+  const maxAttempts = 12;
+  const delayMs = 5000;
+
+  for (let attempt = 1; attempt <= maxAttempts; attempt++) {
+    await new Promise((resolve) => setTimeout(resolve, delayMs));
+    try {
+      const response = await fetch(`https://api.vapi.ai/call/${vapiCallId}`, {
+        headers: { Authorization: `Bearer ${VAPI_API_KEY}` },
+      });
+      if (!response.ok) continue;
+      const vapiCall = await response.json();
+      const recordingUrl =
+        vapiCall?.artifact?.recordingUrl ||
+        vapiCall?.artifact?.stereoRecordingUrl ||
+        vapiCall?.recordingUrl;
+      if (recordingUrl) {
+        await supabase.from("calls").update({ recording_url: recordingUrl }).eq("id", dbCallId);
+        return recordingUrl;
+      }
+    } catch (_) {
+      // continue polling
+    }
+  }
+  return null;
+}
+
 async function generateSummaryAndEmail(supabase: any, callId: string): Promise<void> {
   const { data: call } = await supabase.from("calls").select().eq("id", callId).maybeSingle();
   if (!call) return;
+
+  let recordingUrl = call.recording_url;
+  if (!recordingUrl && call.twilio_call_sid) {
+    recordingUrl = await pollForRecording(supabase, call.twilio_call_sid, callId);
+  }
 
   const { data: transcripts } = await supabase
     .from("transcript_messages")
@@ -373,9 +406,9 @@ async function generateSummaryAndEmail(supabase: any, callId: string): Promise<v
       : [summary];
 
     const bulletListHtml = sentences.map((s: string) => `<li>${s}</li>`).join("");
-    const hasRecording = call.recording_url && call.recording_url.trim().length > 0;
+    const hasRecording = recordingUrl && recordingUrl.trim().length > 0;
 
-    const emailHtml = `<!DOCTYPE html><html><head><style>body{font-family:Arial,sans-serif;line-height:1.6;color:#333}.container{max-width:600px;margin:0 auto;padding:20px}.header{background:#219ebc;color:white;padding:20px;border-radius:5px 5px 0 0}.content{background:#f9f9f9;padding:20px;border:1px solid #ddd}.summary{background:white;padding:15px;border-left:4px solid #219ebc;margin:20px 0}.summary ul{margin:0;padding-left:20px}.summary li{margin:8px 0}.meta{color:#666;font-size:14px;margin:10px 0}.footer{text-align:center;margin-top:20px;color:#999;font-size:12px}.recording-link{display:inline-block;background:#219ebc;color:white;padding:10px 20px;text-decoration:none;border-radius:5px;margin-top:10px}</style></head><body><div class="container"><div class="header"><h1>TAS Call Summary</h1></div><div class="content"><p class="meta"><strong>Phone Number:</strong> ${call.phone_number}</p><p class="meta"><strong>Duration:</strong> ${formatDuration(duration)}</p><h2>Summary of TAS Call</h2><div class="summary"><ul>${bulletListHtml}</ul></div>${hasRecording ? `<p><a href="${call.recording_url}" class="recording-link">Listen to Recording</a></p>` : `<p style="color:#999;font-style:italic;margin-top:15px;">Recording not available</p>`}</div><div class="footer"><p>TAS AI Agent</p></div></div></body></html>`;
+    const emailHtml = `<!DOCTYPE html><html><head><style>body{font-family:Arial,sans-serif;line-height:1.6;color:#333}.container{max-width:600px;margin:0 auto;padding:20px}.header{background:#219ebc;color:white;padding:20px;border-radius:5px 5px 0 0}.content{background:#f9f9f9;padding:20px;border:1px solid #ddd}.summary{background:white;padding:15px;border-left:4px solid #219ebc;margin:20px 0}.summary ul{margin:0;padding-left:20px}.summary li{margin:8px 0}.meta{color:#666;font-size:14px;margin:10px 0}.footer{text-align:center;margin-top:20px;color:#999;font-size:12px}.recording-link{display:inline-block;background:#219ebc;color:white;padding:10px 20px;text-decoration:none;border-radius:5px;margin-top:10px}</style></head><body><div class="container"><div class="header"><h1>TAS Call Summary</h1></div><div class="content"><p class="meta"><strong>Phone Number:</strong> ${call.phone_number}</p><p class="meta"><strong>Duration:</strong> ${formatDuration(duration)}</p><h2>Summary of TAS Call</h2><div class="summary"><ul>${bulletListHtml}</ul></div>${hasRecording ? `<p><a href="${recordingUrl}" class="recording-link">Listen to Recording</a></p>` : `<p style="color:#999;font-style:italic;margin-top:15px;">Recording not available</p>`}</div><div class="footer"><p>TAS AI Agent</p></div></div></body></html>`;
 
     await fetch("https://api.sendgrid.com/v3/mail/send", {
       method: "POST",
@@ -474,7 +507,12 @@ Deno.serve(async (req: Request) => {
       let validatedDeepgramVoice: string | undefined;
       let validatedElevenLabsVoice: string | undefined;
 
-      if (validatedProvider === "deepgram") {
+      if (validatedProvider === "polly") {
+        return new Response(
+          JSON.stringify({ error: "Polly voices are not supported by Vapi. Please select Deepgram or ElevenLabs." }),
+          { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        );
+      } else if (validatedProvider === "deepgram") {
         validatedDeepgramVoice =
           deepgramVoice && (deepgramVoice.startsWith("aura-2-") || deepgramVoice.startsWith("aura-"))
             ? deepgramVoice
@@ -616,7 +654,7 @@ Deno.serve(async (req: Request) => {
         },
         body: JSON.stringify({
           type: "transfer",
-          destination: { type: "number", number: "+19134395811" },
+          destination: { type: "number", number: TRANSFER_NUMBER },
           content: "Transferring your call now. Please hold.",
         }),
       });
@@ -636,7 +674,7 @@ Deno.serve(async (req: Request) => {
       });
 
       return new Response(
-        JSON.stringify({ success: true, transferredTo: "+19134395811", message: "Call transfer initiated" }),
+        JSON.stringify({ success: true, transferredTo: TRANSFER_NUMBER, message: "Call transfer initiated" }),
         { headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }

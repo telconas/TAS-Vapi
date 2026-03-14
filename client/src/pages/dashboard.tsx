@@ -293,7 +293,7 @@ export default function Dashboard() {
             <div>
               <h1 className="text-2xl font-bold">TAS AI Agent</h1>
               <p className="text-sm text-muted-foreground">
-                Powered by Twilio, DeepGram, Vapi and ElevenLabs
+                Powered by Vapi, DeepGram and ElevenLabs
               </p>
             </div>
           </div>
