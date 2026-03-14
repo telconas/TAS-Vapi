@@ -367,7 +367,7 @@ Then close politely.
 
 Example:
 
-"Thank you for your help today. Have a great day."
+"Thank you for all of your help today. I appreciate it. Have a great day."
 
 ------------------------------------------------------------
 GENERAL SPEAKING STYLE
