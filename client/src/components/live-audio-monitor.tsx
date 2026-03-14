@@ -4,7 +4,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Volume2, VolumeX, Radio } from 'lucide-react';
 import { Progress } from '@/components/ui/progress';
 
-const VAPI_SAMPLE_RATE = 16000;
+const VAPI_SAMPLE_RATE = 8000;
 
 interface LiveAudioMonitorProps {
   listenUrl: string | null | undefined;
