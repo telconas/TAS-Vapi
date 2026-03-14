@@ -47,6 +47,8 @@ export default function Dashboard() {
   const [recordingUrl, setRecordingUrl] = useState<string | null>(null);
   const [callSummary, setCallSummary] = useState<string | null>(null);
   const durationIntervalRef = useRef<NodeJS.Timeout | null>(null);
+  const callActiveRef = useRef(false);
+  const channelRef = useRef<ReturnType<typeof supabase.channel> | null>(null);
   const { toast } = useToast();
 
   useEffect(() => {
@@ -72,21 +74,25 @@ export default function Dashboard() {
     const channel = supabase.channel("call-events", {
       config: { broadcast: { self: false } },
     });
+    channelRef.current = channel;
 
     channel
       .on("broadcast", { event: "call_status" }, ({ payload }) => {
         const status = payload.status;
         setCallStatus(status);
         if (status === "connected") {
+          callActiveRef.current = true;
           startDurationCounter();
           setIsAudioPlaying(true);
         } else if (status === "ended" || status === "transferred") {
+          callActiveRef.current = false;
           stopDurationCounter();
           setIsAudioPlaying(false);
           if (payload.callId) fetchCallDetails(payload.callId);
         }
       })
       .on("broadcast", { event: "transcription" }, ({ payload }) => {
+        if (!callActiveRef.current) return;
         const newMessage: TranscriptMessage = {
           id: Math.random().toString(36).substr(2, 9),
           callId: payload.callId,
@@ -103,6 +109,7 @@ export default function Dashboard() {
 
     return () => {
       channel.unsubscribe();
+      channelRef.current = null;
     };
   }, []);
 
@@ -165,6 +172,7 @@ export default function Dashboard() {
 
   const handleStartCall = async (phone: string, prompt: string, callerName: string, email?: string) => {
     try {
+      callActiveRef.current = true;
       setPhoneNumber(phone);
       setCallStatus("ringing");
       setDuration(0);
@@ -227,6 +235,7 @@ export default function Dashboard() {
   };
 
   const handleHangUp = async () => {
+    callActiveRef.current = false;
     setCallStatus("ended");
     stopDurationCounter();
     setIsAudioPlaying(false);
