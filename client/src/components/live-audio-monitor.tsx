@@ -38,13 +38,21 @@ export function LiveAudioMonitor({ listenUrl, callStatus, onClose }: LiveAudioMo
   }, []);
 
   const startMonitoring = async () => {
-    if (!listenUrl) return;
-    if (wsRef.current && wsRef.current.readyState === WebSocket.OPEN) return;
+    if (!listenUrl) {
+      setError('No listen URL available yet. Wait for the call to connect.');
+      return;
+    }
+    if (wsRef.current && (wsRef.current.readyState === WebSocket.OPEN || wsRef.current.readyState === WebSocket.CONNECTING)) return;
+
+    setError(null);
 
     try {
-      const ctx = new AudioContext();
+      const ctx = new (window.AudioContext || (window as any).webkitAudioContext)();
       audioContextRef.current = ctx;
-      await ctx.resume();
+
+      if (ctx.state === 'suspended') {
+        await ctx.resume();
+      }
 
       await ctx.audioWorklet.addModule('/pcm-player-processor.js');
 
@@ -115,15 +123,21 @@ export function LiveAudioMonitor({ listenUrl, callStatus, onClose }: LiveAudioMo
         node.port.postMessage(float32, [float32.buffer]);
       };
 
-      ws.onerror = () => {
-        setError('Failed to connect to audio stream');
+      ws.onerror = (e) => {
+        console.error('[LIVE MONITOR] WS error:', e);
+        setError('Failed to connect to audio stream. The listen URL may have expired.');
         stopVolumeMeter();
+        setIsMonitoring(false);
       };
 
-      ws.onclose = () => {
+      ws.onclose = (e) => {
+        console.log(`[LIVE MONITOR] WS closed: code=${e.code}`);
         setIsMonitoring(false);
         stopVolumeMeter();
         setVolumeLevel(0);
+        if (e.code !== 1000 && e.code !== 1001) {
+          setError(`Stream disconnected (code ${e.code}). Try reconnecting.`);
+        }
       };
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to start monitoring');
