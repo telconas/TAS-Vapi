@@ -2,7 +2,7 @@ class PcmPlayerProcessor extends AudioWorkletProcessor {
   constructor(options) {
     super();
     this._buffer = new Float32Array(0);
-    this._inputSampleRate = (options && options.processorOptions && options.processorOptions.inputSampleRate) || 8000;
+    this._inputSampleRate = (options && options.processorOptions && options.processorOptions.inputSampleRate) || 16000;
     this._outputSampleRate = sampleRate;
     this._ratio = this._inputSampleRate / this._outputSampleRate;
 
@@ -25,6 +25,10 @@ class PcmPlayerProcessor extends AudioWorkletProcessor {
       } else if (e.data && e.data.type === 'config') {
         this._inputSampleRate = e.data.inputSampleRate || this._inputSampleRate;
         this._ratio = this._inputSampleRate / this._outputSampleRate;
+        this._writePos = 0;
+        this._readPos = 0;
+        this._filled = 0;
+        this._primed = false;
       } else if (e.data === 'clear') {
         this._writePos = 0;
         this._readPos = 0;
