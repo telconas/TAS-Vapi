@@ -9,10 +9,7 @@ const corsHeaders = {
 
 const TWILIO_ACCOUNT_SID = Deno.env.get("TWILIO_ACCOUNT_SID") || "";
 const TWILIO_AUTH_TOKEN = Deno.env.get("TWILIO_AUTH_TOKEN") || "";
-const TWILIO_API_KEY_SID = Deno.env.get("TWILIO_API_KEY_SID") || "";
-const TWILIO_API_KEY_SECRET = Deno.env.get("TWILIO_API_KEY_SECRET") || "";
-const TWILIO_TWIML_APP_SID = Deno.env.get("TWILIO_TWIML_APP_SID") || "";
-const TWILIO_PHONE_NUMBER = "+19134395811";
+const TWILIO_PHONE_NUMBER = Deno.env.get("TWILIO_PHONE_NUMBER") || "+19134395811";
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL") || "";
 const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") || "";
 
@@ -40,10 +37,104 @@ async function hmacSha256(key: string, data: string): Promise<string> {
   return base64url(binary);
 }
 
+const twilioAuth = () => `Basic ${btoa(`${TWILIO_ACCOUNT_SID}:${TWILIO_AUTH_TOKEN}`)}`;
+
+let cachedApiKeySid: string | null = Deno.env.get("TWILIO_API_KEY_SID") || null;
+let cachedApiKeySecret: string | null = Deno.env.get("TWILIO_API_KEY_SECRET") || null;
+
+async function ensureApiKey(): Promise<{ sid: string; secret: string }> {
+  if (cachedApiKeySid && cachedApiKeySecret) {
+    return { sid: cachedApiKeySid, secret: cachedApiKeySecret };
+  }
+
+  const listRes = await fetch(
+    `https://api.twilio.com/2010-04-01/Accounts/${TWILIO_ACCOUNT_SID}/Keys.json`,
+    { headers: { Authorization: twilioAuth() } }
+  );
+  const listData = await listRes.json();
+  const existing = listData.keys?.find((k: any) => k.friendly_name === "TAS Manual Dialer Key");
+
+  if (existing) {
+    cachedApiKeySid = existing.sid;
+    if (cachedApiKeySecret) {
+      return { sid: cachedApiKeySid!, secret: cachedApiKeySecret };
+    }
+  }
+
+  const createRes = await fetch(
+    `https://api.twilio.com/2010-04-01/Accounts/${TWILIO_ACCOUNT_SID}/Keys.json`,
+    {
+      method: "POST",
+      headers: {
+        Authorization: twilioAuth(),
+        "Content-Type": "application/x-www-form-urlencoded",
+      },
+      body: new URLSearchParams({ FriendlyName: "TAS Manual Dialer Key" }).toString(),
+    }
+  );
+  const newKey = await createRes.json();
+
+  if (!newKey.sid || !newKey.secret) {
+    throw new Error(`Failed to create Twilio API Key: ${JSON.stringify(newKey)}`);
+  }
+
+  cachedApiKeySid = newKey.sid;
+  cachedApiKeySecret = newKey.secret;
+  return { sid: newKey.sid, secret: newKey.secret };
+}
+
+async function ensureTwimlApp(): Promise<string> {
+  const envSid = Deno.env.get("TWILIO_TWIML_APP_SID");
+  if (envSid) return envSid;
+
+  const voiceUrl = `${SUPABASE_URL}/functions/v1/manual-call/voice`;
+
+  const listRes = await fetch(
+    `https://api.twilio.com/2010-04-01/Accounts/${TWILIO_ACCOUNT_SID}/Applications.json?FriendlyName=TAS+Manual+Dialer`,
+    { headers: { Authorization: twilioAuth() } }
+  );
+  const listData = await listRes.json();
+
+  if (listData.applications?.length > 0) {
+    const app = listData.applications[0];
+    if (app.voice_url !== voiceUrl) {
+      await fetch(
+        `https://api.twilio.com/2010-04-01/Accounts/${TWILIO_ACCOUNT_SID}/Applications/${app.sid}.json`,
+        {
+          method: "POST",
+          headers: {
+            Authorization: twilioAuth(),
+            "Content-Type": "application/x-www-form-urlencoded",
+          },
+          body: new URLSearchParams({ VoiceUrl: voiceUrl, VoiceMethod: "POST" }).toString(),
+        }
+      );
+    }
+    return app.sid;
+  }
+
+  const createRes = await fetch(
+    `https://api.twilio.com/2010-04-01/Accounts/${TWILIO_ACCOUNT_SID}/Applications.json`,
+    {
+      method: "POST",
+      headers: {
+        Authorization: twilioAuth(),
+        "Content-Type": "application/x-www-form-urlencoded",
+      },
+      body: new URLSearchParams({
+        FriendlyName: "TAS Manual Dialer",
+        VoiceUrl: voiceUrl,
+        VoiceMethod: "POST",
+      }).toString(),
+    }
+  );
+  const app = await createRes.json();
+  if (!app.sid) throw new Error(`Failed to create TwiML App: ${JSON.stringify(app)}`);
+  return app.sid;
+}
+
 async function generateAccessToken(identity: string, twimlAppSid: string): Promise<string> {
-  const accountSid = TWILIO_ACCOUNT_SID;
-  const keySid = TWILIO_API_KEY_SID || accountSid;
-  const keySecret = TWILIO_API_KEY_SECRET || TWILIO_AUTH_TOKEN;
+  const { sid: keySid, secret: keySecret } = await ensureApiKey();
 
   const now = Math.floor(Date.now() / 1000);
   const exp = now + 3600;
@@ -61,7 +152,7 @@ async function generateAccessToken(identity: string, twimlAppSid: string): Promi
   const payload = base64url(JSON.stringify({
     jti: `${keySid}-${now}`,
     iss: keySid,
-    sub: accountSid,
+    sub: TWILIO_ACCOUNT_SID,
     nbf: now,
     exp,
     grants,
@@ -70,43 +161,6 @@ async function generateAccessToken(identity: string, twimlAppSid: string): Promi
   const signingInput = `${header}.${payload}`;
   const sig = await hmacSha256(keySecret, signingInput);
   return `${signingInput}.${sig}`;
-}
-
-async function ensureTwimlApp(): Promise<string> {
-  if (TWILIO_TWIML_APP_SID) return TWILIO_TWIML_APP_SID;
-
-  const voiceUrl = `${SUPABASE_URL}/functions/v1/manual-call/voice`;
-  const auth = btoa(`${TWILIO_ACCOUNT_SID}:${TWILIO_AUTH_TOKEN}`);
-
-  const listRes = await fetch(
-    `https://api.twilio.com/2010-04-01/Accounts/${TWILIO_ACCOUNT_SID}/Applications.json?FriendlyName=TAS+Manual+Dialer`,
-    { headers: { Authorization: `Basic ${auth}` } }
-  );
-  const listData = await listRes.json();
-
-  if (listData.applications?.length > 0) {
-    return listData.applications[0].sid;
-  }
-
-  const body = new URLSearchParams({
-    FriendlyName: "TAS Manual Dialer",
-    VoiceUrl: voiceUrl,
-    VoiceMethod: "POST",
-  });
-
-  const createRes = await fetch(
-    `https://api.twilio.com/2010-04-01/Accounts/${TWILIO_ACCOUNT_SID}/Applications.json`,
-    {
-      method: "POST",
-      headers: {
-        Authorization: `Basic ${auth}`,
-        "Content-Type": "application/x-www-form-urlencoded",
-      },
-      body: body.toString(),
-    }
-  );
-  const app = await createRes.json();
-  return app.sid;
 }
 
 Deno.serve(async (req: Request) => {
@@ -118,34 +172,19 @@ Deno.serve(async (req: Request) => {
     const url = new URL(req.url);
     const path = url.pathname.replace(/^\/manual-call/, "");
 
-    // POST /token - generate Twilio access token
     if (req.method === "POST" && path === "/token") {
-      if (!TWILIO_ACCOUNT_SID || !TWILIO_AUTH_TOKEN) {
-        return new Response(
-          JSON.stringify({ error: "Twilio credentials not configured" }),
-          { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-        );
-      }
-
       const body = await req.json().catch(() => ({}));
       const identity = body.identity || `manual-caller-${Date.now()}`;
 
       const twimlAppSid = await ensureTwimlApp();
-      if (!twimlAppSid) {
-        return new Response(
-          JSON.stringify({ error: "Failed to get or create TwiML App" }),
-          { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-        );
-      }
-
       const token = await generateAccessToken(identity, twimlAppSid);
+
       return new Response(
         JSON.stringify({ token, identity }),
         { headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }
 
-    // POST /voice - TwiML webhook called by Twilio when Device.connect fires
     if (req.method === "POST" && path === "/voice") {
       const contentType = req.headers.get("content-type") || "";
       let params: Record<string, string> = {};
@@ -162,10 +201,10 @@ Deno.serve(async (req: Request) => {
       const callId = params["CallId"] || `manual-${Date.now()}`;
 
       if (!to) {
-        const twiml = `<?xml version="1.0" encoding="UTF-8"?><Response><Say>No destination number provided.</Say><Hangup /></Response>`;
-        return new Response(twiml, {
-          headers: { ...corsHeaders, "Content-Type": "text/xml" },
-        });
+        return new Response(
+          `<?xml version="1.0" encoding="UTF-8"?><Response><Say>No destination number provided.</Say><Hangup /></Response>`,
+          { headers: { ...corsHeaders, "Content-Type": "text/xml" } }
+        );
       }
 
       const recordingCallback = `${SUPABASE_URL}/functions/v1/manual-call/recording-callback/${callId}`;
@@ -183,7 +222,6 @@ Deno.serve(async (req: Request) => {
       });
     }
 
-    // POST /start - register a manual call in the database
     if (req.method === "POST" && path === "/start") {
       const body = await req.json().catch(() => ({}));
       const { phoneNumber, callerName, emailRecipient } = body;
@@ -224,7 +262,6 @@ Deno.serve(async (req: Request) => {
       );
     }
 
-    // POST /recording-callback/:callId - Twilio recording webhook
     if (req.method === "POST" && path.startsWith("/recording-callback/")) {
       const callId = path.split("/")[2];
       const contentType = req.headers.get("content-type") || "";
@@ -247,7 +284,6 @@ Deno.serve(async (req: Request) => {
       return new Response("OK", { headers: corsHeaders });
     }
 
-    // POST /status/:callId - Twilio call status webhook
     if (req.method === "POST" && path.startsWith("/status/")) {
       const callId = path.split("/")[2];
       const contentType = req.headers.get("content-type") || "";
