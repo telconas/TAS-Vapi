@@ -160,10 +160,10 @@ async function generateSummaryAndEmail(supabase: any, callId: string, recordingU
         "Content-Type": "application/json",
       },
       body: JSON.stringify({
-        to: [{ email: call.email_recipient }],
+        personalizations: [{ to: [{ email: call.email_recipient }] }],
         from: { email: SENDGRID_FROM_EMAIL },
         subject: `Call Summary: ${call.phone_number} (${formatDuration(duration)})`,
-        html: emailHtml,
+        content: [{ type: "text/html", value: emailHtml }],
       }),
     });
   }
