@@ -560,15 +560,7 @@ Deno.serve(async (req: Request) => {
     if (req.method === "POST" && path.match(/^\/calls\/[^/]+\/hangup$/)) {
       const callId = path.split("/")[2];
 
-      let call: any = null;
-      for (let attempt = 0; attempt < 6; attempt++) {
-        const { data } = await supabase.from("calls").select().eq("id", callId).maybeSingle();
-        if (data) {
-          call = data;
-          if (call.twilio_call_sid) break;
-        }
-        if (attempt < 5) await new Promise((r) => setTimeout(r, 1000));
-      }
+      const { data: call } = await supabase.from("calls").select().eq("id", callId).maybeSingle();
 
       if (!call) {
         return new Response(JSON.stringify({ error: "Call not found" }), {
@@ -581,7 +573,7 @@ Deno.serve(async (req: Request) => {
         try {
           await endVapiCall(call.twilio_call_sid);
         } catch (_) {
-          // May already be ended
+          // May already be ended — continue with local cleanup
         }
       }
 
