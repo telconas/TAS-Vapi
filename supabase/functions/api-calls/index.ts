@@ -551,7 +551,7 @@ Deno.serve(async (req: Request) => {
         payload: { callId: call.id, status: "ringing" },
       });
 
-      return new Response(JSON.stringify({ callId: call.id, vapiCallId }), {
+      return new Response(JSON.stringify({ callId: call.id, vapiCallId, listenUrl: listenUrl || null }), {
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }

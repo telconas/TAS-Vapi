@@ -6,6 +6,7 @@ import { AudioPlayer } from "@/components/audio-player";
 import { VoiceSelector } from "@/components/voice-selector";
 import { CallSummary } from "@/components/call-summary";
 import { InstructionInput } from "@/components/instruction-input";
+import { LiveAudioMonitor } from "@/components/live-audio-monitor";
 import { Card } from "@/components/ui/card";
 import { useToast } from "@/hooks/use-toast";
 import type { TranscriptMessage } from "@shared/schema";
@@ -42,6 +43,7 @@ export default function Dashboard() {
   const [selectedElevenLabsVoice, setSelectedElevenLabsVoice] = useState("");
   const [elevenLabsVoices, setElevenLabsVoices] = useState<Voice[]>([]);
   const [currentCallId, setCurrentCallId] = useState<string | null>(null);
+  const [listenUrl, setListenUrl] = useState<string | null>(null);
   const [recordingUrl, setRecordingUrl] = useState<string | null>(null);
   const [callSummary, setCallSummary] = useState<string | null>(null);
   const durationIntervalRef = useRef<NodeJS.Timeout | null>(null);
@@ -169,6 +171,7 @@ export default function Dashboard() {
       setTranscript([]);
       setRecordingUrl(null);
       setCallSummary(null);
+      setListenUrl(null);
 
       const response = await edgeFetch("/api-calls/calls/start", {
         method: "POST",
@@ -186,6 +189,7 @@ export default function Dashboard() {
 
       const data = await response.json();
       setCurrentCallId(data.callId);
+      if (data.listenUrl) setListenUrl(data.listenUrl);
 
       toast({ title: "Call Initiated", description: `Calling ${phone}...` });
     } catch (error) {
@@ -316,10 +320,10 @@ export default function Dashboard() {
               </div>
             </Card>
 
-            {callStatus === "connected" && (
-              <AudioPlayer
-                isPlaying={isAudioPlaying}
-                onPlayPause={() => setIsAudioPlaying(!isAudioPlaying)}
+            {(callStatus === "connected" || callStatus === "ringing") && (
+              <LiveAudioMonitor
+                listenUrl={listenUrl}
+                callStatus={callStatus}
               />
             )}
 
