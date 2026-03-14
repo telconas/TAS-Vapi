@@ -5,7 +5,7 @@ import { Volume2, VolumeX, Radio } from 'lucide-react';
 import { Progress } from '@/components/ui/progress';
 
 const SOURCE_SAMPLE_RATE = 8000;
-const BUFFER_AHEAD_SECONDS = 0.3;
+const BUFFER_AHEAD_SECONDS = 0.1;
 
 interface LiveAudioMonitorProps {
   listenUrl: string | null | undefined;
@@ -20,6 +20,21 @@ function decodePCMS16LE(buffer: ArrayBuffer): Float32Array {
     float32[i] = int16[i] / 32768.0;
   }
   return float32;
+}
+
+function linearResample(input: Float32Array, inputRate: number, outputRate: number): Float32Array {
+  if (inputRate === outputRate) return input;
+  const ratio = inputRate / outputRate;
+  const outputLength = Math.round(input.length / ratio);
+  const output = new Float32Array(outputLength);
+  for (let i = 0; i < outputLength; i++) {
+    const srcIdx = i * ratio;
+    const lo = Math.floor(srcIdx);
+    const hi = Math.min(lo + 1, input.length - 1);
+    const frac = srcIdx - lo;
+    output[i] = input[lo] * (1 - frac) + input[hi] * frac;
+  }
+  return output;
 }
 
 export function LiveAudioMonitor({ listenUrl, callStatus, onClose }: LiveAudioMonitorProps) {
@@ -51,20 +66,19 @@ export function LiveAudioMonitor({ listenUrl, callStatus, onClose }: LiveAudioMo
     const ctx = audioContextRef.current;
     const gain = gainNodeRef.current;
     if (!ctx || !gain) return;
+    if (ctx.state === 'suspended') return;
 
-    if (ctx.state === 'suspended') {
-      ctx.resume();
-      return;
-    }
+    const ctxRate = ctx.sampleRate;
+    const resampled = linearResample(audioData, SOURCE_SAMPLE_RATE, ctxRate);
 
-    const audioBuffer = ctx.createBuffer(1, audioData.length, SOURCE_SAMPLE_RATE);
-    audioBuffer.copyToChannel(audioData, 0);
+    const audioBuffer = ctx.createBuffer(1, resampled.length, ctxRate);
+    audioBuffer.copyToChannel(resampled, 0);
 
     const source = ctx.createBufferSource();
     source.buffer = audioBuffer;
     source.connect(gain);
 
-    const chunkDuration = audioData.length / SOURCE_SAMPLE_RATE;
+    const chunkDuration = resampled.length / ctxRate;
     const now = ctx.currentTime;
     const startAt = Math.max(now + BUFFER_AHEAD_SECONDS, nextPlayTimeRef.current);
     source.start(startAt);
@@ -93,7 +107,7 @@ export function LiveAudioMonitor({ listenUrl, callStatus, onClose }: LiveAudioMo
       wsRef.current.binaryType = 'arraybuffer';
 
       wsRef.current.onopen = () => {
-        console.log('[LIVE MONITOR] Connected, ctx state:', audioContextRef.current?.state);
+        console.log('[LIVE MONITOR] Connected, ctx rate:', audioContextRef.current?.sampleRate);
         setIsMonitoring(true);
         setError(null);
       };
