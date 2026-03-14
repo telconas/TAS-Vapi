@@ -6,6 +6,23 @@ import { Progress } from '@/components/ui/progress';
 
 const VAPI_SAMPLE_RATE = 16000;
 
+async function resamplePcm(
+  float32: Float32Array,
+  fromRate: number,
+  toRate: number
+): Promise<Float32Array> {
+  if (fromRate === toRate) return float32;
+  const offlineCtx = new OfflineAudioContext(1, Math.ceil(float32.length * toRate / fromRate), toRate);
+  const buffer = offlineCtx.createBuffer(1, float32.length, fromRate);
+  buffer.copyToChannel(float32, 0);
+  const source = offlineCtx.createBufferSource();
+  source.buffer = buffer;
+  source.connect(offlineCtx.destination);
+  source.start();
+  const rendered = await offlineCtx.startRendering();
+  return rendered.getChannelData(0);
+}
+
 interface LiveAudioMonitorProps {
   listenUrl: string | null | undefined;
   callStatus: string;
@@ -42,7 +59,7 @@ export function LiveAudioMonitor({ listenUrl, callStatus, onClose }: LiveAudioMo
     if (wsRef.current && wsRef.current.readyState === WebSocket.OPEN) return;
 
     try {
-      const ctx = new AudioContext({ sampleRate: VAPI_SAMPLE_RATE });
+      const ctx = new AudioContext();
       audioContextRef.current = ctx;
       await ctx.resume();
 
@@ -74,17 +91,20 @@ export function LiveAudioMonitor({ listenUrl, callStatus, onClose }: LiveAudioMo
         startVolumeMeter();
       };
 
-      ws.onmessage = (event) => {
+      ws.onmessage = async (event) => {
         if (!(event.data instanceof ArrayBuffer) || event.data.byteLength === 0) return;
         const node = workletNodeRef.current;
-        if (!node) return;
+        const context = audioContextRef.current;
+        if (!node || !context) return;
 
         const int16 = new Int16Array(event.data);
         const float32 = new Float32Array(int16.length);
         for (let i = 0; i < int16.length; i++) {
           float32[i] = int16[i] / 32768.0;
         }
-        node.port.postMessage(float32, [float32.buffer]);
+
+        const resampled = await resamplePcm(float32, VAPI_SAMPLE_RATE, context.sampleRate);
+        node.port.postMessage(resampled, [resampled.buffer]);
       };
 
       ws.onerror = () => {
