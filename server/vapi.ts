@@ -225,51 +225,33 @@ interface VoiceConfig {
   style?: number;
 }
 
-function getVoiceConfig(voiceProvider: string, voice: string): VoiceConfig {
-  switch (voiceProvider) {
-    case "elevenlabs":
-      return {
-        provider: "11labs",
-        voiceId: voice,
-        stability: 0.7,
-        similarityBoost: 0.8,
-        useSpeakerBoost: true,
-        style: 0.3,
-      };
-    case "deepgram": {
-      const voiceName = voice.replace(/^aura-2?-/, "").replace(/-en$/, "");
-      return {
-        provider: "deepgram",
-        voiceId: voiceName,
-      };
-    }
-    case "polly":
-      console.warn("Polly not supported by Vapi, using Deepgram Asteria instead");
-      return { provider: "deepgram", voiceId: "asteria" };
-    default:
-      return { provider: "deepgram", voiceId: "asteria" };
-  }
+function getVoiceConfig(voice: string): VoiceConfig {
+  return {
+    provider: "11labs",
+    voiceId: voice,
+    stability: 0.7,
+    similarityBoost: 0.8,
+    useSpeakerBoost: true,
+    style: 0.3,
+  };
 }
 
 export async function createVapiAssistant(params: {
   name: string;
   systemPrompt: string;
-  voiceProvider: string;
   voice: string;
   firstMessageMode?: "assistant-waits-for-user" | "assistant-speaks-first";
 }): Promise<string> {
-  const voiceConfig: any = getVoiceConfig(params.voiceProvider, params.voice);
+  const voiceConfig: any = getVoiceConfig(params.voice);
 
-  if (params.voiceProvider === "elevenlabs") {
-    await getElevenLabsCredentialId();
-  }
+  await getElevenLabsCredentialId();
 
   const modelName = "gpt-4.1-mini";
   const webhookUrl = getPublicWebhookUrl("/api/vapi/webhook");
 
   console.log("=== Creating Vapi Assistant ===");
   console.log("Assistant name:", params.name);
-  console.log("Voice provider:", params.voiceProvider);
+  console.log("Voice:", params.voice);
 
   const assistantPayload = {
     name: params.name,

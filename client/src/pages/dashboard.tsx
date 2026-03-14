@@ -40,9 +40,6 @@ export default function Dashboard() {
   const [duration, setDuration] = useState(0);
   const [transcript, setTranscript] = useState<TranscriptMessage[]>([]);
   const [isAudioPlaying, setIsAudioPlaying] = useState(false);
-  const [voiceProvider, setVoiceProvider] = useState<"polly" | "deepgram" | "elevenlabs">("deepgram");
-  const [selectedPollyVoice, setSelectedPollyVoice] = useState("Polly.Joanna");
-  const [selectedDeepgramVoice, setSelectedDeepgramVoice] = useState("aura-2-asteria-en");
   const [selectedElevenLabsVoice, setSelectedElevenLabsVoice] = useState("");
   const [elevenLabsVoices, setElevenLabsVoices] = useState<Voice[]>([]);
   const [currentCallId, setCurrentCallId] = useState<string | null>(null);
@@ -181,9 +178,7 @@ export default function Dashboard() {
           prompt,
           callerName,
           emailRecipient: email,
-          voiceProvider,
-          pollyVoice: selectedPollyVoice,
-          deepgramVoice: selectedDeepgramVoice,
+          voiceProvider: "elevenlabs",
           elevenLabsVoice: selectedElevenLabsVoice,
         }),
       });
@@ -293,7 +288,7 @@ export default function Dashboard() {
             <div>
               <h1 className="text-2xl font-bold">TAS AI Agent</h1>
               <p className="text-sm text-muted-foreground">
-                Powered by Vapi, DeepGram and ElevenLabs
+                Powered by Vapi and ElevenLabs
               </p>
             </div>
           </div>
@@ -307,12 +302,6 @@ export default function Dashboard() {
               <h2 className="text-xl font-semibold mb-6">Call Controls</h2>
               <div className="space-y-6">
                 <VoiceSelector
-                  voiceProvider={voiceProvider}
-                  onVoiceProviderChange={setVoiceProvider}
-                  selectedPollyVoice={selectedPollyVoice}
-                  onPollyVoiceChange={setSelectedPollyVoice}
-                  selectedDeepgramVoice={selectedDeepgramVoice}
-                  onDeepgramVoiceChange={setSelectedDeepgramVoice}
                   selectedElevenLabsVoice={selectedElevenLabsVoice}
                   onElevenLabsVoiceChange={setSelectedElevenLabsVoice}
                   elevenLabsVoices={elevenLabsVoices}

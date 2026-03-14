@@ -145,6 +145,7 @@ async function createVapiAssistant(params: {
 
   switch (params.voiceProvider) {
     case "elevenlabs":
+    default:
       voiceConfig = {
         provider: "11labs",
         voiceId: params.voice,
@@ -153,14 +154,6 @@ async function createVapiAssistant(params: {
         useSpeakerBoost: true,
         style: 0.3,
       };
-      break;
-    case "deepgram": {
-      const voiceName = params.voice.replace(/^aura-2?-/, "").replace(/-en$/, "");
-      voiceConfig = { provider: "deepgram", voiceId: voiceName };
-      break;
-    }
-    default:
-      voiceConfig = { provider: "deepgram", voiceId: "asteria" };
   }
 
   const supabaseUrl = SUPABASE_URL;
@@ -417,10 +410,10 @@ async function generateSummaryAndEmail(supabase: any, callId: string): Promise<v
         "Content-Type": "application/json",
       },
       body: JSON.stringify({
-        to: [{ email: call.email_recipient }],
+        personalizations: [{ to: [{ email: call.email_recipient }] }],
         from: { email: SENDGRID_FROM_EMAIL },
         subject: `Call Summary: ${call.phone_number} (${formatDuration(duration)})`,
-        html: emailHtml,
+        content: [{ type: "text/html", value: emailHtml }],
       }),
     });
   }
@@ -503,30 +496,8 @@ Deno.serve(async (req: Request) => {
         });
       }
 
-      let validatedProvider = voiceProvider || "deepgram";
-      let validatedDeepgramVoice: string | undefined;
-      let validatedElevenLabsVoice: string | undefined;
-
-      if (validatedProvider === "polly") {
-        return new Response(
-          JSON.stringify({ error: "Polly voices are not supported by Vapi. Please select Deepgram or ElevenLabs." }),
-          { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-        );
-      } else if (validatedProvider === "deepgram") {
-        validatedDeepgramVoice =
-          deepgramVoice && (deepgramVoice.startsWith("aura-2-") || deepgramVoice.startsWith("aura-"))
-            ? deepgramVoice
-            : "aura-2-asteria-en";
-      } else if (validatedProvider === "elevenlabs") {
-        validatedElevenLabsVoice = elevenLabsVoice;
-        if (!validatedElevenLabsVoice) {
-          validatedProvider = "deepgram";
-          validatedDeepgramVoice = "aura-2-asteria-en";
-        }
-      } else {
-        validatedProvider = "deepgram";
-        validatedDeepgramVoice = "aura-2-asteria-en";
-      }
+      const validatedProvider = "elevenlabs";
+      const validatedElevenLabsVoice = elevenLabsVoice || "21m00Tcm4TlvDq8ikWAM";
 
       const { data: call, error: insertError } = await supabase
         .from("calls")
@@ -535,7 +506,6 @@ Deno.serve(async (req: Request) => {
           prompt,
           status: "ringing",
           voice_provider: validatedProvider,
-          deepgram_voice: validatedDeepgramVoice,
           voice_id: validatedElevenLabsVoice,
           duration: 0,
           email_recipient: emailRecipient || null,
@@ -554,10 +524,7 @@ Deno.serve(async (req: Request) => {
 
       const validatedCallerName = callerName || "James Martin";
       const systemPrompt = buildSystemPrompt(prompt, validatedCallerName);
-      const voice =
-        validatedProvider === "elevenlabs"
-          ? validatedElevenLabsVoice || "21m00Tcm4TlvDq8ikWAM"
-          : validatedDeepgramVoice || "aura-2-asteria-en";
+      const voice = validatedElevenLabsVoice;
 
       const assistantId = await createVapiAssistant({
         name: `Call ${call.id.substring(0, 8)}`,
