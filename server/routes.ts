@@ -635,7 +635,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
             content: summaryPrompt,
           },
         ],
-        temperature: 0.3,
+        temperature: 0.7,
       });
 
       const summary = completion.choices[0]?.message?.content || "";
