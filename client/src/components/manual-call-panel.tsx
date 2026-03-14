@@ -12,15 +12,22 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { 
-  Phone, 
-  PhoneOff, 
-  Delete, 
-  Mic, 
-  MicOff,
-  Loader2
-} from "lucide-react";
+import { Phone, PhoneOff, Delete, Mic, MicOff, Loader as Loader2 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
+import { EDGE_FUNCTIONS_URL } from "@/lib/supabase";
+
+const anonKey = import.meta.env.VITE_SUPABASE_ANON_KEY as string;
+
+const edgeFetch = (path: string, options?: RequestInit) =>
+  fetch(`${EDGE_FUNCTIONS_URL}${path}`, {
+    ...options,
+    headers: {
+      "Content-Type": "application/json",
+      Authorization: `Bearer ${anonKey}`,
+      Apikey: anonKey,
+      ...(options?.headers || {}),
+    },
+  });
 
 const providers = [
   { name: "All Stream", number: "800-360-4467" },
@@ -132,9 +139,8 @@ export function ManualCallPanel({
         setCallStatus("initializing");
         setDeviceError(null);
         
-        const response = await fetch("/api/manual-call/token", {
+        const response = await edgeFetch("/manual-call/token", {
           method: "POST",
-          headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ identity: sessionId || "manual-caller" }),
         });
         
@@ -277,14 +283,12 @@ export function ManualCallPanel({
 
       const formattedNumber = formatPhoneNumber(phoneNumber);
       
-      const callIdResponse = await fetch("/api/manual-call/start", {
+      const callIdResponse = await edgeFetch("/manual-call/start", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           phoneNumber: formattedNumber,
           callerName: "Manual Caller",
           emailRecipient: "jpm@telconassociates.com",
-          sessionId,
         }),
       });
       
