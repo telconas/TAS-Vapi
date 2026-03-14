@@ -190,12 +190,30 @@ Deno.serve(async (req: Request) => {
       case "transcript": {
         const { transcript, role, transcriptType } = message;
 
+        console.log(`[VAPI WEBHOOK] transcript event: type=${transcriptType}, role=${role}, callId=${message.call?.id}, text="${transcript?.substring(0, 50)}"`);
+
         if (transcript && transcriptType === "final" && message.call?.id) {
-          const { data: call } = await supabase
+          const vapiCallId = message.call.id;
+
+          let { data: call } = await supabase
             .from("calls")
             .select()
-            .eq("twilio_call_sid", message.call.id)
+            .eq("twilio_call_sid", vapiCallId)
             .maybeSingle();
+
+          if (!call) {
+            const { data: fallback } = await supabase
+              .from("calls")
+              .select()
+              .eq("status", "ringing")
+              .order("created_at", { ascending: false })
+              .limit(1)
+              .maybeSingle();
+            if (fallback) {
+              call = fallback;
+              await supabase.from("calls").update({ twilio_call_sid: vapiCallId }).eq("id", fallback.id);
+            }
+          }
 
           if (call) {
             const speaker = role === "assistant" ? "ai" : "caller";
@@ -216,6 +234,8 @@ Deno.serve(async (req: Request) => {
                 timestamp: Date.now(),
               },
             });
+          } else {
+            console.warn(`[VAPI WEBHOOK] No call found for vapiCallId=${vapiCallId}`);
           }
         }
         break;
