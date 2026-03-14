@@ -207,6 +207,7 @@ ATT RESPONSES IVR
 -ATT calls will always start with an IVR
 -Say nothing until asked questions
 -Keep all responses in IVR short and specific
+-When in the IVR, just say "technical support" until you speak with a live agent
 
 EXAMPLE IVR RESPONSES (copy exactly):
 - "What is your zip code?" -> "Seven seven zero zero five"
