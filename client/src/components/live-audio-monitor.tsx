@@ -4,23 +4,25 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Volume2, VolumeX, Radio } from 'lucide-react';
 import { Progress } from '@/components/ui/progress';
 
-const VAPI_SAMPLE_RATE = 16000;
+const VAPI_SAMPLE_RATE = 8000;
 
-async function resamplePcm(
+function resamplePcm(
   float32: Float32Array,
   fromRate: number,
   toRate: number
-): Promise<Float32Array> {
+): Float32Array {
   if (fromRate === toRate) return float32;
-  const offlineCtx = new OfflineAudioContext(1, Math.ceil(float32.length * toRate / fromRate), toRate);
-  const buffer = offlineCtx.createBuffer(1, float32.length, fromRate);
-  buffer.copyToChannel(float32, 0);
-  const source = offlineCtx.createBufferSource();
-  source.buffer = buffer;
-  source.connect(offlineCtx.destination);
-  source.start();
-  const rendered = await offlineCtx.startRendering();
-  return rendered.getChannelData(0);
+  const ratio = toRate / fromRate;
+  const outLen = Math.round(float32.length * ratio);
+  const out = new Float32Array(outLen);
+  for (let i = 0; i < outLen; i++) {
+    const srcIdx = i / ratio;
+    const lo = Math.floor(srcIdx);
+    const hi = Math.min(lo + 1, float32.length - 1);
+    const frac = srcIdx - lo;
+    out[i] = float32[lo] * (1 - frac) + float32[hi] * frac;
+  }
+  return out;
 }
 
 interface LiveAudioMonitorProps {
@@ -85,17 +87,23 @@ export function LiveAudioMonitor({ listenUrl, callStatus, onClose }: LiveAudioMo
       wsRef.current = ws;
 
       ws.onopen = () => {
-        console.log('[LIVE MONITOR] WS connected, streaming PCM S16LE @ 16kHz via AudioWorklet');
+        console.log(`[LIVE MONITOR] WS connected. AudioContext sampleRate=${ctx.sampleRate}. Assuming Vapi stream=${VAPI_SAMPLE_RATE}Hz PCM S16LE`);
         setIsMonitoring(true);
         setError(null);
         startVolumeMeter();
       };
 
-      ws.onmessage = async (event) => {
+      let packetCount = 0;
+      ws.onmessage = (event) => {
         if (!(event.data instanceof ArrayBuffer) || event.data.byteLength === 0) return;
         const node = workletNodeRef.current;
         const context = audioContextRef.current;
         if (!node || !context) return;
+
+        packetCount++;
+        if (packetCount <= 3) {
+          console.log(`[LIVE MONITOR] Packet #${packetCount}: byteLength=${event.data.byteLength}, as Int16 samples=${event.data.byteLength / 2}, ~${(event.data.byteLength / 2 / VAPI_SAMPLE_RATE * 1000).toFixed(1)}ms @ ${VAPI_SAMPLE_RATE}Hz`);
+        }
 
         const int16 = new Int16Array(event.data);
         const float32 = new Float32Array(int16.length);
@@ -103,7 +111,7 @@ export function LiveAudioMonitor({ listenUrl, callStatus, onClose }: LiveAudioMo
           float32[i] = int16[i] / 32768.0;
         }
 
-        const resampled = await resamplePcm(float32, VAPI_SAMPLE_RATE, context.sampleRate);
+        const resampled = resamplePcm(float32, VAPI_SAMPLE_RATE, context.sampleRate);
         node.port.postMessage(resampled, [resampled.buffer]);
       };
 
