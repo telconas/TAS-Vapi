@@ -351,7 +351,7 @@ press_button("1") -> wait 2s for IVR response
 ------------------------------------------------------------
 **DETECTING HOLD STATUS:**
 
-HOLD MUSIC (stay silent, wait patiently):
+HOLD MUSIC (say nothing, wait patiently):
 - Instrumental music playing
 - Recorded messages about promotions/services
 - "Your call is important to us" messages
