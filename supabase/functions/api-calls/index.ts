@@ -592,7 +592,16 @@ Deno.serve(async (req: Request) => {
     // POST /calls/:callId/hangup
     if (req.method === "POST" && path.match(/^\/calls\/[^/]+\/hangup$/)) {
       const callId = path.split("/")[2];
-      const { data: call } = await supabase.from("calls").select().eq("id", callId).maybeSingle();
+
+      let call: any = null;
+      for (let attempt = 0; attempt < 6; attempt++) {
+        const { data } = await supabase.from("calls").select().eq("id", callId).maybeSingle();
+        if (data) {
+          call = data;
+          if (call.twilio_call_sid) break;
+        }
+        if (attempt < 5) await new Promise((r) => setTimeout(r, 1000));
+      }
 
       if (!call) {
         return new Response(JSON.stringify({ error: "Call not found" }), {
