@@ -4,7 +4,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Volume2, VolumeX, Radio } from 'lucide-react';
 import { Progress } from '@/components/ui/progress';
 
-const VAPI_INPUT_SAMPLE_RATE = 8000;
+const VAPI_DEFAULT_SAMPLE_RATE = 16000;
 
 interface LiveAudioMonitorProps {
   listenUrl: string | null | undefined;
@@ -49,7 +49,7 @@ export function LiveAudioMonitor({ listenUrl, callStatus, onClose }: LiveAudioMo
       await ctx.audioWorklet.addModule('/pcm-player-processor.js');
 
       const workletNode = new AudioWorkletNode(ctx, 'pcm-player-processor', {
-        processorOptions: { inputSampleRate: VAPI_INPUT_SAMPLE_RATE },
+        processorOptions: { inputSampleRate: VAPI_DEFAULT_SAMPLE_RATE },
       });
       workletNodeRef.current = workletNode;
 
@@ -69,24 +69,29 @@ export function LiveAudioMonitor({ listenUrl, callStatus, onClose }: LiveAudioMo
       ws.binaryType = 'arraybuffer';
       wsRef.current = ws;
 
-      let msgCount = 0;
+      let streamChannels = 1;
+
       ws.onopen = () => {
-        console.log(`[LIVE MONITOR] WS connected. AudioContext sampleRate=${ctx.sampleRate}, input=${VAPI_INPUT_SAMPLE_RATE}Hz, ratio=${(VAPI_INPUT_SAMPLE_RATE / ctx.sampleRate).toFixed(4)}`);
+        console.log(`[LIVE MONITOR] WS connected. AudioContext sampleRate=${ctx.sampleRate}`);
         setIsMonitoring(true);
         setError(null);
         startVolumeMeter();
       };
 
       ws.onmessage = (event) => {
-        msgCount++;
-        if (msgCount <= 3) {
-          if (event.data instanceof ArrayBuffer) {
-            console.log(`[LIVE MONITOR] msg #${msgCount}: ArrayBuffer byteLength=${event.data.byteLength}`);
-          } else if (typeof event.data === 'string') {
-            console.log(`[LIVE MONITOR] msg #${msgCount}: text="${event.data.substring(0, 200)}"`);
-          } else {
-            console.log(`[LIVE MONITOR] msg #${msgCount}: unknown type`, typeof event.data);
+        if (typeof event.data === 'string') {
+          try {
+            const meta = JSON.parse(event.data);
+            if (meta.type === 'start') {
+              const sr: number = meta.sampleRate || VAPI_DEFAULT_SAMPLE_RATE;
+              streamChannels = meta.channels || 1;
+              console.log(`[LIVE MONITOR] stream start: sampleRate=${sr}, channels=${streamChannels}`);
+              workletNodeRef.current?.port.postMessage({ type: 'config', inputSampleRate: sr });
+            }
+          } catch {
+            // not JSON
           }
+          return;
         }
 
         if (!(event.data instanceof ArrayBuffer) || event.data.byteLength === 0) return;
@@ -94,10 +99,19 @@ export function LiveAudioMonitor({ listenUrl, callStatus, onClose }: LiveAudioMo
         if (!node) return;
 
         const int16 = new Int16Array(event.data);
-        const float32 = new Float32Array(int16.length);
-        for (let i = 0; i < int16.length; i++) {
-          float32[i] = int16[i] / 32768.0;
+        const frameCount = Math.floor(int16.length / streamChannels);
+        const float32 = new Float32Array(frameCount);
+
+        if (streamChannels === 2) {
+          for (let i = 0; i < frameCount; i++) {
+            float32[i] = (int16[i * 2] + int16[i * 2 + 1]) / 2 / 32768.0;
+          }
+        } else {
+          for (let i = 0; i < frameCount; i++) {
+            float32[i] = int16[i] / 32768.0;
+          }
         }
+
         node.port.postMessage(float32, [float32.buffer]);
       };
 
