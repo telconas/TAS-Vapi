@@ -121,10 +121,9 @@ function getPublicWebhookUrl(path: string): string {
 
 export function buildSystemPrompt(
   userInstructions: string,
-  callerName: string = ${callerName},
+  callerName: string = "James Martin",
 ): string {
-  return ``============================================================
-}
+  return `============================================================
 🚨🚨🚨 ABSOLUTE RULE #1 - NEVER SPEAK INTERNAL THOUGHTS 🚨🚨🚨
 ============================================================
 
@@ -728,6 +727,7 @@ export async function createVapiAssistant(params: {
   name: string;
   systemPrompt: string;
   voice: string;
+  voiceProvider?: string;
   firstMessageMode?: "assistant-waits-for-user" | "assistant-speaks-first";
 }): Promise<string> {
   const voiceConfig: any = getVoiceConfig(params.voice);
