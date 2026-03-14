@@ -227,17 +227,16 @@ export default function Dashboard() {
   };
 
   const handleHangUp = async () => {
-    if (!currentCallId) return;
-    try {
-      const response = await edgeFetch(`/api-calls/calls/${currentCallId}/hangup`, { method: "POST" });
-      if (!response.ok) throw new Error("Failed to hang up call");
-      toast({ title: "Call Ended", description: "The call has been disconnected." });
-      setCallStatus("ended");
-      stopDurationCounter();
-      setIsAudioPlaying(false);
-    } catch (error) {
-      console.error("Error hanging up call:", error);
-      toast({ title: "Error", description: "Failed to hang up the call. Please try again.", variant: "destructive" });
+    setCallStatus("ended");
+    stopDurationCounter();
+    setIsAudioPlaying(false);
+    toast({ title: "Call Ended", description: "The call has been disconnected." });
+    if (currentCallId) {
+      try {
+        await edgeFetch(`/api-calls/calls/${currentCallId}/hangup`, { method: "POST" });
+      } catch (error) {
+        console.error("Error hanging up call:", error);
+      }
     }
   };
 
