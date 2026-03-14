@@ -57,31 +57,15 @@ export function LiveAudioMonitor({ listenUrl, callStatus, onClose }: LiveAudioMo
       float32[i] = int16[i] / 32768.0;
     }
 
-    // Linear resample from 16000 Hz → AudioContext sample rate
-    let resampled: Float32Array;
-    if (ctxRate !== VAPI_SAMPLE_RATE) {
-      const ratio = VAPI_SAMPLE_RATE / ctxRate;
-      const outLen = Math.round(numSamples / ratio);
-      resampled = new Float32Array(outLen);
-      for (let i = 0; i < outLen; i++) {
-        const src = i * ratio;
-        const lo = Math.floor(src);
-        const hi = Math.min(lo + 1, numSamples - 1);
-        const frac = src - lo;
-        resampled[i] = float32[lo] * (1 - frac) + float32[hi] * frac;
-      }
-    } else {
-      resampled = float32;
-    }
-
-    const audioBuffer = ctx.createBuffer(1, resampled.length, ctxRate);
-    audioBuffer.copyToChannel(resampled, 0);
+    // Tell the browser this buffer IS at VAPI_SAMPLE_RATE; it will resample to ctx rate internally
+    const audioBuffer = ctx.createBuffer(1, float32.length, VAPI_SAMPLE_RATE);
+    audioBuffer.copyToChannel(float32, 0);
 
     const source = ctx.createBufferSource();
     source.buffer = audioBuffer;
     source.connect(gain);
 
-    const chunkDuration = resampled.length / ctxRate;
+    const chunkDuration = float32.length / VAPI_SAMPLE_RATE;
     const now = ctx.currentTime;
     const startAt = Math.max(now + BUFFER_AHEAD_SECONDS, nextPlayTimeRef.current);
     source.start(startAt);
