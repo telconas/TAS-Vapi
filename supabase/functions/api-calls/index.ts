@@ -96,7 +96,7 @@ async function createVapiAssistant(params: {
     responseDelaySeconds: 0.3,
     model: {
       provider: "openai",
-      model: "gpt-4.1-mini",
+      model: "gpt-4.1",
       messages: [
         { role: "system", content: params.systemPrompt },
         { role: "user", content: "Remember: You MUST respond when IVR asks you questions." },
