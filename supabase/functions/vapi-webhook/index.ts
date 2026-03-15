@@ -295,6 +295,9 @@ Deno.serve(async (req: Request) => {
             .maybeSingle();
 
           if (dbCall) {
+            const nowMs = Date.now();
+            const callStartMs = dbCall.created_at ? new Date(dbCall.created_at).getTime() : nowMs;
+
             let callDuration =
               vapiCall.duration ||
               vapiCall.durationSeconds ||
@@ -305,12 +308,17 @@ Deno.serve(async (req: Request) => {
                   )
                 : 0);
 
+            if (callDuration <= 0) {
+              callDuration = Math.floor((nowMs - callStartMs) / 1000);
+            }
+
             let recordingUrl =
               vapiCall.artifact?.recordingUrl ||
               vapiCall.artifact?.stereoRecordingUrl ||
               vapiCall.recordingUrl;
 
-            const updateData: any = { status: "ended", ended_at: new Date().toISOString() };
+            const endedAt = new Date().toISOString();
+            const updateData: any = { status: "ended", ended_at: endedAt };
             if (recordingUrl) updateData.recording_url = recordingUrl;
             if (callDuration > 0) {
               updateData.duration = callDuration;
