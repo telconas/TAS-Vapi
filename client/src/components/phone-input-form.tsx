@@ -37,14 +37,12 @@ const countryCodes = [
 
 const callerNames = [
   { value: "James Martin", label: "James Martin" },
-  { value: "Marid Thatcher", label: "Mariad Thatcher" },
+  { value: "Maryad Thatcher", label: "Mariad Thatcher" },
   { value: "Kara Robbins", label: "Kara Robins" },
-  { value: "Ben Judy", label: "Ben Judy" },
-  { value: "Doug Pearce", label: "Douglas Pearce" },
+  { value: "Benjamin Judy", label: "Ben Judy" },
+  { value: "Douglas Pearce", label: "Douglas Pearce" },
   { value: "Robert Rowden", label: "Rob Rowden" },
   { value: "Patricia Jones", label: "Patricia Jones" },
-  { value: "Patrick Jones", label: "Patrick Jones" },
-  { value: "Fred Castro", label: "Fred Castro" },
   { value: "Felicia White", label: "Felicia White" },
   { value: "Samantha Carlson", label: "Samantha Carlson" },
 ];
