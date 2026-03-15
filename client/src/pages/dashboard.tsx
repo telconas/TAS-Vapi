@@ -10,8 +10,9 @@ import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { useToast } from "@/hooks/use-toast";
 import { useCallSlot } from "@/hooks/use-call-slot";
+import type { FormState } from "@/hooks/use-call-slot";
 import type { TranscriptMessage } from "@shared/schema";
-import { Phone, ChartBar as BarChart2, FileText, PhoneCall } from "lucide-react";
+import { Phone, ChartBar as BarChart2, FileText, PhoneCall, Save } from "lucide-react";
 import { Link } from "wouter";
 import { supabase, EDGE_FUNCTIONS_URL } from "@/lib/supabase";
 import { RecentCalls } from "@/components/recent-calls";
@@ -56,11 +57,22 @@ function getTabStatusLabel(status: string) {
   }
 }
 
+const SLOT_STORAGE_KEY = (i: number) => `call-slot-form-${i}`;
+
+function loadSavedForm(i: number): Partial<FormState> | null {
+  try {
+    const raw = localStorage.getItem(SLOT_STORAGE_KEY(i));
+    return raw ? JSON.parse(raw) : null;
+  } catch {
+    return null;
+  }
+}
+
 export default function Dashboard() {
   const [activeTab, setActiveTab] = useState(0);
   const [elevenLabsVoices, setElevenLabsVoices] = useState<Voice[]>([]);
-  const [selectedElevenLabsVoice, setSelectedElevenLabsVoice] = useState("");
   const [callHistoryRefresh, setCallHistoryRefresh] = useState(0);
+  const [savedIndicator, setSavedIndicator] = useState<number | null>(null);
   const channelRef = useRef<ReturnType<typeof supabase.channel> | null>(null);
   const { toast } = useToast();
 
@@ -79,7 +91,15 @@ export default function Dashboard() {
         if (response.ok) {
           const voices = await response.json();
           setElevenLabsVoices(voices);
-          if (voices.length > 0) setSelectedElevenLabsVoice(voices[0].voiceId);
+          const defaultVoice = voices.length > 0 ? voices[0].voiceId : "";
+          [slot0, slot1, slot2].forEach((s, i) => {
+            const saved = loadSavedForm(i);
+            if (saved) {
+              s.setForm({ ...saved, selectedVoice: saved.selectedVoice || defaultVoice });
+            } else if (defaultVoice) {
+              s.setForm({ selectedVoice: defaultVoice });
+            }
+          });
         }
       } catch (error) {
         console.error("Error fetching voices:", error);
@@ -207,7 +227,7 @@ export default function Dashboard() {
           emailRecipient: email,
           providerName: providerName || null,
           voiceProvider: "elevenlabs",
-          elevenLabsVoice: selectedElevenLabsVoice,
+          elevenLabsVoice: s.form.selectedVoice,
         }),
       });
 
@@ -310,6 +330,17 @@ export default function Dashboard() {
 
   const isCallActive = slot.callStatus === "ringing" || slot.callStatus === "connected";
 
+  const handleSaveSlot = (index: number) => {
+    try {
+      localStorage.setItem(SLOT_STORAGE_KEY(index), JSON.stringify(slots[index].form));
+      setSavedIndicator(index);
+      setTimeout(() => setSavedIndicator(null), 2000);
+      toast({ title: `Call ${index + 1} saved`, description: "Settings saved for this call tab." });
+    } catch {
+      toast({ title: "Save failed", description: "Could not save settings.", variant: "destructive" });
+    }
+  };
+
   return (
     <div className="min-h-screen bg-background">
       <header className="border-b border-border bg-card/50 backdrop-blur">
@@ -379,11 +410,23 @@ export default function Dashboard() {
         <div className="grid grid-cols-1 lg:grid-cols-5 gap-8">
           <div className="lg:col-span-2 space-y-6">
             <Card className="p-6">
-              <h2 className="text-xl font-semibold mb-6">Call Controls</h2>
+              <div className="flex items-center justify-between mb-6">
+                <h2 className="text-xl font-semibold">Call Controls</h2>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => handleSaveSlot(activeTab)}
+                  disabled={isCallActive}
+                  className="gap-1.5"
+                >
+                  <Save className="w-3.5 h-3.5" />
+                  {savedIndicator === activeTab ? "Saved!" : "Save"}
+                </Button>
+              </div>
               <div className="space-y-6">
                 <VoiceSelector
-                  selectedElevenLabsVoice={selectedElevenLabsVoice}
-                  onElevenLabsVoiceChange={setSelectedElevenLabsVoice}
+                  selectedElevenLabsVoice={slot.form.selectedVoice}
+                  onElevenLabsVoiceChange={(v) => slot.setForm({ selectedVoice: v })}
                   elevenLabsVoices={elevenLabsVoices}
                   disabled={isCallActive}
                 />

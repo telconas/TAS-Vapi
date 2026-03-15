@@ -11,6 +11,7 @@ export interface FormState {
   useCustomName: boolean;
   prompt: string;
   email: string;
+  selectedVoice: string;
 }
 
 export interface CallSlotState {
@@ -55,6 +56,7 @@ const defaultForm = (): FormState => ({
   useCustomName: false,
   prompt: "",
   email: "jpm@telconassociates.com",
+  selectedVoice: "",
 });
 
 const defaultState = (): CallSlotState => ({
