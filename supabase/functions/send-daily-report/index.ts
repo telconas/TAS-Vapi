@@ -71,7 +71,7 @@ function buildDailyReportHtml(calls: any[], date: string, totals: { calls: numbe
     const timeStr = dt ? dt.toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit", hour12: true }) : "—";
     const outcomeColor = call.outcome === "resolved" ? "#059669" : call.outcome === "unresolved" ? "#dc2626" : "#6b7280";
     const outcomeLabel = call.outcome === "resolved" ? "Resolved" : call.outcome === "unresolved" ? "Unresolved" : "—";
-    const summaryText = call.summary ? call.summary.replace(/\n/g, " ").substring(0, 200) + (call.summary.length > 200 ? "..." : "") : "";
+    const summaryText = call.summary ? call.summary.replace(/\n/g, " ") : "";
     const rowBg = i % 2 === 0 ? "#ffffff" : "#f8fafc";
 
     return `
