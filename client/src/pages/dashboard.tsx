@@ -83,7 +83,6 @@ export default function Dashboard() {
         setCallStatus(status);
         if (status === "connected") {
           callActiveRef.current = true;
-          startDurationCounter();
           setIsAudioPlaying(true);
         } else if (status === "ended" || status === "transferred") {
           callActiveRef.current = false;
@@ -180,6 +179,7 @@ export default function Dashboard() {
       setPhoneNumber(phone);
       setCallStatus("ringing");
       setDuration(0);
+      startDurationCounter();
       setTranscript([]);
       setRecordingUrl(null);
       setCallSummary(null);

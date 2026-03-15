@@ -1,5 +1,5 @@
 import { Badge } from "@/components/ui/badge";
-import { Phone, PhoneCall, PhoneOff, PhoneForwarded } from "lucide-react";
+import { Phone, PhoneCall, PhoneOff, PhoneForwarded, Timer } from "lucide-react";
 
 interface CallStatusProps {
   status: "idle" | "ringing" | "connected" | "ended" | "transferred" | "transferring";
@@ -50,10 +50,16 @@ export function CallStatus({ status, duration }: CallStatusProps) {
   const Icon = config.icon;
 
   const formatDuration = (seconds: number) => {
-    const mins = Math.floor(seconds / 60);
+    const hrs = Math.floor(seconds / 3600);
+    const mins = Math.floor((seconds % 3600) / 60);
     const secs = seconds % 60;
-    return `${mins}:${secs.toString().padStart(2, "0")}`;
+    if (hrs > 0) {
+      return `${hrs}:${mins.toString().padStart(2, "0")}:${secs.toString().padStart(2, "0")}`;
+    }
+    return `${mins.toString().padStart(2, "0")}:${secs.toString().padStart(2, "0")}`;
   };
+
+  const showTimer = status === "connected" || status === "ringing" || status === "transferring";
 
   return (
     <div className="space-y-4">
@@ -67,12 +73,36 @@ export function CallStatus({ status, duration }: CallStatusProps) {
           <Icon className="w-4 h-4 mr-2" />
           {config.label}
         </Badge>
-        {duration !== undefined && duration > 0 && (
-          <span className="text-lg font-mono text-muted-foreground" data-testid="text-call-duration">
-            {formatDuration(duration)}
-          </span>
-        )}
       </div>
+
+      {showTimer && (
+        <div className="flex items-center gap-3 px-4 py-3 rounded-lg bg-muted/50 border border-border">
+          <Timer className={`w-5 h-5 ${status === "connected" ? "text-chart-2" : "text-muted-foreground"}`} />
+          <div>
+            <p className="text-xs text-muted-foreground uppercase tracking-wide leading-none mb-1">
+              {status === "connected" ? "Call Duration" : "Elapsed"}
+            </p>
+            <span
+              className={`text-2xl font-mono font-semibold tabular-nums ${status === "connected" ? "text-foreground" : "text-muted-foreground"}`}
+              data-testid="text-call-duration"
+            >
+              {formatDuration(duration ?? 0)}
+            </span>
+          </div>
+        </div>
+      )}
+
+      {status === "ended" && duration !== undefined && duration > 0 && (
+        <div className="flex items-center gap-3 px-4 py-3 rounded-lg bg-muted/30 border border-border">
+          <Timer className="w-5 h-5 text-muted-foreground" />
+          <div>
+            <p className="text-xs text-muted-foreground uppercase tracking-wide leading-none mb-1">Total Duration</p>
+            <span className="text-2xl font-mono font-semibold tabular-nums text-muted-foreground" data-testid="text-call-duration">
+              {formatDuration(duration)}
+            </span>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
