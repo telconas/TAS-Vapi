@@ -2,7 +2,6 @@ import { useState, useEffect, useRef } from "react";
 import { PhoneInputForm } from "@/components/phone-input-form";
 import { CallStatus } from "@/components/call-status";
 import { TranscriptionPanel } from "@/components/transcription-panel";
-import { AudioPlayer } from "@/components/audio-player";
 import { VoiceSelector } from "@/components/voice-selector";
 import { CallSummary } from "@/components/call-summary";
 import { InstructionInput } from "@/components/instruction-input";
@@ -10,14 +9,13 @@ import { LiveAudioMonitor } from "@/components/live-audio-monitor";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { useToast } from "@/hooks/use-toast";
+import { useCallSlot } from "@/hooks/use-call-slot";
 import type { TranscriptMessage } from "@shared/schema";
-import { Phone, ChartBar as BarChart2, FileText } from "lucide-react";
+import { Phone, ChartBar as BarChart2, FileText, PhoneCall } from "lucide-react";
 import { Link } from "wouter";
 import { supabase, EDGE_FUNCTIONS_URL } from "@/lib/supabase";
 import { RecentCalls } from "@/components/recent-calls";
 import { playDtmfTone } from "@/lib/dtmf-tones";
-
-type CallStatus = "idle" | "ringing" | "connected" | "ended" | "transferred";
 
 interface Voice {
   voiceId: string;
@@ -38,24 +36,41 @@ const edgeFetch = async (path: string, options?: RequestInit) => {
   });
 };
 
+function getTabStatusColor(status: string) {
+  switch (status) {
+    case "ringing": return "bg-amber-500";
+    case "connected": return "bg-emerald-500";
+    case "ended": return "bg-slate-400";
+    case "transferred": return "bg-blue-500";
+    default: return "bg-slate-300";
+  }
+}
+
+function getTabStatusLabel(status: string) {
+  switch (status) {
+    case "ringing": return "Ringing";
+    case "connected": return "Live";
+    case "ended": return "Ended";
+    case "transferred": return "Transferred";
+    default: return "Idle";
+  }
+}
+
 export default function Dashboard() {
-  const [callStatus, setCallStatus] = useState<CallStatus>("idle");
-  const [phoneNumber, setPhoneNumber] = useState("");
-  const [duration, setDuration] = useState(0);
-  const [transcript, setTranscript] = useState<TranscriptMessage[]>([]);
-  const [isAudioPlaying, setIsAudioPlaying] = useState(false);
-  const [selectedElevenLabsVoice, setSelectedElevenLabsVoice] = useState("");
+  const [activeTab, setActiveTab] = useState(0);
   const [elevenLabsVoices, setElevenLabsVoices] = useState<Voice[]>([]);
-  const [currentCallId, setCurrentCallId] = useState<string | null>(null);
-  const [listenUrl, setListenUrl] = useState<string | null>(null);
-  const [recordingUrl, setRecordingUrl] = useState<string | null>(null);
-  const [callSummary, setCallSummary] = useState<string | null>(null);
+  const [selectedElevenLabsVoice, setSelectedElevenLabsVoice] = useState("");
   const [callHistoryRefresh, setCallHistoryRefresh] = useState(0);
-  const durationIntervalRef = useRef<NodeJS.Timeout | null>(null);
-  const callActiveRef = useRef(false);
-  const currentCallIdRef = useRef<string | null>(null);
   const channelRef = useRef<ReturnType<typeof supabase.channel> | null>(null);
   const { toast } = useToast();
+
+  const slot0 = useCallSlot();
+  const slot1 = useCallSlot();
+  const slot2 = useCallSlot();
+  const slots = [slot0, slot1, slot2];
+  const slotsRef = useRef(slots);
+  slotsRef.current = slots;
+  const slot = slots[activeTab];
 
   useEffect(() => {
     const fetchVoices = async () => {
@@ -64,15 +79,12 @@ export default function Dashboard() {
         if (response.ok) {
           const voices = await response.json();
           setElevenLabsVoices(voices);
-          if (voices.length > 0) {
-            setSelectedElevenLabsVoice(voices[0].voiceId);
-          }
+          if (voices.length > 0) setSelectedElevenLabsVoice(voices[0].voiceId);
         }
       } catch (error) {
         console.error("Error fetching voices:", error);
       }
     };
-
     fetchVoices();
   }, []);
 
@@ -84,23 +96,29 @@ export default function Dashboard() {
 
     channel
       .on("broadcast", { event: "call_status" }, ({ payload }) => {
-        const status = payload.status;
-        setCallStatus(status);
+        const { callId, status } = payload;
+        const targetSlot = slotsRef.current.find((s) => s.currentCallIdRef.current === callId);
+        if (!targetSlot) return;
+
+        targetSlot.setCallStatus(status);
+
         if (status === "connected") {
-          callActiveRef.current = true;
-          setIsAudioPlaying(true);
+          targetSlot.callActiveRef.current = true;
+          targetSlot.setIsAudioPlaying(true);
         } else if (status === "ended" || status === "transferred" || status === "transferring") {
-          callActiveRef.current = false;
-          stopDurationCounter();
-          setIsAudioPlaying(false);
-          setListenUrl(null);
-          if (payload.callId) fetchCallDetails(payload.callId);
+          targetSlot.callActiveRef.current = false;
+          targetSlot.stopDurationCounter();
+          targetSlot.setIsAudioPlaying(false);
+          targetSlot.setListenUrl(null);
+          if (callId) fetchCallDetails(callId, targetSlot);
           setCallHistoryRefresh((n) => n + 1);
         }
       })
       .on("broadcast", { event: "transcription" }, ({ payload }) => {
-        if (!callActiveRef.current) return;
-        if (currentCallIdRef.current && payload.callId !== currentCallIdRef.current) return;
+        const targetSlot = slotsRef.current.find(
+          (s) => s.callActiveRef.current && s.currentCallIdRef.current === payload.callId
+        );
+        if (!targetSlot) return;
         const newMessage: TranscriptMessage = {
           id: Math.random().toString(36).substr(2, 9),
           callId: payload.callId,
@@ -108,10 +126,11 @@ export default function Dashboard() {
           text: payload.text,
           timestamp: new Date(payload.timestamp || Date.now()),
         };
-        setTranscript((prev) => [...prev, newMessage]);
+        targetSlot.setTranscript((prev) => [...prev, newMessage]);
       })
       .on("broadcast", { event: "call_summary" }, ({ payload }) => {
-        if (payload.summary) setCallSummary(payload.summary);
+        const targetSlot = slotsRef.current.find((s) => s.currentCallIdRef.current === payload.callId);
+        if (targetSlot && payload.summary) targetSlot.setCallSummary(payload.summary);
       })
       .on("broadcast", { event: "dtmf_press" }, ({ payload }) => {
         if (payload.digit) playDtmfTone(payload.digit);
@@ -124,17 +143,17 @@ export default function Dashboard() {
     };
   }, []);
 
-  const fetchCallDetails = async (callId: string) => {
+  const fetchCallDetails = async (callId: string, targetSlot: ReturnType<typeof useCallSlot>) => {
     setTimeout(async () => {
       try {
         const response = await edgeFetch(`/api-calls/calls/${callId}`);
         if (response.ok) {
           const call = await response.json();
-          if (call.recordingUrl) setRecordingUrl(call.recordingUrl);
+          if (call.recordingUrl) targetSlot.setRecordingUrl(call.recordingUrl);
           if (call.summary) {
-            setCallSummary(call.summary);
+            targetSlot.setCallSummary(call.summary);
           } else {
-            pollForSummary(callId);
+            pollForSummary(callId, targetSlot);
           }
         }
       } catch (error) {
@@ -143,10 +162,9 @@ export default function Dashboard() {
     }, 3000);
   };
 
-  const pollForSummary = async (callId: string) => {
+  const pollForSummary = async (callId: string, targetSlot: ReturnType<typeof useCallSlot>) => {
     let attempts = 0;
     const maxAttempts = 10;
-
     const poll = async () => {
       attempts++;
       try {
@@ -154,7 +172,7 @@ export default function Dashboard() {
         if (response.ok) {
           const call = await response.json();
           if (call.summary) {
-            setCallSummary(call.summary);
+            targetSlot.setCallSummary(call.summary);
             return;
           }
         }
@@ -163,36 +181,22 @@ export default function Dashboard() {
         console.error("Error polling for summary:", error);
       }
     };
-
     setTimeout(poll, 5000);
   };
 
-  const startDurationCounter = () => {
-    if (durationIntervalRef.current) clearInterval(durationIntervalRef.current);
-    durationIntervalRef.current = setInterval(() => {
-      setDuration((prev) => prev + 1);
-    }, 1000);
-  };
-
-  const stopDurationCounter = () => {
-    if (durationIntervalRef.current) {
-      clearInterval(durationIntervalRef.current);
-      durationIntervalRef.current = null;
-    }
-  };
-
   const handleStartCall = async (phone: string, prompt: string, callerName: string, email?: string, providerName?: string) => {
+    const s = slots[activeTab];
     try {
-      callActiveRef.current = true;
-      currentCallIdRef.current = null;
-      setPhoneNumber(phone);
-      setCallStatus("ringing");
-      setDuration(0);
-      startDurationCounter();
-      setTranscript([]);
-      setRecordingUrl(null);
-      setCallSummary(null);
-      setListenUrl(null);
+      s.callActiveRef.current = true;
+      s.currentCallIdRef.current = null;
+      s.setPhoneNumber(phone);
+      s.setCallStatus("ringing");
+      s.setDuration(0);
+      s.startDurationCounter();
+      s.setTranscript([]);
+      s.setRecordingUrl(null);
+      s.setCallSummary(null);
+      s.setListenUrl(null);
 
       const response = await edgeFetch("/api-calls/calls/start", {
         method: "POST",
@@ -210,76 +214,48 @@ export default function Dashboard() {
       if (!response.ok) throw new Error("Failed to start call");
 
       const data = await response.json();
-      setCurrentCallId(data.callId);
-      currentCallIdRef.current = data.callId;
-      if (data.listenUrl) setListenUrl(data.listenUrl);
+      s.setCurrentCallId(data.callId);
+      s.currentCallIdRef.current = data.callId;
+      if (data.listenUrl) s.setListenUrl(data.listenUrl);
 
       toast({ title: "Call Initiated", description: `Calling ${phone}...` });
     } catch (error) {
       console.error("Error starting call:", error);
-      setCallStatus("idle");
-      toast({
-        title: "Call Failed",
-        description: "Failed to initiate the call. Please try again.",
-        variant: "destructive",
-      });
+      s.setCallStatus("idle");
+      toast({ title: "Call Failed", description: "Failed to initiate the call. Please try again.", variant: "destructive" });
     }
   };
 
-  const handleDownloadTranscript = () => {
-    const text = transcript
-      .map((msg) => {
-        const date = msg.timestamp instanceof Date ? msg.timestamp : new Date(msg.timestamp as any);
-        const time = date.toLocaleTimeString();
-        const speaker = msg.speaker === "ai" ? "AI Assistant" : "Caller";
-        return `[${time}] ${speaker}: ${msg.text}`;
-      })
-      .join("\n\n");
-
-    const blob = new Blob([text], { type: "text/plain" });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement("a");
-    a.href = url;
-    a.download = `transcript-${phoneNumber}-${Date.now()}.txt`;
-    document.body.appendChild(a);
-    a.click();
-    document.body.removeChild(a);
-    URL.revokeObjectURL(url);
-
-    toast({ title: "Transcript Downloaded", description: "The call transcript has been saved to your device." });
-  };
-
   const handleHangUp = async () => {
-    stopDurationCounter();
-    setIsAudioPlaying(false);
-    callActiveRef.current = false;
+    const s = slots[activeTab];
+    s.stopDurationCounter();
+    s.setIsAudioPlaying(false);
+    s.callActiveRef.current = false;
 
-    if (currentCallId) {
+    if (s.currentCallId) {
       try {
-        const response = await edgeFetch(`/api-calls/calls/${currentCallId}/hangup`, { method: "POST" });
-        if (!response.ok) {
-          console.error("Hangup request failed:", response.status);
-        }
+        await edgeFetch(`/api-calls/calls/${s.currentCallId}/hangup`, { method: "POST" });
       } catch (error) {
         console.error("Error hanging up call:", error);
       }
     }
 
-    setCallStatus("ended");
-    setListenUrl(null);
+    s.setCallStatus("ended");
+    s.setListenUrl(null);
     toast({ title: "Call Ended", description: "The call has been disconnected." });
   };
 
   const handleTransfer = async () => {
-    if (!currentCallId) return;
+    const s = slots[activeTab];
+    if (!s.currentCallId) return;
     try {
-      const response = await edgeFetch(`/api-calls/calls/${currentCallId}/transfer`, { method: "POST" });
+      const response = await edgeFetch(`/api-calls/calls/${s.currentCallId}/transfer`, { method: "POST" });
       if (!response.ok) throw new Error("Failed to transfer call");
       const data = await response.json();
       toast({ title: "Call Transferred", description: `The call has been transferred to ${data.transferredTo}` });
-      setCallStatus("ended");
-      stopDurationCounter();
-      setIsAudioPlaying(false);
+      s.setCallStatus("ended");
+      s.stopDurationCounter();
+      s.setIsAudioPlaying(false);
     } catch (error) {
       console.error("Error transferring call:", error);
       toast({ title: "Error", description: "Failed to transfer the call. Please try again.", variant: "destructive" });
@@ -287,12 +263,13 @@ export default function Dashboard() {
   };
 
   const handleSendInstruction = async (instruction: string) => {
-    if (!currentCallId) {
+    const s = slots[activeTab];
+    if (!s.currentCallId) {
       toast({ title: "Connection Error", description: "No active call to send instruction to", variant: "destructive" });
       return;
     }
     try {
-      const response = await edgeFetch(`/api-calls/calls/${currentCallId}/instruction`, {
+      const response = await edgeFetch(`/api-calls/calls/${s.currentCallId}/instruction`, {
         method: "POST",
         body: JSON.stringify({ instruction }),
       });
@@ -307,7 +284,31 @@ export default function Dashboard() {
     }
   };
 
-  const isCallActive = callStatus === "ringing" || callStatus === "connected";
+  const handleDownloadTranscript = () => {
+    const s = slots[activeTab];
+    const text = s.transcript
+      .map((msg) => {
+        const date = msg.timestamp instanceof Date ? msg.timestamp : new Date(msg.timestamp as any);
+        const time = date.toLocaleTimeString();
+        const speaker = msg.speaker === "ai" ? "AI Assistant" : "Caller";
+        return `[${time}] ${speaker}: ${msg.text}`;
+      })
+      .join("\n\n");
+
+    const blob = new Blob([text], { type: "text/plain" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `transcript-${s.phoneNumber}-${Date.now()}.txt`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+
+    toast({ title: "Transcript Downloaded", description: "The call transcript has been saved to your device." });
+  };
+
+  const isCallActive = slot.callStatus === "ringing" || slot.callStatus === "connected";
 
   return (
     <div className="min-h-screen bg-background">
@@ -319,9 +320,7 @@ export default function Dashboard() {
             </div>
             <div>
               <h1 className="text-2xl font-bold">TAS AI Agent</h1>
-              <p className="text-sm text-muted-foreground">
-                Powered by OpenAI, Vapi, and ElevenLabs
-              </p>
+              <p className="text-sm text-muted-foreground">Powered by OpenAI, Vapi, and ElevenLabs</p>
             </div>
             <div className="ml-auto flex items-center gap-2">
               <Link href="/analytics">
@@ -341,7 +340,42 @@ export default function Dashboard() {
         </div>
       </header>
 
-      <main className="container mx-auto px-6 py-8 max-w-7xl">
+      <main className="container mx-auto px-6 py-6 max-w-7xl">
+        <div className="mb-6">
+          <div className="flex items-center gap-1 border-b border-border">
+            {slots.map((s, i) => {
+              const active = activeTab === i;
+              const statusColor = getTabStatusColor(s.callStatus);
+              const statusLabel = getTabStatusLabel(s.callStatus);
+              const hasContent = s.callStatus !== "idle";
+              return (
+                <button
+                  key={i}
+                  onClick={() => setActiveTab(i)}
+                  className={[
+                    "relative flex items-center gap-2.5 px-5 py-3 text-sm font-medium transition-colors border-b-2 -mb-px",
+                    active
+                      ? "border-primary text-foreground"
+                      : "border-transparent text-muted-foreground hover:text-foreground hover:border-border",
+                  ].join(" ")}
+                >
+                  <PhoneCall className="w-4 h-4 shrink-0" />
+                  <span>Call {i + 1}</span>
+                  {hasContent && (
+                    <span className="flex items-center gap-1.5">
+                      <span className={`w-2 h-2 rounded-full ${statusColor} ${s.callStatus === "ringing" || s.callStatus === "connected" ? "animate-pulse" : ""}`} />
+                      <span className={`text-xs ${active ? "text-muted-foreground" : "text-muted-foreground/70"}`}>
+                        {statusLabel}
+                        {s.phoneNumber ? ` · ${s.phoneNumber.slice(-10)}` : ""}
+                      </span>
+                    </span>
+                  )}
+                </button>
+              );
+            })}
+          </div>
+        </div>
+
         <div className="grid grid-cols-1 lg:grid-cols-5 gap-8">
           <div className="lg:col-span-2 space-y-6">
             <Card className="p-6">
@@ -359,40 +393,36 @@ export default function Dashboard() {
                   onTransfer={handleTransfer}
                   isCallActive={isCallActive}
                 />
-                <CallStatus status={callStatus} duration={duration} />
+                <CallStatus status={slot.callStatus} duration={slot.duration} />
               </div>
             </Card>
 
-            {(callStatus === "connected" || callStatus === "ringing") && (
-              <LiveAudioMonitor
-                listenUrl={listenUrl}
-                callStatus={callStatus}
-              />
+            {(slot.callStatus === "connected" || slot.callStatus === "ringing") && (
+              <LiveAudioMonitor listenUrl={slot.listenUrl} callStatus={slot.callStatus} />
             )}
 
             {!isCallActive && (
               <RecentCalls refreshTrigger={callHistoryRefresh} />
             )}
-
           </div>
 
           <div className="lg:col-span-3 space-y-6">
             <TranscriptionPanel
-              messages={transcript}
-              isActive={callStatus === "connected"}
+              messages={slot.transcript}
+              isActive={slot.callStatus === "connected"}
             />
 
-            {callStatus === "connected" && (
+            {slot.callStatus === "connected" && (
               <InstructionInput onSendInstruction={handleSendInstruction} />
             )}
 
-            {callStatus === "ended" && transcript.length > 0 && (
+            {slot.callStatus === "ended" && slot.transcript.length > 0 && (
               <CallSummary
-                duration={duration}
-                transcript={transcript}
+                duration={slot.duration}
+                transcript={slot.transcript}
                 onDownloadTranscript={handleDownloadTranscript}
-                recordingUrl={recordingUrl || undefined}
-                summary={callSummary || undefined}
+                recordingUrl={slot.recordingUrl || undefined}
+                summary={slot.callSummary || undefined}
               />
             )}
           </div>
