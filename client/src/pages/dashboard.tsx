@@ -11,9 +11,10 @@ import { useToast } from "@/hooks/use-toast";
 import { useCallSlot } from "@/hooks/use-call-slot";
 import type { FormState } from "@/hooks/use-call-slot";
 import type { TranscriptMessage } from "@shared/schema";
-import { Phone, ChartBar as BarChart2, FileText, PhoneCall, Save, Radio, Volume2, VolumeX } from "lucide-react";
+import { Phone, ChartBar as BarChart2, FileText, PhoneCall, Save, Radio, Volume2, VolumeX, Calendar } from "lucide-react";
 import { Link } from "wouter";
 import { supabase, EDGE_FUNCTIONS_URL } from "@/lib/supabase";
+import { providers } from "@/components/phone-input-form";
 import { RecentCalls } from "@/components/recent-calls";
 import { playDtmfTone } from "@/lib/dtmf-tones";
 
@@ -407,6 +408,33 @@ export default function Dashboard() {
     if (!isCallActive && isMonitoring) stopMonitoring();
   }, [isCallActive]);
 
+  const handleScheduleCall = async (scheduledAt: string) => {
+    const s = slots[activeTab];
+    const providerEntry = s.form.selectedProvider
+      ? providers.find((p) => p.number === s.form.selectedProvider)
+      : null;
+    const fullNumber = `${s.form.countryCode}${s.form.phoneNumber}`;
+    try {
+      const { error } = await supabase.from("scheduled_calls").insert({
+        phone_number: fullNumber,
+        prompt: s.form.prompt,
+        caller_name: s.form.callerName || "James Martin",
+        email_recipient: s.form.email || null,
+        provider_name: providerEntry?.name || null,
+        voice_id: s.form.selectedVoice || null,
+        scheduled_at: scheduledAt,
+        status: "pending",
+      });
+      if (error) throw error;
+      const d = new Date(scheduledAt);
+      const label = d.toLocaleString("en-US", { month: "short", day: "numeric", hour: "numeric", minute: "2-digit" });
+      toast({ title: "Call Scheduled", description: `Queued for ${label}` });
+    } catch (err) {
+      console.error(err);
+      toast({ title: "Schedule Failed", description: "Could not schedule the call.", variant: "destructive" });
+    }
+  };
+
   const handleSaveSlot = (index: number) => {
     try {
       localStorage.setItem(SLOT_STORAGE_KEY(index), JSON.stringify(slots[index].form));
@@ -431,6 +459,12 @@ export default function Dashboard() {
               <p className="text-sm text-muted-foreground">Powered by OpenAI, Vapi, and ElevenLabs</p>
             </div>
             <div className="ml-auto flex items-center gap-2">
+              <Link href="/scheduled">
+                <Button variant="outline" size="sm">
+                  <Calendar className="w-4 h-4 mr-2" />
+                  Scheduled
+                </Button>
+              </Link>
               <Link href="/analytics">
                 <Button variant="outline" size="sm">
                   <BarChart2 className="w-4 h-4 mr-2" />
@@ -533,6 +567,7 @@ export default function Dashboard() {
                   onStartCall={handleStartCall}
                   onHangUp={handleHangUp}
                   onTransfer={handleTransfer}
+                  onSchedule={handleScheduleCall}
                   isCallActive={isCallActive}
                 />
                 <CallStatus status={slot.callStatus} duration={slot.duration} />
