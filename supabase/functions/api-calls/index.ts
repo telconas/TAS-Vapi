@@ -41,7 +41,7 @@ async function vapiRequest(method: string, path: string, body?: any): Promise<an
   return text ? JSON.parse(text) : null;
 }
 
-function buildSystemPrompt(userInstructions: string, callerName: string = "James Martin"): string {
+function buildSystemPrompt(userInstructions: string, callerName: string = "${callerName}"): string {
   return `You are ${callerName}, a real person on a phone call. You have one job: answer questions when asked, and say nothing otherwise.
 
 RULE 1 — OUTPUT NOTHING UNLESS DIRECTLY ASKED A QUESTION.
