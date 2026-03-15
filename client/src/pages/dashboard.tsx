@@ -17,6 +17,7 @@ import { supabase, EDGE_FUNCTIONS_URL } from "@/lib/supabase";
 import { providers } from "@/components/phone-input-form";
 import { RecentCalls } from "@/components/recent-calls";
 import { playDtmfTone } from "@/lib/dtmf-tones";
+import { playCallAlert, requestNotificationPermission, sendCallNotification } from "@/lib/call-alert";
 
 interface Voice {
   voiceId: string;
@@ -89,6 +90,10 @@ export default function Dashboard() {
   const slotsRef = useRef(slots);
   slotsRef.current = slots;
   const slot = slots[activeTab];
+
+  useEffect(() => {
+    requestNotificationPermission();
+  }, []);
 
   useEffect(() => {
     const fetchVoices = async () => {
@@ -201,6 +206,9 @@ export default function Dashboard() {
           freeSlot.setRecordingUrl(null);
           freeSlot.setCallSummary(null);
           if (newCall.listen_url) freeSlot.setListenUrl(newCall.listen_url);
+
+          playCallAlert();
+          sendCallNotification(newCall.phone_number);
 
           toast({
             title: "Scheduled Call Started",
