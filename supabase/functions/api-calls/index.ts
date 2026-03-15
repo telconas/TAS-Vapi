@@ -335,10 +335,13 @@ async function generateSummaryAndEmail(supabase: any, callId: string): Promise<v
     payload: { callId, summary },
   });
 
-  const { data: freshCall } = await supabase.from("calls").select("duration, email_recipient, phone_number, recording_url").eq("id", callId).maybeSingle();
+  const { data: freshCall } = await supabase.from("calls").select("duration, email_recipient, phone_number, recording_url, created_at").eq("id", callId).maybeSingle();
 
   if ((freshCall?.email_recipient || call.email_recipient) && SENDGRID_API_KEY) {
-    const duration = freshCall?.duration ?? call.duration ?? 0;
+    const rawDuration = freshCall?.duration ?? call.duration ?? 0;
+    const duration = rawDuration > 0
+      ? rawDuration
+      : Math.floor((Date.now() - new Date(freshCall?.created_at || call.created_at).getTime()) / 1000);
     const formatDuration = (seconds: number) => {
       const mins = Math.floor(seconds / 60);
       const secs = seconds % 60;
@@ -530,11 +533,16 @@ Deno.serve(async (req: Request) => {
         }
       }
 
-      const { data: endedCall } = await supabase.from("calls").select("duration").eq("id", callId).maybeSingle();
-      const endDuration = endedCall?.duration ?? 0;
+      const { data: endedCall } = await supabase.from("calls").select("duration, created_at").eq("id", callId).maybeSingle();
+      const nowMs = Date.now();
+      const startMs = endedCall?.created_at ? new Date(endedCall.created_at).getTime() : nowMs;
+      const endDuration = endedCall?.duration && endedCall.duration > 0
+        ? endedCall.duration
+        : Math.floor((nowMs - startMs) / 1000);
       await supabase.from("calls").update({
         status: "ended",
         ended_at: new Date().toISOString(),
+        duration: endDuration,
         cost_usd: (endDuration / 3600) * HOURLY_RATE,
       }).eq("id", callId);
 
