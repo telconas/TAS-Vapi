@@ -180,7 +180,7 @@ export function PhoneInputForm({
         </Label>
         <Textarea
           id="prompt"
-          placeholder="Paste account information and task here. Include account number, PIN, service address, and specifics of the task."
+          placeholder="Paste account information and task specifics. Include account number, PIN, service address, and brief instructions for the agent."
           value={prompt}
           onChange={(e) => setPrompt(e.target.value)}
           className="min-h-[100px] bg-card border-card-border resize-none"
