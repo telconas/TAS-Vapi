@@ -146,25 +146,25 @@ export default function Reports() {
   const [viewingCall, setViewingCall] = useState<CallDetail | null>(null);
   const [togglingPinId, setTogglingPinId] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState("");
-  const [sendingReport, setSendingReport] = useState(false);
   const [reportDate, setReportDate] = useState<Date>(new Date());
   const [datePickerOpen, setDatePickerOpen] = useState(false);
 
-  const handleSendDailyReport = async () => {
-    setSendingReport(true);
+  const [sendingReportType, setSendingReportType] = useState<"daily" | "weekly" | "monthly" | null>(null);
+
+  const handleSendReport = async (reportType: "daily" | "weekly" | "monthly") => {
+    setSendingReportType(reportType);
     try {
       const dateStr = format(reportDate, "yyyy-MM-dd");
       const res = await fetch(`${EDGE_FUNCTIONS_URL}/send-daily-report`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ toEmail: REPORT_EMAIL, date: dateStr }),
+        body: JSON.stringify({ toEmail: REPORT_EMAIL, date: dateStr, reportType }),
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || "Failed to send report");
-      const dateLabel = format(reportDate, "MMM d, yyyy");
       toast({
         title: "Report sent",
-        description: `Daily report for ${dateLabel} (${data.callCount} call${data.callCount !== 1 ? "s" : ""}) sent to ${REPORT_EMAIL}`,
+        description: `${reportType.charAt(0).toUpperCase() + reportType.slice(1)} report (${data.callCount} call${data.callCount !== 1 ? "s" : ""}) sent to ${REPORT_EMAIL}`,
       });
     } catch (err: any) {
       toast({
@@ -173,7 +173,7 @@ export default function Reports() {
         variant: "destructive",
       });
     } finally {
-      setSendingReport(false);
+      setSendingReportType(null);
     }
   };
 
@@ -312,12 +312,33 @@ export default function Reports() {
                 <Button
                   variant="default"
                   size="sm"
-                  className="rounded-l-none"
-                  onClick={handleSendDailyReport}
-                  disabled={sendingReport}
+                  className="rounded-none border-l-0 border-r border-primary-foreground/20"
+                  onClick={() => handleSendReport("daily")}
+                  disabled={sendingReportType !== null}
+                  title="Send daily report for the selected date"
                 >
-                  <Mail className="w-4 h-4 mr-2" />
-                  {sendingReport ? "Sending..." : "Send Daily Report"}
+                  <Mail className="w-4 h-4 mr-1.5" />
+                  {sendingReportType === "daily" ? "Sending..." : "Daily"}
+                </Button>
+                <Button
+                  variant="default"
+                  size="sm"
+                  className="rounded-none border-l-0 border-r border-primary-foreground/20"
+                  onClick={() => handleSendReport("weekly")}
+                  disabled={sendingReportType !== null}
+                  title="Send weekly report for the week containing the selected date"
+                >
+                  {sendingReportType === "weekly" ? "Sending..." : "Weekly"}
+                </Button>
+                <Button
+                  variant="default"
+                  size="sm"
+                  className="rounded-l-none border-l-0"
+                  onClick={() => handleSendReport("monthly")}
+                  disabled={sendingReportType !== null}
+                  title="Send monthly report for the month containing the selected date"
+                >
+                  {sendingReportType === "monthly" ? "Sending..." : "Monthly"}
                 </Button>
               </div>
               <Link href="/">
