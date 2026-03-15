@@ -40,7 +40,7 @@ function buildDailyReportHtml(calls: any[], date: string, totals: { calls: numbe
   const callRows = calls.map((call, i) => {
     const dur = call.duration ?? 0;
     const cost = call.cost_usd != null ? Number(call.cost_usd) : calcCost(dur);
-    const dt = call.started_at ? new Date(call.started_at) : null;
+    const dt = call.started_at ? new Date(call.started_at) : call.created_at ? new Date(call.created_at) : null;
     const timeStr = dt ? dt.toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit", hour12: true }) : "—";
     const outcomeColor = call.outcome === "resolved" ? "#059669" : call.outcome === "unresolved" ? "#dc2626" : "#6b7280";
     const outcomeLabel = call.outcome === "resolved" ? "Resolved" : call.outcome === "unresolved" ? "Unresolved" : "—";
@@ -211,11 +211,11 @@ Deno.serve(async (req: Request) => {
 
     const { data: calls, error } = await supabase
       .from("calls")
-      .select("id, phone_number, provider_name, caller_name, duration, cost_usd, status, started_at, ended_at, summary, notes, outcome")
+      .select("id, phone_number, provider_name, caller_name, duration, cost_usd, status, started_at, ended_at, created_at, summary, notes, outcome")
       .in("status", ["ended", "transferred"])
-      .gte("started_at", startOfDay)
-      .lte("started_at", endOfDay)
-      .order("started_at", { ascending: true });
+      .gte("created_at", startOfDay)
+      .lte("created_at", endOfDay)
+      .order("created_at", { ascending: true });
 
     if (error) {
       return new Response(JSON.stringify({ error: "Failed to fetch calls" }), {

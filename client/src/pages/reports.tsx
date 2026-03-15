@@ -129,7 +129,7 @@ function exportCSV(calls: CallRecord[], periodLabel: string) {
   URL.revokeObjectURL(url);
 }
 
-const REPORT_EMAIL = "avb@telconassociates.com";
+const REPORT_EMAIL = "jpm@telconassociates.com";
 
 export default function Reports() {
   const { toast } = useToast();
