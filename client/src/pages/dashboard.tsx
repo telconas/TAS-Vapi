@@ -169,6 +169,66 @@ export default function Dashboard() {
     };
   }, []);
 
+  useEffect(() => {
+    const dbChannel = supabase
+      .channel("scheduled-call-inserts")
+      .on(
+        "postgres_changes",
+        { event: "INSERT", schema: "public", table: "calls" },
+        (payload) => {
+          const newCall = payload.new as {
+            id: string;
+            status: string;
+            phone_number: string;
+            listen_url: string | null;
+          };
+          if (newCall.status !== "ringing") return;
+          const alreadyTracked = slotsRef.current.some(
+            (s) => s.currentCallIdRef.current === newCall.id
+          );
+          if (alreadyTracked) return;
+          const freeSlot = slotsRef.current.find((s) => !s.callActiveRef.current && s.callStatus === "idle");
+          if (!freeSlot) return;
+
+          freeSlot.callActiveRef.current = true;
+          freeSlot.currentCallIdRef.current = newCall.id;
+          freeSlot.setCurrentCallId(newCall.id);
+          freeSlot.setDialedNumber(newCall.phone_number);
+          freeSlot.setCallStatus("ringing");
+          freeSlot.setDuration(0);
+          freeSlot.startDurationCounter();
+          freeSlot.setTranscript([]);
+          freeSlot.setRecordingUrl(null);
+          freeSlot.setCallSummary(null);
+          if (newCall.listen_url) freeSlot.setListenUrl(newCall.listen_url);
+
+          toast({
+            title: "Scheduled Call Started",
+            description: `Calling ${newCall.phone_number}...`,
+          });
+        }
+      )
+      .on(
+        "postgres_changes",
+        { event: "UPDATE", schema: "public", table: "calls" },
+        (payload) => {
+          const updated = payload.new as {
+            id: string;
+            listen_url: string | null;
+          };
+          const targetSlot = slotsRef.current.find((s) => s.currentCallIdRef.current === updated.id);
+          if (targetSlot && updated.listen_url) {
+            targetSlot.setListenUrl(updated.listen_url);
+          }
+        }
+      )
+      .subscribe();
+
+    return () => {
+      dbChannel.unsubscribe();
+    };
+  }, []);
+
   const fetchCallDetails = async (callId: string, targetSlot: ReturnType<typeof useCallSlot>) => {
     setTimeout(async () => {
       try {
