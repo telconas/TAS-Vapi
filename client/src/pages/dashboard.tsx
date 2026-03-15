@@ -5,14 +5,13 @@ import { TranscriptionPanel } from "@/components/transcription-panel";
 import { VoiceSelector } from "@/components/voice-selector";
 import { CallSummary } from "@/components/call-summary";
 import { InstructionInput } from "@/components/instruction-input";
-import { LiveAudioMonitor } from "@/components/live-audio-monitor";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { useToast } from "@/hooks/use-toast";
 import { useCallSlot } from "@/hooks/use-call-slot";
 import type { FormState } from "@/hooks/use-call-slot";
 import type { TranscriptMessage } from "@shared/schema";
-import { Phone, ChartBar as BarChart2, FileText, PhoneCall, Save } from "lucide-react";
+import { Phone, ChartBar as BarChart2, FileText, PhoneCall, Save, Radio, Volume2, VolumeX } from "lucide-react";
 import { Link } from "wouter";
 import { supabase, EDGE_FUNCTIONS_URL } from "@/lib/supabase";
 import { RecentCalls } from "@/components/recent-calls";
@@ -73,6 +72,12 @@ export default function Dashboard() {
   const [elevenLabsVoices, setElevenLabsVoices] = useState<Voice[]>([]);
   const [callHistoryRefresh, setCallHistoryRefresh] = useState(0);
   const [savedIndicator, setSavedIndicator] = useState<number | null>(null);
+  const [isMonitoring, setIsMonitoring] = useState(false);
+  const [isMuted, setIsMuted] = useState(false);
+  const wsRef = useRef<WebSocket | null>(null);
+  const audioContextRef = useRef<AudioContext | null>(null);
+  const workletNodeRef = useRef<AudioWorkletNode | null>(null);
+  const gainNodeRef = useRef<GainNode | null>(null);
   const channelRef = useRef<ReturnType<typeof supabase.channel> | null>(null);
   const { toast } = useToast();
 
@@ -328,7 +333,79 @@ export default function Dashboard() {
     toast({ title: "Transcript Downloaded", description: "The call transcript has been saved to your device." });
   };
 
+  const stopMonitoring = () => {
+    if (wsRef.current) { wsRef.current.close(); wsRef.current = null; }
+    if (workletNodeRef.current) { workletNodeRef.current.disconnect(); workletNodeRef.current = null; }
+    if (audioContextRef.current) { audioContextRef.current.close(); audioContextRef.current = null; }
+    gainNodeRef.current = null;
+    setIsMonitoring(false);
+    setIsMuted(false);
+  };
+
+  const startMonitoring = async () => {
+    const listenUrl = slot.listenUrl;
+    if (!listenUrl) { toast({ title: "Not available", description: "No listen URL yet. Wait for call to connect.", variant: "destructive" }); return; }
+    if (wsRef.current && (wsRef.current.readyState === WebSocket.OPEN || wsRef.current.readyState === WebSocket.CONNECTING)) return;
+    try {
+      const ctx = new (window.AudioContext || (window as any).webkitAudioContext)();
+      audioContextRef.current = ctx;
+      if (ctx.state === 'suspended') await ctx.resume();
+      await ctx.audioWorklet.addModule('/pcm-player-processor.js');
+      const workletNode = new AudioWorkletNode(ctx, 'pcm-player-processor', { processorOptions: { inputSampleRate: 16000 } });
+      workletNodeRef.current = workletNode;
+      const gain = ctx.createGain();
+      gain.gain.value = 1;
+      gainNodeRef.current = gain;
+      workletNode.connect(gain);
+      gain.connect(ctx.destination);
+      const ws = new WebSocket(listenUrl);
+      ws.binaryType = 'arraybuffer';
+      wsRef.current = ws;
+      let streamChannels = 1;
+      ws.onopen = () => { setIsMonitoring(true); };
+      ws.onmessage = (event) => {
+        if (typeof event.data === 'string') {
+          try {
+            const meta = JSON.parse(event.data);
+            if (meta.type === 'start') {
+              streamChannels = meta.channels || 1;
+              workletNodeRef.current?.port.postMessage({ type: 'config', inputSampleRate: meta.sampleRate || 16000 });
+            }
+          } catch { /* not JSON */ }
+          return;
+        }
+        if (!(event.data instanceof ArrayBuffer) || event.data.byteLength === 0) return;
+        const node = workletNodeRef.current;
+        if (!node) return;
+        const int16 = new Int16Array(event.data);
+        const frameCount = Math.floor(int16.length / streamChannels);
+        const float32 = new Float32Array(frameCount);
+        if (streamChannels === 2) {
+          for (let i = 0; i < frameCount; i++) float32[i] = (int16[i * 2] + int16[i * 2 + 1]) / 2 / 32768.0;
+        } else {
+          for (let i = 0; i < frameCount; i++) float32[i] = int16[i] / 32768.0;
+        }
+        node.port.postMessage(float32, [float32.buffer]);
+      };
+      ws.onerror = () => { stopMonitoring(); toast({ title: "Monitor Error", description: "Failed to connect to audio stream.", variant: "destructive" }); };
+      ws.onclose = (e) => { setIsMonitoring(false); if (e.code !== 1000 && e.code !== 1001) setIsMuted(false); };
+    } catch (err) {
+      toast({ title: "Monitor Error", description: err instanceof Error ? err.message : "Failed to start monitoring", variant: "destructive" });
+    }
+  };
+
+  const toggleMute = () => {
+    if (gainNodeRef.current) {
+      gainNodeRef.current.gain.value = isMuted ? 1 : 0;
+      setIsMuted(!isMuted);
+    }
+  };
+
   const isCallActive = slot.callStatus === "ringing" || slot.callStatus === "connected";
+
+  useEffect(() => {
+    if (!isCallActive && isMonitoring) stopMonitoring();
+  }, [isCallActive]);
 
   const handleSaveSlot = (index: number) => {
     try {
@@ -412,16 +489,36 @@ export default function Dashboard() {
             <Card className="p-6">
               <div className="flex items-center justify-between mb-6">
                 <h2 className="text-xl font-semibold">Call Controls</h2>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => handleSaveSlot(activeTab)}
-                  disabled={isCallActive}
-                  className="gap-1.5"
-                >
-                  <Save className="w-3.5 h-3.5" />
-                  {savedIndicator === activeTab ? "Saved!" : "Save"}
-                </Button>
+                <div className="flex items-center gap-2">
+                  {isCallActive && slot.listenUrl && (
+                    <>
+                      {isMonitoring && (
+                        <Button size="sm" variant="outline" onClick={toggleMute} className="gap-1.5">
+                          {isMuted ? <VolumeX className="w-3.5 h-3.5" /> : <Volume2 className="w-3.5 h-3.5" />}
+                        </Button>
+                      )}
+                      <Button
+                        size="sm"
+                        variant={isMonitoring ? "destructive" : "outline"}
+                        onClick={isMonitoring ? stopMonitoring : startMonitoring}
+                        className="gap-1.5"
+                      >
+                        <Radio className={`w-3.5 h-3.5 ${isMonitoring ? "animate-pulse" : ""}`} />
+                        {isMonitoring ? "Stop" : "Monitor"}
+                      </Button>
+                    </>
+                  )}
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => handleSaveSlot(activeTab)}
+                    disabled={isCallActive}
+                    className="gap-1.5"
+                  >
+                    <Save className="w-3.5 h-3.5" />
+                    {savedIndicator === activeTab ? "Saved!" : "Save"}
+                  </Button>
+                </div>
               </div>
               <div className="space-y-6">
                 <VoiceSelector
@@ -441,10 +538,6 @@ export default function Dashboard() {
                 <CallStatus status={slot.callStatus} duration={slot.duration} />
               </div>
             </Card>
-
-            {(slot.callStatus === "connected" || slot.callStatus === "ringing") && (
-              <LiveAudioMonitor listenUrl={slot.listenUrl} callStatus={slot.callStatus} />
-            )}
 
             {!isCallActive && (
               <RecentCalls refreshTrigger={callHistoryRefresh} />
