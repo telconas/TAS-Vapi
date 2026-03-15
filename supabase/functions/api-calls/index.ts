@@ -339,9 +339,9 @@ async function generateSummaryAndEmail(supabase: any, callId: string): Promise<v
 
   if ((freshCall?.email_recipient || call.email_recipient) && SENDGRID_API_KEY) {
     const rawDuration = freshCall?.duration ?? call.duration ?? 0;
-    const duration = rawDuration > 0
-      ? rawDuration
-      : Math.floor((Date.now() - new Date(freshCall?.created_at || call.created_at).getTime()) / 1000);
+    const createdAtMs = new Date(call.created_at).getTime();
+    const wallClock = !isNaN(createdAtMs) ? Math.floor((Date.now() - createdAtMs) / 1000) : 0;
+    const duration = rawDuration > 0 ? rawDuration : wallClock;
     const formatDuration = (seconds: number) => {
       const mins = Math.floor(seconds / 60);
       const secs = seconds % 60;
