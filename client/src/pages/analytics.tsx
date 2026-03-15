@@ -84,14 +84,13 @@ export default function Analytics() {
 
   const handleDeleteCall = async (callId: string) => {
     setDeletingCallId(callId);
-    try {
-      await supabase.from("calls").delete().eq("id", callId);
+    const { error } = await supabase.from("calls").delete().eq("id", callId);
+    if (error) {
+      console.error("Error deleting call:", error);
+    } else {
       setAllCalls((prev) => prev.filter((c) => c.id !== callId));
-    } catch (err) {
-      console.error("Error deleting call:", err);
-    } finally {
-      setDeletingCallId(null);
     }
+    setDeletingCallId(null);
   };
 
   const handleTogglePin = async (call: CallRecord) => {
