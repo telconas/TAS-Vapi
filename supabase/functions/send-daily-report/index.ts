@@ -211,11 +211,11 @@ Deno.serve(async (req: Request) => {
 
     const { data: calls, error } = await supabase
       .from("calls")
-      .select("id, phone_number, provider_name, caller_name, duration, cost_usd, status, started_at, ended_at, created_at, summary, notes, outcome")
+      .select("id, phone_number, provider_name, caller_name, duration, cost_usd, status, started_at, ended_at, summary, notes, outcome")
       .in("status", ["ended", "transferred"])
-      .gte("created_at", startOfDay)
-      .lte("created_at", endOfDay)
-      .order("created_at", { ascending: true });
+      .gte("started_at", startOfDay)
+      .lte("started_at", endOfDay)
+      .order("started_at", { ascending: true });
 
     if (error) {
       return new Response(JSON.stringify({ error: "Failed to fetch calls" }), {
