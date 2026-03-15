@@ -44,7 +44,7 @@ Deno.serve(async (req: Request) => {
     if (req.method === "GET" && path.match(/^\/voices\/[^/]+\/preview$/)) {
       const voiceId = path.split("/")[2];
       const previewText =
-        "Hi, I am calling about an issue we are having at Avalon Bellevue. I was wondering if you could help troubleshoot the internet being down.";
+        "Hi, I am calling about an issue we are having with our internet connection. I was wondering if you could help troubleshoot.";
 
       const response = await fetch(`https://api.elevenlabs.io/v1/text-to-speech/${voiceId}`, {
         method: "POST",
