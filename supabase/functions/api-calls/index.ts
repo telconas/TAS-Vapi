@@ -329,8 +329,10 @@ async function generateSummaryAndEmail(supabase: any, callId: string): Promise<v
     payload: { callId, summary },
   });
 
-  if (call.email_recipient && SENDGRID_API_KEY) {
-    const duration = call.duration || 0;
+  const { data: freshCall } = await supabase.from("calls").select("duration, email_recipient, phone_number, recording_url").eq("id", callId).maybeSingle();
+
+  if ((freshCall?.email_recipient || call.email_recipient) && SENDGRID_API_KEY) {
+    const duration = freshCall?.duration ?? call.duration ?? 0;
     const formatDuration = (seconds: number) => {
       const mins = Math.floor(seconds / 60);
       const secs = seconds % 60;

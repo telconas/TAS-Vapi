@@ -96,7 +96,7 @@ async function pollForRecording(supabase: any, vapiCallId: string, dbCallId: str
   return null;
 }
 
-async function generateSummaryAndEmail(supabase: any, callId: string, recordingUrl?: string): Promise<void> {
+async function generateSummaryAndEmail(supabase: any, callId: string, recordingUrl?: string, knownDuration?: number): Promise<void> {
   const { data: call } = await supabase.from("calls").select().eq("id", callId).maybeSingle();
   if (!call) return;
 
@@ -146,7 +146,7 @@ async function generateSummaryAndEmail(supabase: any, callId: string, recordingU
   });
 
   if (call.email_recipient && SENDGRID_API_KEY) {
-    const duration = call.duration || 0;
+    const duration = knownDuration ?? call.duration ?? 0;
     const formatDuration = (seconds: number) => {
       const mins = Math.floor(seconds / 60);
       const secs = seconds % 60;
@@ -323,7 +323,7 @@ Deno.serve(async (req: Request) => {
               if (!recordingUrl && vapiCall.id) {
                 recordingUrl = await pollForRecording(supabase, vapiCall.id, dbCall.id);
               }
-              await generateSummaryAndEmail(supabase, dbCall.id, recordingUrl || undefined);
+              await generateSummaryAndEmail(supabase, dbCall.id, recordingUrl || undefined, callDuration > 0 ? callDuration : undefined);
             })());
           }
         }
