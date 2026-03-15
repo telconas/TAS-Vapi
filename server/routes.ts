@@ -473,7 +473,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       // Generate summary using OpenAI
       const summaryPrompt = buildSummaryPrompt(cleanTranscripts);
       const completion = await openaiClient.chat.completions.create({
-        model: "gpt-4o-mini",
+        model: "gpt-4.1",
         messages: [
           {
             role: "user",
