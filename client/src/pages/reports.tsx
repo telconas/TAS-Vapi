@@ -4,9 +4,11 @@ import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { supabase } from "@/lib/supabase";
-import { Phone, Clock, DollarSign, ArrowLeft, FileText, ChevronLeft, ChevronRight, Download, Pencil, Star, CircleCheck as CheckCircle2, Circle as XCircle, Search, X } from "lucide-react";
+import { Phone, Clock, DollarSign, ArrowLeft, FileText, ChevronLeft, ChevronRight, Download, Pencil, Star, CircleCheck as CheckCircle2, Circle as XCircle, Search, X, Mail } from "lucide-react";
 import CallEditModal, { type CallDetail } from "@/components/call-edit-modal";
 import CallDetailModal from "@/components/call-detail-modal";
+import { useToast } from "@/hooks/use-toast";
+import { EDGE_FUNCTIONS_URL } from "@/lib/supabase";
 
 const HOURLY_RATE = 30;
 
@@ -127,7 +129,10 @@ function exportCSV(calls: CallRecord[], periodLabel: string) {
   URL.revokeObjectURL(url);
 }
 
+const REPORT_EMAIL = "avb@telconassociates.com";
+
 export default function Reports() {
+  const { toast } = useToast();
   const [mode, setMode] = useState<"weekly" | "monthly">("weekly");
   const [weekOffset, setWeekOffset] = useState(0);
   const [monthOffset, setMonthOffset] = useState(0);
@@ -138,6 +143,32 @@ export default function Reports() {
   const [viewingCall, setViewingCall] = useState<CallDetail | null>(null);
   const [togglingPinId, setTogglingPinId] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState("");
+  const [sendingReport, setSendingReport] = useState(false);
+
+  const handleSendDailyReport = async () => {
+    setSendingReport(true);
+    try {
+      const res = await fetch(`${EDGE_FUNCTIONS_URL}/send-daily-report`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ toEmail: REPORT_EMAIL }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || "Failed to send report");
+      toast({
+        title: "Report sent",
+        description: `Daily report (${data.callCount} call${data.callCount !== 1 ? "s" : ""}) sent to ${REPORT_EMAIL}`,
+      });
+    } catch (err: any) {
+      toast({
+        title: "Failed to send report",
+        description: err.message,
+        variant: "destructive",
+      });
+    } finally {
+      setSendingReport(false);
+    }
+  };
 
   const handleTogglePin = async (call: CallRecord) => {
     setTogglingPinId(call.id);
@@ -248,6 +279,15 @@ export default function Reports() {
               >
                 <Download className="w-4 h-4 mr-2" />
                 Export CSV
+              </Button>
+              <Button
+                variant="default"
+                size="sm"
+                onClick={handleSendDailyReport}
+                disabled={sendingReport}
+              >
+                <Mail className="w-4 h-4 mr-2" />
+                {sendingReport ? "Sending..." : "Send Daily Report"}
               </Button>
               <Link href="/">
                 <Button variant="outline" size="sm">
