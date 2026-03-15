@@ -3,7 +3,8 @@ import { Link } from "wouter";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { supabase, EDGE_FUNCTIONS_URL } from "@/lib/supabase";
-import { Phone, Clock, DollarSign, ChevronLeft, ChevronRight, ArrowLeft, ChartBar as BarChart2, FileText } from "lucide-react";
+import { Phone, Clock, DollarSign, ChevronLeft, ChevronRight, ArrowLeft, ChartBar as BarChart2, FileText, Pencil } from "lucide-react";
+import CallEditModal, { type CallDetail } from "@/components/call-edit-modal";
 
 const HOURLY_RATE = 35;
 
@@ -17,12 +18,15 @@ interface DayData {
 interface CallRecord {
   id: string;
   phone_number: string;
+  provider_name: string | null;
+  caller_name: string | null;
   duration: number | null;
   cost_usd: number | null;
   status: string;
   started_at: string | null;
   ended_at: string | null;
   summary: string | null;
+  notes: string | null;
 }
 
 function formatDuration(seconds: number): string {
@@ -53,6 +57,7 @@ export default function Analytics() {
   const [selectedDate, setSelectedDate] = useState<string | null>(null);
   const [allCalls, setAllCalls] = useState<CallRecord[]>([]);
   const [loading, setLoading] = useState(true);
+  const [editingCall, setEditingCall] = useState<CallDetail | null>(null);
 
   const year = currentDate.getFullYear();
   const month = currentDate.getMonth();
@@ -63,7 +68,7 @@ export default function Analytics() {
       try {
         const { data, error } = await supabase
           .from("calls")
-          .select("id, phone_number, duration, cost_usd, status, started_at, ended_at, summary")
+          .select("id, phone_number, provider_name, caller_name, duration, cost_usd, status, started_at, ended_at, summary, notes")
           .in("status", ["ended", "transferred"])
           .order("started_at", { ascending: false });
 
@@ -266,27 +271,42 @@ export default function Analytics() {
                       const dur = call.duration ?? 0;
                       const cost = call.cost_usd != null ? Number(call.cost_usd) : calcCost(dur);
                       return (
-                        <div key={call.id} className="flex items-center justify-between p-3 rounded-lg bg-muted/30 border border-border">
-                          <div className="space-y-0.5">
-                            <p className="text-sm font-medium font-mono">{call.phone_number}</p>
-                            {call.started_at && (
-                              <p className="text-xs text-muted-foreground">
-                                {new Date(call.started_at).toLocaleTimeString("en-US", {
-                                  hour: "numeric", minute: "2-digit",
-                                })}
-                              </p>
-                            )}
-                          </div>
-                          <div className="flex items-center gap-4 text-sm">
-                            <div className="text-right">
-                              <p className="text-xs text-muted-foreground">Duration</p>
-                              <p className="font-mono font-medium">{formatDuration(dur)}</p>
+                        <div key={call.id} className="p-3 rounded-lg bg-muted/30 border border-border space-y-2">
+                          <div className="flex items-center justify-between">
+                            <div className="space-y-0.5">
+                              <p className="text-sm font-medium font-mono">{call.phone_number}</p>
+                              <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                                {call.started_at && (
+                                  <span>{new Date(call.started_at).toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit" })}</span>
+                                )}
+                                {call.provider_name && <span>&bull; {call.provider_name}</span>}
+                                {call.caller_name && <span>&bull; {call.caller_name}</span>}
+                              </div>
                             </div>
-                            <div className="text-right">
-                              <p className="text-xs text-muted-foreground">Cost</p>
-                              <p className="font-mono font-medium text-emerald-600 dark:text-emerald-400">{formatCost(cost)}</p>
+                            <div className="flex items-center gap-4 text-sm">
+                              <div className="text-right">
+                                <p className="text-xs text-muted-foreground">Duration</p>
+                                <p className="font-mono font-medium">{formatDuration(dur)}</p>
+                              </div>
+                              <div className="text-right">
+                                <p className="text-xs text-muted-foreground">Cost</p>
+                                <p className="font-mono font-medium text-emerald-600 dark:text-emerald-400">{formatCost(cost)}</p>
+                              </div>
+                              <Button
+                                variant="ghost"
+                                size="icon"
+                                className="h-8 w-8 text-muted-foreground hover:text-foreground"
+                                onClick={() => setEditingCall(call as CallDetail)}
+                              >
+                                <Pencil className="w-3.5 h-3.5" />
+                              </Button>
                             </div>
                           </div>
+                          {call.notes && (
+                            <p className="text-xs text-muted-foreground bg-muted/40 rounded px-2 py-1.5 border border-border/60">
+                              <span className="font-medium text-foreground/70">Note:</span> {call.notes}
+                            </p>
+                          )}
                         </div>
                       );
                     })}
@@ -382,6 +402,15 @@ export default function Analytics() {
           </div>
         </div>
       </main>
+
+      <CallEditModal
+        call={editingCall}
+        open={editingCall !== null}
+        onClose={() => setEditingCall(null)}
+        onSaved={(updated) => {
+          setAllCalls((prev) => prev.map((c) => (c.id === updated.id ? { ...c, ...updated } : c)));
+        }}
+      />
     </div>
   );
 }

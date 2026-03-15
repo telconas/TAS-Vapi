@@ -87,7 +87,7 @@ export default function Dashboard() {
         if (status === "connected") {
           callActiveRef.current = true;
           setIsAudioPlaying(true);
-        } else if (status === "ended" || status === "transferred") {
+        } else if (status === "ended" || status === "transferred" || status === "transferring") {
           callActiveRef.current = false;
           stopDurationCounter();
           setIsAudioPlaying(false);

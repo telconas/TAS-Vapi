@@ -12,7 +12,9 @@ import {
   ChevronLeft,
   ChevronRight,
   Download,
+  Pencil,
 } from "lucide-react";
+import CallEditModal, { type CallDetail } from "@/components/call-edit-modal";
 
 const HOURLY_RATE = 35;
 
@@ -26,6 +28,8 @@ interface CallRecord {
   status: string;
   started_at: string | null;
   ended_at: string | null;
+  summary: string | null;
+  notes: string | null;
 }
 
 function formatDuration(seconds: number): string {
@@ -136,6 +140,7 @@ export default function Reports() {
   const [allCalls, setAllCalls] = useState<CallRecord[]>([]);
   const [loading, setLoading] = useState(true);
   const [expandedProvider, setExpandedProvider] = useState<string | null>(null);
+  const [editingCall, setEditingCall] = useState<CallDetail | null>(null);
 
   useEffect(() => {
     const fetchCalls = async () => {
@@ -143,7 +148,7 @@ export default function Reports() {
       try {
         const { data, error } = await supabase
           .from("calls")
-          .select("id, phone_number, provider_name, caller_name, duration, cost_usd, status, started_at, ended_at")
+          .select("id, phone_number, provider_name, caller_name, duration, cost_usd, status, started_at, ended_at, summary, notes")
           .in("status", ["ended", "transferred"])
           .order("started_at", { ascending: false });
         if (!error && data) setAllCalls(data as CallRecord[]);
@@ -354,42 +359,57 @@ export default function Reports() {
                         return (
                           <div
                             key={call.id}
-                            className="px-6 py-3 flex items-center justify-between bg-muted/10"
+                            className="px-6 py-3 bg-muted/10 space-y-1.5"
                           >
-                            <div className="space-y-0.5">
-                              <p className="text-sm font-mono">{call.phone_number}</p>
-                              <div className="flex items-center gap-3 text-xs text-muted-foreground">
-                                {dt && (
-                                  <span>
-                                    {dt.toLocaleDateString("en-US", {
-                                      month: "short",
-                                      day: "numeric",
-                                    })}{" "}
-                                    {dt.toLocaleTimeString("en-US", {
-                                      hour: "numeric",
-                                      minute: "2-digit",
-                                    })}
-                                  </span>
-                                )}
-                                {call.caller_name && (
-                                  <span className="text-muted-foreground/70">
-                                    Caller: {call.caller_name}
-                                  </span>
-                                )}
+                            <div className="flex items-center justify-between">
+                              <div className="space-y-0.5">
+                                <p className="text-sm font-mono">{call.phone_number}</p>
+                                <div className="flex items-center gap-3 text-xs text-muted-foreground">
+                                  {dt && (
+                                    <span>
+                                      {dt.toLocaleDateString("en-US", {
+                                        month: "short",
+                                        day: "numeric",
+                                      })}{" "}
+                                      {dt.toLocaleTimeString("en-US", {
+                                        hour: "numeric",
+                                        minute: "2-digit",
+                                      })}
+                                    </span>
+                                  )}
+                                  {call.caller_name && (
+                                    <span className="text-muted-foreground/70">
+                                      Caller: {call.caller_name}
+                                    </span>
+                                  )}
+                                </div>
+                              </div>
+                              <div className="flex items-center gap-4 text-sm">
+                                <div className="text-right">
+                                  <p className="text-xs text-muted-foreground">Duration</p>
+                                  <p className="font-mono font-medium">{formatDuration(dur)}</p>
+                                </div>
+                                <div className="text-right">
+                                  <p className="text-xs text-muted-foreground">Cost</p>
+                                  <p className="font-mono font-medium text-emerald-600 dark:text-emerald-400">
+                                    {formatCost(cost)}
+                                  </p>
+                                </div>
+                                <Button
+                                  variant="ghost"
+                                  size="icon"
+                                  className="h-8 w-8 text-muted-foreground hover:text-foreground"
+                                  onClick={() => setEditingCall(call as CallDetail)}
+                                >
+                                  <Pencil className="w-3.5 h-3.5" />
+                                </Button>
                               </div>
                             </div>
-                            <div className="flex items-center gap-5 text-sm">
-                              <div className="text-right">
-                                <p className="text-xs text-muted-foreground">Duration</p>
-                                <p className="font-mono font-medium">{formatDuration(dur)}</p>
-                              </div>
-                              <div className="text-right">
-                                <p className="text-xs text-muted-foreground">Cost</p>
-                                <p className="font-mono font-medium text-emerald-600 dark:text-emerald-400">
-                                  {formatCost(cost)}
-                                </p>
-                              </div>
-                            </div>
+                            {call.notes && (
+                              <p className="text-xs text-muted-foreground bg-muted/40 rounded px-2 py-1.5 border border-border/60">
+                                <span className="font-medium text-foreground/70">Note:</span> {call.notes}
+                              </p>
+                            )}
                           </div>
                         );
                       })}
@@ -416,6 +436,15 @@ export default function Reports() {
           </div>
         )}
       </main>
+
+      <CallEditModal
+        call={editingCall}
+        open={editingCall !== null}
+        onClose={() => setEditingCall(null)}
+        onSaved={(updated) => {
+          setAllCalls((prev) => prev.map((c) => (c.id === updated.id ? { ...c, ...updated } : c)));
+        }}
+      />
     </div>
   );
 }

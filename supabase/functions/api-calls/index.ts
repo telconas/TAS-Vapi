@@ -599,10 +599,21 @@ Deno.serve(async (req: Request) => {
         });
       }
 
+      const now = new Date().toISOString();
+      const transferDuration = call.started_at
+        ? Math.floor((Date.now() - new Date(call.started_at).getTime()) / 1000)
+        : (call.duration ?? 0);
+
+      await supabase.from("calls").update({
+        status: "transferred",
+        ended_at: now,
+        duration: transferDuration > 0 ? transferDuration : (call.duration ?? 0),
+      }).eq("id", callId);
+
       await supabase.channel("call-events").send({
         type: "broadcast",
         event: "call_status",
-        payload: { callId, status: "transferring" },
+        payload: { callId, status: "transferred" },
       });
 
       return new Response(
