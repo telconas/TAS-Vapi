@@ -14,6 +14,7 @@ import type { TranscriptMessage } from "@shared/schema";
 import { Phone, ChartBar as BarChart2, FileText } from "lucide-react";
 import { Link } from "wouter";
 import { supabase, EDGE_FUNCTIONS_URL } from "@/lib/supabase";
+import { RecentCalls } from "@/components/recent-calls";
 import { playDtmfTone } from "@/lib/dtmf-tones";
 
 type CallStatus = "idle" | "ringing" | "connected" | "ended" | "transferred";
@@ -49,6 +50,7 @@ export default function Dashboard() {
   const [listenUrl, setListenUrl] = useState<string | null>(null);
   const [recordingUrl, setRecordingUrl] = useState<string | null>(null);
   const [callSummary, setCallSummary] = useState<string | null>(null);
+  const [callHistoryRefresh, setCallHistoryRefresh] = useState(0);
   const durationIntervalRef = useRef<NodeJS.Timeout | null>(null);
   const callActiveRef = useRef(false);
   const currentCallIdRef = useRef<string | null>(null);
@@ -93,6 +95,7 @@ export default function Dashboard() {
           setIsAudioPlaying(false);
           setListenUrl(null);
           if (payload.callId) fetchCallDetails(payload.callId);
+          setCallHistoryRefresh((n) => n + 1);
         }
       })
       .on("broadcast", { event: "transcription" }, ({ payload }) => {
@@ -365,6 +368,10 @@ export default function Dashboard() {
                 listenUrl={listenUrl}
                 callStatus={callStatus}
               />
+            )}
+
+            {!isCallActive && (
+              <RecentCalls refreshTrigger={callHistoryRefresh} />
             )}
 
           </div>
