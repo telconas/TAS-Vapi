@@ -3,7 +3,7 @@ import { Link } from "wouter";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { supabase, EDGE_FUNCTIONS_URL } from "@/lib/supabase";
-import { Phone, Clock, DollarSign, ChevronLeft, ChevronRight, ArrowLeft, ChartBar as BarChart2, FileText, Pencil } from "lucide-react";
+import { Phone, Clock, DollarSign, ChevronLeft, ChevronRight, ArrowLeft, ChartBar as BarChart2, FileText, Pencil, Trash2 } from "lucide-react";
 import CallEditModal, { type CallDetail } from "@/components/call-edit-modal";
 
 const HOURLY_RATE = 35;
@@ -58,6 +58,19 @@ export default function Analytics() {
   const [allCalls, setAllCalls] = useState<CallRecord[]>([]);
   const [loading, setLoading] = useState(true);
   const [editingCall, setEditingCall] = useState<CallDetail | null>(null);
+  const [deletingCallId, setDeletingCallId] = useState<string | null>(null);
+
+  const handleDeleteCall = async (callId: string) => {
+    setDeletingCallId(callId);
+    try {
+      await supabase.from("calls").delete().eq("id", callId);
+      setAllCalls((prev) => prev.filter((c) => c.id !== callId));
+    } catch (err) {
+      console.error("Error deleting call:", err);
+    } finally {
+      setDeletingCallId(null);
+    }
+  };
 
   const year = currentDate.getFullYear();
   const month = currentDate.getMonth();
@@ -299,6 +312,15 @@ export default function Analytics() {
                                 onClick={() => setEditingCall(call as CallDetail)}
                               >
                                 <Pencil className="w-3.5 h-3.5" />
+                              </Button>
+                              <Button
+                                variant="ghost"
+                                size="icon"
+                                className="h-8 w-8 text-muted-foreground hover:text-destructive"
+                                disabled={deletingCallId === call.id}
+                                onClick={() => handleDeleteCall(call.id)}
+                              >
+                                <Trash2 className="w-3.5 h-3.5" />
                               </Button>
                             </div>
                           </div>
