@@ -12,7 +12,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { useToast } from "@/hooks/use-toast";
-import { Loader as Loader2 } from "lucide-react";
+import { Loader as Loader2, Star, CircleCheck as CheckCircle2, Circle as XCircle, CircleMinus as MinusCircle } from "lucide-react";
 
 export interface CallDetail {
   id: string;
@@ -26,6 +26,8 @@ export interface CallDetail {
   ended_at: string | null;
   summary: string | null;
   notes: string | null;
+  pinned: boolean;
+  outcome: string | null;
 }
 
 interface CallEditModalProps {
@@ -42,6 +44,12 @@ function formatDateTimeLocal(iso: string | null): string {
   return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
 }
 
+const OUTCOME_OPTIONS: { value: string | null; label: string; icon: React.ReactNode; color: string }[] = [
+  { value: null, label: "Not Set", icon: <MinusCircle className="w-4 h-4" />, color: "text-muted-foreground border-border" },
+  { value: "resolved", label: "Resolved", icon: <CheckCircle2 className="w-4 h-4" />, color: "text-emerald-600 border-emerald-500/50 bg-emerald-500/10" },
+  { value: "unresolved", label: "Unresolved", icon: <XCircle className="w-4 h-4" />, color: "text-red-500 border-red-500/50 bg-red-500/10" },
+];
+
 export default function CallEditModal({ call, open, onClose, onSaved }: CallEditModalProps) {
   const { toast } = useToast();
   const [saving, setSaving] = useState(false);
@@ -51,6 +59,8 @@ export default function CallEditModal({ call, open, onClose, onSaved }: CallEdit
   const [duration, setDuration] = useState("");
   const [startedAt, setStartedAt] = useState("");
   const [notes, setNotes] = useState("");
+  const [pinned, setPinned] = useState(false);
+  const [outcome, setOutcome] = useState<string | null>(null);
 
   useEffect(() => {
     if (call) {
@@ -59,6 +69,8 @@ export default function CallEditModal({ call, open, onClose, onSaved }: CallEdit
       setDuration(call.duration != null ? String(call.duration) : "");
       setStartedAt(formatDateTimeLocal(call.started_at));
       setNotes(call.notes || "");
+      setPinned(call.pinned ?? false);
+      setOutcome(call.outcome ?? null);
     }
   }, [call]);
 
@@ -76,6 +88,8 @@ export default function CallEditModal({ call, open, onClose, onSaved }: CallEdit
         started_at: startedVal,
         notes: notes.trim() || null,
         notes_updated_at: notes.trim() ? new Date().toISOString() : null,
+        pinned,
+        outcome,
       };
 
       const { error } = await supabase.from("calls").update(updates).eq("id", call.id);
@@ -104,7 +118,17 @@ export default function CallEditModal({ call, open, onClose, onSaved }: CallEdit
     <Dialog open={open} onOpenChange={(v) => { if (!v) onClose(); }}>
       <DialogContent className="sm:max-w-lg">
         <DialogHeader>
-          <DialogTitle>Edit Call Details</DialogTitle>
+          <DialogTitle className="flex items-center justify-between">
+            <span>Edit Call Details</span>
+            <button
+              type="button"
+              onClick={() => setPinned((p) => !p)}
+              className={`p-1.5 rounded-md transition-colors ${pinned ? "text-amber-500 bg-amber-500/10" : "text-muted-foreground hover:text-amber-500 hover:bg-amber-500/10"}`}
+              title={pinned ? "Unpin call" : "Pin call"}
+            >
+              <Star className={`w-4 h-4 ${pinned ? "fill-amber-500" : ""}`} />
+            </button>
+          </DialogTitle>
           <p className="text-sm text-muted-foreground">{dateLabel} &mdash; {call.phone_number}</p>
         </DialogHeader>
 
@@ -150,6 +174,27 @@ export default function CallEditModal({ call, open, onClose, onSaved }: CallEdit
                 value={startedAt}
                 onChange={(e) => setStartedAt(e.target.value)}
               />
+            </div>
+          </div>
+
+          <div className="space-y-1.5">
+            <Label>Outcome</Label>
+            <div className="flex items-center gap-2">
+              {OUTCOME_OPTIONS.map((opt) => (
+                <button
+                  key={String(opt.value)}
+                  type="button"
+                  onClick={() => setOutcome(opt.value)}
+                  className={`flex items-center gap-1.5 px-3 py-1.5 rounded-md border text-sm font-medium transition-colors ${
+                    outcome === opt.value
+                      ? opt.color
+                      : "text-muted-foreground border-border hover:bg-muted/50"
+                  }`}
+                >
+                  {opt.icon}
+                  {opt.label}
+                </button>
+              ))}
             </div>
           </div>
 

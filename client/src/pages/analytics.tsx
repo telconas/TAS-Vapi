@@ -2,8 +2,8 @@ import { useState, useEffect, useMemo } from "react";
 import { Link } from "wouter";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { supabase, EDGE_FUNCTIONS_URL } from "@/lib/supabase";
-import { Phone, Clock, DollarSign, ChevronLeft, ChevronRight, ArrowLeft, ChartBar as BarChart2, FileText, Pencil, Trash2 } from "lucide-react";
+import { supabase } from "@/lib/supabase";
+import { Phone, Clock, DollarSign, ChevronLeft, ChevronRight, ArrowLeft, ChartBar as BarChart2, FileText, Pencil, Trash2, Star, CircleCheck as CheckCircle2, Circle as XCircle, TrendingUp } from "lucide-react";
 import CallEditModal, { type CallDetail } from "@/components/call-edit-modal";
 
 const HOURLY_RATE = 35;
@@ -27,6 +27,8 @@ interface CallRecord {
   ended_at: string | null;
   summary: string | null;
   notes: string | null;
+  pinned: boolean;
+  outcome: string | null;
 }
 
 function formatDuration(seconds: number): string {
@@ -52,6 +54,24 @@ const MONTHS = [
   "July", "August", "September", "October", "November", "December",
 ];
 
+function OutcomeBadge({ outcome }: { outcome: string | null }) {
+  if (outcome === "resolved") {
+    return (
+      <span className="inline-flex items-center gap-1 text-xs font-medium text-emerald-600 bg-emerald-500/10 border border-emerald-500/30 rounded px-1.5 py-0.5">
+        <CheckCircle2 className="w-3 h-3" /> Resolved
+      </span>
+    );
+  }
+  if (outcome === "unresolved") {
+    return (
+      <span className="inline-flex items-center gap-1 text-xs font-medium text-red-500 bg-red-500/10 border border-red-500/30 rounded px-1.5 py-0.5">
+        <XCircle className="w-3 h-3" /> Unresolved
+      </span>
+    );
+  }
+  return null;
+}
+
 export default function Analytics() {
   const [currentDate, setCurrentDate] = useState(new Date());
   const [selectedDate, setSelectedDate] = useState<string | null>(null);
@@ -59,6 +79,8 @@ export default function Analytics() {
   const [loading, setLoading] = useState(true);
   const [editingCall, setEditingCall] = useState<CallDetail | null>(null);
   const [deletingCallId, setDeletingCallId] = useState<string | null>(null);
+  const [togglingPinId, setTogglingPinId] = useState<string | null>(null);
+  const [showPinnedOnly, setShowPinnedOnly] = useState(false);
 
   const handleDeleteCall = async (callId: string) => {
     setDeletingCallId(callId);
@@ -72,6 +94,19 @@ export default function Analytics() {
     }
   };
 
+  const handleTogglePin = async (call: CallRecord) => {
+    setTogglingPinId(call.id);
+    const newPinned = !call.pinned;
+    try {
+      await supabase.from("calls").update({ pinned: newPinned }).eq("id", call.id);
+      setAllCalls((prev) => prev.map((c) => c.id === call.id ? { ...c, pinned: newPinned } : c));
+    } catch (err) {
+      console.error("Error toggling pin:", err);
+    } finally {
+      setTogglingPinId(null);
+    }
+  };
+
   const year = currentDate.getFullYear();
   const month = currentDate.getMonth();
 
@@ -81,7 +116,7 @@ export default function Analytics() {
       try {
         const { data, error } = await supabase
           .from("calls")
-          .select("id, phone_number, provider_name, caller_name, duration, cost_usd, status, started_at, ended_at, summary, notes")
+          .select("id, phone_number, provider_name, caller_name, duration, cost_usd, status, started_at, ended_at, summary, notes, pinned, outcome")
           .in("status", ["ended", "transferred"])
           .order("started_at", { ascending: false });
 
@@ -140,6 +175,32 @@ export default function Analytics() {
     });
   }, [allCalls, selectedDate]);
 
+  const pinnedCalls = useMemo(() => allCalls.filter((c) => c.pinned), [allCalls]);
+
+  const providerDurationData = useMemo(() => {
+    const map: Record<string, { totalSeconds: number; count: number }> = {};
+    for (const call of allCalls) {
+      const key = call.provider_name || "Unknown";
+      const dur = call.duration ?? 0;
+      if (!map[key]) map[key] = { totalSeconds: 0, count: 0 };
+      map[key].totalSeconds += dur;
+      map[key].count += 1;
+    }
+    return Object.entries(map)
+      .map(([name, d]) => ({ name, avgSeconds: Math.round(d.totalSeconds / d.count), count: d.count }))
+      .filter((d) => d.count >= 1)
+      .sort((a, b) => b.avgSeconds - a.avgSeconds)
+      .slice(0, 8);
+  }, [allCalls]);
+
+  const successStats = useMemo(() => {
+    const withOutcome = allCalls.filter((c) => c.outcome !== null);
+    const resolved = withOutcome.filter((c) => c.outcome === "resolved").length;
+    const unresolved = withOutcome.filter((c) => c.outcome === "unresolved").length;
+    const rate = withOutcome.length > 0 ? Math.round((resolved / withOutcome.length) * 100) : null;
+    return { resolved, unresolved, withOutcome: withOutcome.length, rate };
+  }, [allCalls]);
+
   const calendarDays = useMemo(() => {
     const firstDay = new Date(year, month, 1).getDay();
     const daysInMonth = new Date(year, month + 1, 0).getDate();
@@ -164,6 +225,10 @@ export default function Analytics() {
     return "bg-primary/70 border-primary/80";
   };
 
+  const maxAvgSeconds = providerDurationData.length > 0 ? providerDurationData[0].avgSeconds : 1;
+
+  const displayedDayCalls = showPinnedOnly ? pinnedCalls : selectedDayCalls;
+
   return (
     <div className="min-h-screen bg-background">
       <header className="border-b border-border bg-card/50 backdrop-blur">
@@ -177,6 +242,14 @@ export default function Analytics() {
               <p className="text-sm text-muted-foreground">Cost tracking at $35/hour</p>
             </div>
             <div className="ml-auto flex items-center gap-2">
+              <Button
+                variant={showPinnedOnly ? "default" : "outline"}
+                size="sm"
+                onClick={() => { setShowPinnedOnly((v) => !v); setSelectedDate(null); }}
+              >
+                <Star className={`w-4 h-4 mr-2 ${showPinnedOnly ? "fill-current" : ""}`} />
+                Pinned {pinnedCalls.length > 0 && `(${pinnedCalls.length})`}
+              </Button>
               <Link href="/reports">
                 <Button variant="outline" size="sm">
                   <FileText className="w-4 h-4 mr-2" />
@@ -226,12 +299,12 @@ export default function Analytics() {
                   const dateStr = getDateStr(day);
                   const data = dayDataMap[dateStr];
                   const isToday = dateStr === todayStr;
-                  const isSelected = dateStr === selectedDate;
+                  const isSelected = dateStr === selectedDate && !showPinnedOnly;
 
                   return (
                     <button
                       key={dateStr}
-                      onClick={() => setSelectedDate(isSelected ? null : dateStr)}
+                      onClick={() => { setShowPinnedOnly(false); setSelectedDate(isSelected ? null : dateStr); }}
                       className={[
                         "aspect-square rounded-lg border text-sm flex flex-col items-center justify-center gap-0.5 transition-all hover:border-primary/60",
                         data ? intensityClass(data.calls) : "border-border/40 hover:bg-muted/30",
@@ -268,26 +341,33 @@ export default function Analytics() {
               </div>
             </Card>
 
-            {selectedDate && (
+            {(showPinnedOnly || selectedDate) && (
               <Card className="p-6">
                 <h3 className="text-lg font-semibold mb-4">
-                  {new Date(selectedDate + "T12:00:00").toLocaleDateString("en-US", {
-                    weekday: "long", year: "numeric", month: "long", day: "numeric",
-                  })}
+                  {showPinnedOnly
+                    ? "Pinned Calls"
+                    : new Date(selectedDate! + "T12:00:00").toLocaleDateString("en-US", {
+                        weekday: "long", year: "numeric", month: "long", day: "numeric",
+                      })}
                 </h3>
 
-                {selectedDayCalls.length === 0 ? (
-                  <p className="text-muted-foreground text-sm">No completed calls on this day.</p>
+                {displayedDayCalls.length === 0 ? (
+                  <p className="text-muted-foreground text-sm">
+                    {showPinnedOnly ? "No pinned calls yet. Pin a call by clicking the star icon." : "No completed calls on this day."}
+                  </p>
                 ) : (
                   <div className="space-y-3">
-                    {selectedDayCalls.map((call) => {
+                    {displayedDayCalls.map((call) => {
                       const dur = call.duration ?? 0;
                       const cost = call.cost_usd != null ? Number(call.cost_usd) : calcCost(dur);
                       return (
                         <div key={call.id} className="p-3 rounded-lg bg-muted/30 border border-border space-y-2">
                           <div className="flex items-center justify-between">
-                            <div className="space-y-0.5">
-                              <p className="text-sm font-medium font-mono">{call.phone_number}</p>
+                            <div className="space-y-0.5 min-w-0 flex-1 mr-3">
+                              <div className="flex items-center gap-2 flex-wrap">
+                                <p className="text-sm font-medium font-mono">{call.phone_number}</p>
+                                <OutcomeBadge outcome={call.outcome} />
+                              </div>
                               <div className="flex items-center gap-2 text-xs text-muted-foreground">
                                 {call.started_at && (
                                   <span>{new Date(call.started_at).toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit" })}</span>
@@ -296,15 +376,27 @@ export default function Analytics() {
                                 {call.caller_name && <span>&bull; {call.caller_name}</span>}
                               </div>
                             </div>
-                            <div className="flex items-center gap-4 text-sm">
-                              <div className="text-right">
+                            <div className="flex items-center gap-2 text-sm shrink-0">
+                              <div className="text-right hidden sm:block">
                                 <p className="text-xs text-muted-foreground">Duration</p>
                                 <p className="font-mono font-medium">{formatDuration(dur)}</p>
                               </div>
-                              <div className="text-right">
+                              <div className="text-right hidden sm:block">
                                 <p className="text-xs text-muted-foreground">Cost</p>
                                 <p className="font-mono font-medium text-emerald-600 dark:text-emerald-400">{formatCost(cost)}</p>
                               </div>
+                              <button
+                                className={`p-1.5 rounded-md transition-colors ${
+                                  call.pinned
+                                    ? "text-amber-500 bg-amber-500/10"
+                                    : "text-muted-foreground hover:text-amber-500 hover:bg-amber-500/10"
+                                }`}
+                                disabled={togglingPinId === call.id}
+                                onClick={() => handleTogglePin(call)}
+                                title={call.pinned ? "Unpin" : "Pin call"}
+                              >
+                                <Star className={`w-3.5 h-3.5 ${call.pinned ? "fill-amber-500" : ""}`} />
+                              </button>
                               <Button
                                 variant="ghost"
                                 size="icon"
@@ -313,15 +405,17 @@ export default function Analytics() {
                               >
                                 <Pencil className="w-3.5 h-3.5" />
                               </Button>
-                              <Button
-                                variant="ghost"
-                                size="icon"
-                                className="h-8 w-8 text-muted-foreground hover:text-destructive"
-                                disabled={deletingCallId === call.id}
-                                onClick={() => handleDeleteCall(call.id)}
-                              >
-                                <Trash2 className="w-3.5 h-3.5" />
-                              </Button>
+                              {!showPinnedOnly && (
+                                <Button
+                                  variant="ghost"
+                                  size="icon"
+                                  className="h-8 w-8 text-muted-foreground hover:text-destructive"
+                                  disabled={deletingCallId === call.id}
+                                  onClick={() => handleDeleteCall(call.id)}
+                                >
+                                  <Trash2 className="w-3.5 h-3.5" />
+                                </Button>
+                              )}
                             </div>
                           </div>
                           {call.notes && (
@@ -333,7 +427,7 @@ export default function Analytics() {
                       );
                     })}
 
-                    {(() => {
+                    {!showPinnedOnly && selectedDate && (() => {
                       const dayData = dayDataMap[selectedDate];
                       if (!dayData) return null;
                       return (
@@ -350,6 +444,37 @@ export default function Analytics() {
                     })()}
                   </div>
                 )}
+              </Card>
+            )}
+
+            {providerDurationData.length > 0 && (
+              <Card className="p-6">
+                <div className="flex items-center gap-2 mb-5">
+                  <TrendingUp className="w-5 h-5 text-primary" />
+                  <h3 className="text-lg font-semibold">Avg. Call Duration by Provider</h3>
+                </div>
+                <div className="space-y-3">
+                  {providerDurationData.map((d) => {
+                    const pct = maxAvgSeconds > 0 ? (d.avgSeconds / maxAvgSeconds) * 100 : 0;
+                    return (
+                      <div key={d.name} className="space-y-1">
+                        <div className="flex items-center justify-between text-sm">
+                          <span className="font-medium truncate max-w-[200px]">{d.name}</span>
+                          <div className="flex items-center gap-3 text-muted-foreground shrink-0">
+                            <span className="text-xs">{d.count} {d.count === 1 ? "call" : "calls"}</span>
+                            <span className="font-mono font-semibold text-foreground">{formatDuration(d.avgSeconds)}</span>
+                          </div>
+                        </div>
+                        <div className="h-2 rounded-full bg-muted overflow-hidden">
+                          <div
+                            className="h-full rounded-full bg-primary/70 transition-all duration-500"
+                            style={{ width: `${pct}%` }}
+                          />
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
               </Card>
             )}
           </div>
@@ -395,6 +520,48 @@ export default function Analytics() {
               <p className="text-xs text-muted-foreground mt-1">vs. $35/hr live agent</p>
             </Card>
 
+            <Card className="p-5">
+              <div className="flex items-center gap-3 mb-3">
+                <div className="w-9 h-9 rounded-lg bg-sky-500/10 flex items-center justify-center">
+                  <CheckCircle2 className="w-5 h-5 text-sky-500" />
+                </div>
+                <p className="text-sm text-muted-foreground">Success Rate</p>
+              </div>
+              {successStats.withOutcome === 0 ? (
+                <p className="text-sm text-muted-foreground">No outcomes tracked yet. Edit a call to set resolved / unresolved.</p>
+              ) : (
+                <>
+                  <p className="text-3xl font-bold">
+                    {successStats.rate !== null ? `${successStats.rate}%` : "—"}
+                  </p>
+                  <div className="mt-3 h-2 rounded-full bg-muted overflow-hidden">
+                    <div
+                      className="h-full rounded-full bg-emerald-500 transition-all duration-500"
+                      style={{ width: `${successStats.rate ?? 0}%` }}
+                    />
+                  </div>
+                  <div className="mt-3 space-y-1.5">
+                    <div className="flex items-center justify-between text-xs">
+                      <span className="flex items-center gap-1.5 text-emerald-600">
+                        <CheckCircle2 className="w-3.5 h-3.5" /> Resolved
+                      </span>
+                      <span className="font-semibold">{successStats.resolved}</span>
+                    </div>
+                    <div className="flex items-center justify-between text-xs">
+                      <span className="flex items-center gap-1.5 text-red-500">
+                        <XCircle className="w-3.5 h-3.5" /> Unresolved
+                      </span>
+                      <span className="font-semibold">{successStats.unresolved}</span>
+                    </div>
+                    <div className="flex items-center justify-between text-xs text-muted-foreground">
+                      <span>Total tracked</span>
+                      <span className="font-semibold">{successStats.withOutcome}</span>
+                    </div>
+                  </div>
+                </>
+              )}
+            </Card>
+
             <Card className="p-5 bg-muted/20">
               <p className="text-xs text-muted-foreground uppercase tracking-wide font-semibold mb-3">All-Time</p>
               <div className="space-y-3">
@@ -418,6 +585,10 @@ export default function Analytics() {
                       }, 0)
                     )}
                   </span>
+                </div>
+                <div className="flex justify-between items-center">
+                  <span className="text-sm text-muted-foreground">Pinned calls</span>
+                  <span className="font-semibold text-amber-500">{pinnedCalls.length}</span>
                 </div>
               </div>
             </Card>

@@ -3,17 +3,7 @@ import { Link } from "wouter";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { supabase } from "@/lib/supabase";
-import {
-  Phone,
-  Clock,
-  DollarSign,
-  ArrowLeft,
-  FileText,
-  ChevronLeft,
-  ChevronRight,
-  Download,
-  Pencil,
-} from "lucide-react";
+import { Phone, Clock, DollarSign, ArrowLeft, FileText, ChevronLeft, ChevronRight, Download, Pencil, Star, CircleCheck as CheckCircle2, Circle as XCircle } from "lucide-react";
 import CallEditModal, { type CallDetail } from "@/components/call-edit-modal";
 
 const HOURLY_RATE = 35;
@@ -30,6 +20,8 @@ interface CallRecord {
   ended_at: string | null;
   summary: string | null;
   notes: string | null;
+  pinned: boolean;
+  outcome: string | null;
 }
 
 function formatDuration(seconds: number): string {
@@ -141,6 +133,20 @@ export default function Reports() {
   const [loading, setLoading] = useState(true);
   const [expandedProvider, setExpandedProvider] = useState<string | null>(null);
   const [editingCall, setEditingCall] = useState<CallDetail | null>(null);
+  const [togglingPinId, setTogglingPinId] = useState<string | null>(null);
+
+  const handleTogglePin = async (call: CallRecord) => {
+    setTogglingPinId(call.id);
+    const newPinned = !call.pinned;
+    try {
+      await supabase.from("calls").update({ pinned: newPinned }).eq("id", call.id);
+      setAllCalls((prev) => prev.map((c) => c.id === call.id ? { ...c, pinned: newPinned } : c));
+    } catch (err) {
+      console.error("Error toggling pin:", err);
+    } finally {
+      setTogglingPinId(null);
+    }
+  };
 
   useEffect(() => {
     const fetchCalls = async () => {
@@ -148,7 +154,7 @@ export default function Reports() {
       try {
         const { data, error } = await supabase
           .from("calls")
-          .select("id, phone_number, provider_name, caller_name, duration, cost_usd, status, started_at, ended_at, summary, notes")
+          .select("id, phone_number, provider_name, caller_name, duration, cost_usd, status, started_at, ended_at, summary, notes, pinned, outcome")
           .in("status", ["ended", "transferred"])
           .order("started_at", { ascending: false });
         if (!error && data) setAllCalls(data as CallRecord[]);
@@ -362,8 +368,20 @@ export default function Reports() {
                             className="px-6 py-3 bg-muted/10 space-y-1.5"
                           >
                             <div className="flex items-center justify-between">
-                              <div className="space-y-0.5">
-                                <p className="text-sm font-mono">{call.phone_number}</p>
+                              <div className="space-y-0.5 min-w-0 flex-1 mr-3">
+                                <div className="flex items-center gap-2 flex-wrap">
+                                  <p className="text-sm font-mono">{call.phone_number}</p>
+                                  {call.outcome === "resolved" && (
+                                    <span className="inline-flex items-center gap-1 text-xs font-medium text-emerald-600 bg-emerald-500/10 border border-emerald-500/30 rounded px-1.5 py-0.5">
+                                      <CheckCircle2 className="w-3 h-3" /> Resolved
+                                    </span>
+                                  )}
+                                  {call.outcome === "unresolved" && (
+                                    <span className="inline-flex items-center gap-1 text-xs font-medium text-red-500 bg-red-500/10 border border-red-500/30 rounded px-1.5 py-0.5">
+                                      <XCircle className="w-3 h-3" /> Unresolved
+                                    </span>
+                                  )}
+                                </div>
                                 <div className="flex items-center gap-3 text-xs text-muted-foreground">
                                   {dt && (
                                     <span>
@@ -384,17 +402,29 @@ export default function Reports() {
                                   )}
                                 </div>
                               </div>
-                              <div className="flex items-center gap-4 text-sm">
-                                <div className="text-right">
+                              <div className="flex items-center gap-2 text-sm shrink-0">
+                                <div className="text-right hidden sm:block">
                                   <p className="text-xs text-muted-foreground">Duration</p>
                                   <p className="font-mono font-medium">{formatDuration(dur)}</p>
                                 </div>
-                                <div className="text-right">
+                                <div className="text-right hidden sm:block">
                                   <p className="text-xs text-muted-foreground">Cost</p>
                                   <p className="font-mono font-medium text-emerald-600 dark:text-emerald-400">
                                     {formatCost(cost)}
                                   </p>
                                 </div>
+                                <button
+                                  className={`p-1.5 rounded-md transition-colors ${
+                                    call.pinned
+                                      ? "text-amber-500 bg-amber-500/10"
+                                      : "text-muted-foreground hover:text-amber-500 hover:bg-amber-500/10"
+                                  }`}
+                                  disabled={togglingPinId === call.id}
+                                  onClick={() => handleTogglePin(call)}
+                                  title={call.pinned ? "Unpin" : "Pin call"}
+                                >
+                                  <Star className={`w-3.5 h-3.5 ${call.pinned ? "fill-amber-500" : ""}`} />
+                                </button>
                                 <Button
                                   variant="ghost"
                                   size="icon"
