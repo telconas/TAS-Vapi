@@ -2,8 +2,9 @@ import { useState, useEffect, useMemo } from "react";
 import { Link } from "wouter";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 import { supabase } from "@/lib/supabase";
-import { Phone, Clock, DollarSign, ArrowLeft, FileText, ChevronLeft, ChevronRight, Download, Pencil, Star, CircleCheck as CheckCircle2, Circle as XCircle } from "lucide-react";
+import { Phone, Clock, DollarSign, ArrowLeft, FileText, ChevronLeft, ChevronRight, Download, Pencil, Star, CircleCheck as CheckCircle2, Circle as XCircle, Search, X } from "lucide-react";
 import CallEditModal, { type CallDetail } from "@/components/call-edit-modal";
 import CallDetailModal from "@/components/call-detail-modal";
 
@@ -136,6 +137,7 @@ export default function Reports() {
   const [editingCall, setEditingCall] = useState<CallDetail | null>(null);
   const [viewingCall, setViewingCall] = useState<CallDetail | null>(null);
   const [togglingPinId, setTogglingPinId] = useState<string | null>(null);
+  const [searchQuery, setSearchQuery] = useState("");
 
   const handleTogglePin = async (call: CallRecord) => {
     setTogglingPinId(call.id);
@@ -184,10 +186,23 @@ export default function Reports() {
     [allCalls, start, end]
   );
 
-  const providerSummaries = useMemo(() => buildProviderSummaries(periodCalls), [periodCalls]);
+  const filteredPeriodCalls = useMemo(() => {
+    const q = searchQuery.trim().toLowerCase();
+    if (!q) return periodCalls;
+    return periodCalls.filter((c) =>
+      c.phone_number.toLowerCase().includes(q) ||
+      (c.caller_name?.toLowerCase().includes(q)) ||
+      (c.provider_name?.toLowerCase().includes(q)) ||
+      (c.summary?.toLowerCase().includes(q)) ||
+      (c.notes?.toLowerCase().includes(q)) ||
+      (c.outcome?.toLowerCase().includes(q))
+    );
+  }, [periodCalls, searchQuery]);
+
+  const providerSummaries = useMemo(() => buildProviderSummaries(filteredPeriodCalls), [filteredPeriodCalls]);
 
   const totals = useMemo(() => {
-    return periodCalls.reduce(
+    return filteredPeriodCalls.reduce(
       (acc, c) => {
         const dur = c.duration ?? 0;
         const cost = c.cost_usd != null ? Number(c.cost_usd) : calcCost(dur);
@@ -198,7 +213,7 @@ export default function Reports() {
       },
       { calls: 0, totalSeconds: 0, totalCost: 0 }
     );
-  }, [periodCalls]);
+  }, [filteredPeriodCalls]);
 
   const prev = () => {
     if (mode === "weekly") setWeekOffset((o) => o - 1);
@@ -228,8 +243,8 @@ export default function Reports() {
               <Button
                 variant="outline"
                 size="sm"
-                onClick={() => exportCSV(periodCalls, label)}
-                disabled={periodCalls.length === 0}
+                onClick={() => exportCSV(filteredPeriodCalls, label)}
+                disabled={filteredPeriodCalls.length === 0}
               >
                 <Download className="w-4 h-4 mr-2" />
                 Export CSV
@@ -273,6 +288,24 @@ export default function Reports() {
               <ChevronRight className="w-4 h-4" />
             </Button>
           </div>
+        </div>
+
+        <div className="relative max-w-sm">
+          <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground pointer-events-none" />
+          <Input
+            placeholder="Filter by name, phone, provider, summary..."
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            className="pl-8 pr-8 h-9 text-sm"
+          />
+          {searchQuery && (
+            <button
+              className="absolute right-2 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+              onClick={() => setSearchQuery("")}
+            >
+              <X className="w-3.5 h-3.5" />
+            </button>
+          )}
         </div>
 
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
@@ -319,14 +352,25 @@ export default function Reports() {
           <Card className="p-8 text-center text-muted-foreground">
             No completed calls found for this period.
           </Card>
+        ) : filteredPeriodCalls.length === 0 ? (
+          <Card className="p-8 text-center text-muted-foreground">
+            No calls match &ldquo;{searchQuery.trim()}&rdquo; in this period.
+          </Card>
         ) : (
           <div className="space-y-4">
-            <h2 className="text-sm font-semibold text-muted-foreground uppercase tracking-wide">
-              Breakdown by Carrier
-            </h2>
+            <div className="flex items-center justify-between">
+              <h2 className="text-sm font-semibold text-muted-foreground uppercase tracking-wide">
+                Breakdown by Carrier
+              </h2>
+              {searchQuery.trim() && (
+                <span className="text-xs text-muted-foreground">
+                  {filteredPeriodCalls.length} of {periodCalls.length} calls
+                </span>
+              )}
+            </div>
 
             {providerSummaries.map((ps) => {
-              const isExpanded = expandedProvider === ps.name;
+              const isExpanded = expandedProvider === ps.name || !!searchQuery.trim();
               return (
                 <Card key={ps.name} className="overflow-hidden">
                   <button

@@ -2,8 +2,9 @@ import { useState, useEffect, useMemo } from "react";
 import { Link } from "wouter";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 import { supabase } from "@/lib/supabase";
-import { Phone, Clock, DollarSign, ChevronLeft, ChevronRight, ArrowLeft, ChartBar as BarChart2, FileText, Pencil, Trash2, Star, CircleCheck as CheckCircle2, Circle as XCircle, TrendingUp } from "lucide-react";
+import { Phone, Clock, DollarSign, ChevronLeft, ChevronRight, ArrowLeft, ChartBar as BarChart2, FileText, Pencil, Trash2, Star, CircleCheck as CheckCircle2, Circle as XCircle, TrendingUp, Search, X } from "lucide-react";
 import CallEditModal, { type CallDetail } from "@/components/call-edit-modal";
 import CallDetailModal from "@/components/call-detail-modal";
 
@@ -83,6 +84,7 @@ export default function Analytics() {
   const [deletingCallId, setDeletingCallId] = useState<string | null>(null);
   const [togglingPinId, setTogglingPinId] = useState<string | null>(null);
   const [showPinnedOnly, setShowPinnedOnly] = useState(false);
+  const [searchQuery, setSearchQuery] = useState("");
 
   const handleDeleteCall = async (callId: string) => {
     setDeletingCallId(callId);
@@ -178,6 +180,21 @@ export default function Analytics() {
 
   const pinnedCalls = useMemo(() => allCalls.filter((c) => c.pinned), [allCalls]);
 
+  const searchResults = useMemo(() => {
+    const q = searchQuery.trim().toLowerCase();
+    if (!q) return [];
+    return allCalls.filter((c) => {
+      return (
+        c.phone_number.toLowerCase().includes(q) ||
+        (c.caller_name?.toLowerCase().includes(q)) ||
+        (c.provider_name?.toLowerCase().includes(q)) ||
+        (c.summary?.toLowerCase().includes(q)) ||
+        (c.notes?.toLowerCase().includes(q)) ||
+        (c.outcome?.toLowerCase().includes(q))
+      );
+    });
+  }, [allCalls, searchQuery]);
+
   const providerDurationData = useMemo(() => {
     const map: Record<string, { totalSeconds: number; count: number }> = {};
     for (const call of allCalls) {
@@ -235,18 +252,37 @@ export default function Analytics() {
       <header className="border-b border-border bg-card/50 backdrop-blur">
         <div className="container mx-auto px-6 py-4">
           <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-lg bg-primary flex items-center justify-center">
+            <div className="w-10 h-10 rounded-lg bg-primary flex items-center justify-center shrink-0">
               <BarChart2 className="w-6 h-6 text-primary-foreground" />
             </div>
-            <div>
+            <div className="hidden sm:block">
               <h1 className="text-2xl font-bold">Call Analytics</h1>
               <p className="text-sm text-muted-foreground">Cost tracking at $35/hour</p>
+            </div>
+            <div className="flex-1 max-w-sm ml-2">
+              <div className="relative">
+                <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground pointer-events-none" />
+                <Input
+                  placeholder="Search calls..."
+                  value={searchQuery}
+                  onChange={(e) => { setSearchQuery(e.target.value); setSelectedDate(null); setShowPinnedOnly(false); }}
+                  className="pl-8 pr-8 h-9 text-sm"
+                />
+                {searchQuery && (
+                  <button
+                    className="absolute right-2 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+                    onClick={() => setSearchQuery("")}
+                  >
+                    <X className="w-3.5 h-3.5" />
+                  </button>
+                )}
+              </div>
             </div>
             <div className="ml-auto flex items-center gap-2">
               <Button
                 variant={showPinnedOnly ? "default" : "outline"}
                 size="sm"
-                onClick={() => { setShowPinnedOnly((v) => !v); setSelectedDate(null); }}
+                onClick={() => { setShowPinnedOnly((v) => !v); setSelectedDate(null); setSearchQuery(""); }}
               >
                 <Star className={`w-4 h-4 mr-2 ${showPinnedOnly ? "fill-current" : ""}`} />
                 Pinned {pinnedCalls.length > 0 && `(${pinnedCalls.length})`}
@@ -269,6 +305,86 @@ export default function Analytics() {
       </header>
 
       <main className="container mx-auto px-6 py-8 max-w-6xl">
+        {searchQuery.trim() && (
+          <div className="mb-8">
+            <Card className="p-6">
+              <div className="flex items-center justify-between mb-4">
+                <h3 className="text-lg font-semibold">
+                  Search results
+                  <span className="ml-2 text-sm font-normal text-muted-foreground">
+                    {searchResults.length} {searchResults.length === 1 ? "call" : "calls"} matching &ldquo;{searchQuery.trim()}&rdquo;
+                  </span>
+                </h3>
+                <button
+                  className="text-xs text-muted-foreground hover:text-foreground flex items-center gap-1"
+                  onClick={() => setSearchQuery("")}
+                >
+                  <X className="w-3.5 h-3.5" /> Clear
+                </button>
+              </div>
+              {searchResults.length === 0 ? (
+                <p className="text-sm text-muted-foreground py-4 text-center">No calls found matching your search.</p>
+              ) : (
+                <div className="space-y-2">
+                  {searchResults.map((call) => {
+                    const dur = call.duration ?? 0;
+                    const cost = call.cost_usd != null ? Number(call.cost_usd) : calcCost(dur);
+                    return (
+                      <div
+                        key={call.id}
+                        className="p-3 rounded-lg bg-muted/30 border border-border space-y-1.5 cursor-pointer hover:bg-muted/50 transition-colors"
+                        onClick={() => setViewingCall(call as CallDetail)}
+                      >
+                        <div className="flex items-center justify-between">
+                          <div className="space-y-0.5 min-w-0 flex-1 mr-3">
+                            <div className="flex items-center gap-2 flex-wrap">
+                              <p className="text-sm font-medium font-mono">{call.phone_number}</p>
+                              <OutcomeBadge outcome={call.outcome} />
+                              {call.pinned && <Star className="w-3 h-3 fill-amber-500 text-amber-500" />}
+                            </div>
+                            <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                              {call.started_at && (
+                                <span>
+                                  {new Date(call.started_at).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })}
+                                  {" · "}
+                                  {new Date(call.started_at).toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit" })}
+                                </span>
+                              )}
+                              {call.provider_name && <span>&bull; {call.provider_name}</span>}
+                              {call.caller_name && <span>&bull; {call.caller_name}</span>}
+                            </div>
+                            {call.summary && (
+                              <p className="text-xs text-muted-foreground line-clamp-2 mt-1">{call.summary}</p>
+                            )}
+                          </div>
+                          <div className="flex items-center gap-3 text-sm shrink-0" onClick={(e) => e.stopPropagation()}>
+                            <div className="text-right hidden sm:block">
+                              <p className="text-xs text-muted-foreground">Duration</p>
+                              <p className="font-mono font-medium">{formatDuration(dur)}</p>
+                            </div>
+                            <div className="text-right hidden sm:block">
+                              <p className="text-xs text-muted-foreground">Cost</p>
+                              <p className="font-mono font-medium text-emerald-600 dark:text-emerald-400">{formatCost(cost)}</p>
+                            </div>
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              className="h-8 w-8 text-muted-foreground hover:text-foreground"
+                              onClick={() => setEditingCall(call as CallDetail)}
+                            >
+                              <Pencil className="w-3.5 h-3.5" />
+                            </Button>
+                          </div>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+            </Card>
+          </div>
+        )}
+
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
           <div className="lg:col-span-2 space-y-6">
             <Card className="p-6">
