@@ -154,7 +154,7 @@ async function createVapiAssistant(params: {
       videoRecordingEnabled: false,
       transcriptPlan: {
         enabled: true,
-        assistantName: "James Martin",
+        assistantName: "${callerName}",
         userName: "Agent",
       },
       recordingPath: "mono",
