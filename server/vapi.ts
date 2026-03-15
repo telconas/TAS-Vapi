@@ -542,6 +542,7 @@ export async function createVapiAssistant(params: {
         userName: "Agent",
       },
       recordingPath: "mono",
+      recordingFormat: "mp3",
     },
     endCallMessage: "Thank you for your help. I appreciate it. Have a great day and Thanks again. goodbye.",
     monitorPlan: {
