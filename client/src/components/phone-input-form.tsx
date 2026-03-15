@@ -18,6 +18,7 @@ interface PhoneInputFormProps {
     prompt: string,
     callerName: string,
     email?: string,
+    providerName?: string,
   ) => void;
   onHangUp: () => void;
   onTransfer: () => void;
@@ -106,7 +107,8 @@ export function PhoneInputForm({
 
   const handleStartCall = () => {
     const fullNumber = `${countryCode}${phoneNumber}`;
-    onStartCall(fullNumber, prompt, callerName, email || undefined);
+    const provider = providers.find((p) => p.number === selectedProvider);
+    onStartCall(fullNumber, prompt, callerName, email || undefined, provider?.name);
   };
 
   const isValid = phoneNumber.length >= 10 && prompt.trim().length > 0;

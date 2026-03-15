@@ -3,7 +3,7 @@ import { Link } from "wouter";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { supabase, EDGE_FUNCTIONS_URL } from "@/lib/supabase";
-import { Phone, Clock, DollarSign, ChevronLeft, ChevronRight, ArrowLeft, ChartBar as BarChart2 } from "lucide-react";
+import { Phone, Clock, DollarSign, ChevronLeft, ChevronRight, ArrowLeft, ChartBar as BarChart2, FileText } from "lucide-react";
 
 const HOURLY_RATE = 35;
 
@@ -158,7 +158,13 @@ export default function Analytics() {
               <h1 className="text-2xl font-bold">Call Analytics</h1>
               <p className="text-sm text-muted-foreground">Cost tracking at $35/hour</p>
             </div>
-            <div className="ml-auto">
+            <div className="ml-auto flex items-center gap-2">
+              <Link href="/reports">
+                <Button variant="outline" size="sm">
+                  <FileText className="w-4 h-4 mr-2" />
+                  Reports
+                </Button>
+              </Link>
               <Link href="/">
                 <Button variant="outline" size="sm">
                   <ArrowLeft className="w-4 h-4 mr-2" />

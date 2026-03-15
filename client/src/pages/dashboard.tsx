@@ -11,7 +11,7 @@ import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { useToast } from "@/hooks/use-toast";
 import type { TranscriptMessage } from "@shared/schema";
-import { Phone, ChartBar as BarChart2 } from "lucide-react";
+import { Phone, ChartBar as BarChart2, FileText } from "lucide-react";
 import { Link } from "wouter";
 import { supabase, EDGE_FUNCTIONS_URL } from "@/lib/supabase";
 import { playDtmfTone } from "@/lib/dtmf-tones";
@@ -178,7 +178,7 @@ export default function Dashboard() {
     }
   };
 
-  const handleStartCall = async (phone: string, prompt: string, callerName: string, email?: string) => {
+  const handleStartCall = async (phone: string, prompt: string, callerName: string, email?: string, providerName?: string) => {
     try {
       callActiveRef.current = true;
       currentCallIdRef.current = null;
@@ -198,6 +198,7 @@ export default function Dashboard() {
           prompt,
           callerName,
           emailRecipient: email,
+          providerName: providerName || null,
           voiceProvider: "elevenlabs",
           elevenLabsVoice: selectedElevenLabsVoice,
         }),
@@ -319,11 +320,17 @@ export default function Dashboard() {
                 Powered by Vapi and ElevenLabs
               </p>
             </div>
-            <div className="ml-auto">
+            <div className="ml-auto flex items-center gap-2">
               <Link href="/analytics">
                 <Button variant="outline" size="sm">
                   <BarChart2 className="w-4 h-4 mr-2" />
                   Analytics
+                </Button>
+              </Link>
+              <Link href="/reports">
+                <Button variant="outline" size="sm">
+                  <FileText className="w-4 h-4 mr-2" />
+                  Reports
                 </Button>
               </Link>
             </div>

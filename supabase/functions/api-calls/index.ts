@@ -434,6 +434,7 @@ Deno.serve(async (req: Request) => {
         elevenLabsVoice,
         voiceProvider,
         emailRecipient,
+        providerName,
       } = body;
 
       if (!phoneNumber) {
@@ -465,6 +466,7 @@ Deno.serve(async (req: Request) => {
           email_recipient: emailRecipient || null,
           call_type: "ai",
           caller_name: callerName || "James Martin",
+          provider_name: providerName || null,
         })
         .select()
         .single();
