@@ -317,7 +317,7 @@ export default function Dashboard() {
             <div>
               <h1 className="text-2xl font-bold">TAS AI Agent</h1>
               <p className="text-sm text-muted-foreground">
-                Powered by Vapi and ElevenLabs
+                Powered by OpenAI, Vapi, and ElevenLabs
               </p>
             </div>
             <div className="ml-auto flex items-center gap-2">
