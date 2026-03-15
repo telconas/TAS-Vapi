@@ -6,7 +6,7 @@ import { useState } from "react";
 import { useToast } from "@/hooks/use-toast";
 import { RecordingPlayer } from "./recording-player";
 
-const HOURLY_RATE = 35;
+const HOURLY_RATE = 30;
 
 interface CallSummaryProps {
   duration: number;
@@ -84,7 +84,7 @@ export function CallSummary({ duration, transcript, onDownloadTranscript, record
             <p className="text-2xl font-semibold font-mono text-emerald-600 dark:text-emerald-400">
               ${((duration / 3600) * HOURLY_RATE).toFixed(2)}
             </p>
-            <p className="text-xs text-muted-foreground">@ $35/hr</p>
+            <p className="text-xs text-muted-foreground">@ $30/hr</p>
           </div>
 
           <div className="space-y-2">

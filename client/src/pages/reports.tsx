@@ -8,7 +8,7 @@ import { Phone, Clock, DollarSign, ArrowLeft, FileText, ChevronLeft, ChevronRigh
 import CallEditModal, { type CallDetail } from "@/components/call-edit-modal";
 import CallDetailModal from "@/components/call-detail-modal";
 
-const HOURLY_RATE = 35;
+const HOURLY_RATE = 30;
 
 interface CallRecord {
   id: string;
@@ -342,7 +342,7 @@ export default function Reports() {
             <p className="text-3xl font-bold text-emerald-600 dark:text-emerald-400">
               {formatCost(totals.totalCost)}
             </p>
-            <p className="text-xs text-muted-foreground mt-1">vs. $35/hr live agent</p>
+            <p className="text-xs text-muted-foreground mt-1">vs. $30/hr live agent</p>
           </Card>
         </div>
 

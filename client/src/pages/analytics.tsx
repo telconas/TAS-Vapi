@@ -8,7 +8,7 @@ import { Phone, Clock, DollarSign, ChevronLeft, ChevronRight, ArrowLeft, ChartBa
 import CallEditModal, { type CallDetail } from "@/components/call-edit-modal";
 import CallDetailModal from "@/components/call-detail-modal";
 
-const HOURLY_RATE = 35;
+const HOURLY_RATE = 30;
 
 interface DayData {
   date: string;
@@ -257,7 +257,7 @@ export default function Analytics() {
             </div>
             <div className="hidden sm:block">
               <h1 className="text-2xl font-bold">Call Analytics</h1>
-              <p className="text-sm text-muted-foreground">Cost tracking at $35/hour</p>
+              <p className="text-sm text-muted-foreground">Cost tracking at $30/hour</p>
             </div>
             <div className="flex-1 max-w-sm ml-2">
               <div className="relative">
@@ -638,7 +638,7 @@ export default function Analytics() {
               <p className="text-3xl font-bold text-emerald-600 dark:text-emerald-400">
                 {formatCost(monthSummary.totalCost)}
               </p>
-              <p className="text-xs text-muted-foreground mt-1">vs. $35/hr live agent</p>
+              <p className="text-xs text-muted-foreground mt-1">vs. $30/hr live agent</p>
             </Card>
 
             <Card className="p-5">

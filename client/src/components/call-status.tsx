@@ -1,7 +1,7 @@
 import { Badge } from "@/components/ui/badge";
 import { Phone, PhoneCall, PhoneOff, PhoneForwarded, Timer, DollarSign } from "lucide-react";
 
-const HOURLY_RATE = 35;
+const HOURLY_RATE = 30;
 
 interface CallStatusProps {
   status: "idle" | "ringing" | "connected" | "ended" | "transferred" | "transferring";

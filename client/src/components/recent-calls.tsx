@@ -12,7 +12,7 @@ import {
   Star,
 } from "lucide-react";
 
-const HOURLY_RATE = 35;
+const HOURLY_RATE = 30;
 
 interface RecentCall {
   id: string;

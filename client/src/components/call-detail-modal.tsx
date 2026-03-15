@@ -8,7 +8,7 @@ import { Button } from "@/components/ui/button";
 import { Pencil, Clock, DollarSign, Phone, CircleCheck as CheckCircle2, Circle as XCircle, Star, FileText } from "lucide-react";
 import type { CallDetail } from "@/components/call-edit-modal";
 
-const HOURLY_RATE = 35;
+const HOURLY_RATE = 30;
 
 function formatDuration(seconds: number): string {
   const hrs = Math.floor(seconds / 3600);
