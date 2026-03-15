@@ -393,7 +393,25 @@ If the phone system has not asked a question:
 
 OUTPUT: ""
 
-Silence is correct behavior when waiting.`;
+Silence is correct behavior when waiting.
+
+------------------------------------------------------------
+KNOWLEDGE BASE
+------------------------------------------------------------
+
+You have access to a knowledge base tool called "knowledge-search".
+
+Use it to look up:
+
+• DocuSign routing instructions for specific clients
+• Email addresses and their phonetic spellings
+• Retention and upsell decline scripts
+• Appointment scheduling procedures
+• Callback offer handling
+• Site hours of operation
+• Any detailed script or procedure not covered above
+
+Call the tool before giving a response whenever the situation involves one of these topics.`;
 }
 
 interface VoiceConfig {
@@ -468,6 +486,21 @@ export async function createVapiAssistant(params: {
             name: "transfer_call",
             description: "Transfer the call to another number",
           },
+        },
+        {
+          type: "query",
+          function: {
+            name: "knowledge-search",
+            description: "Search the knowledge base for call handling instructions, scripts, and procedures",
+          },
+          knowledgeBases: [
+            {
+              provider: "google",
+              name: "call-instructions",
+              description: "Contains detailed call handling instructions, agent scripts, DocuSign procedures, retention handling, appointment scheduling, email spellings, and all reference material for conducting phone calls",
+              fileIds: ["c3d26ef5-a6c0-44c2-bc68-d3b96d715325"],
+            },
+          ],
         },
       ],
     },
