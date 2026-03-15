@@ -110,58 +110,136 @@ export async function sendCallSummaryEmail(
     console.error("[EMAIL DEBUG] hasRecording:", hasRecording);
 
     const emailHtml = `
-      <!DOCTYPE html>
-      <html>
-      <head>
-        <style>
-          body { font-family: Arial, sans-serif; line-height: 1.6; color: #333; }
-          .container { max-width: 600px; margin: 0 auto; padding: 20px; }
-          .header { background: #219ebc; color: white; padding: 20px; border-radius: 5px 5px 0 0; }
-          .content { background: #f9f9f9; padding: 20px; border: 1px solid #ddd; }
-          .summary { background: white; padding: 15px; border-left: 4px solid #219ebc; margin: 20px 0; }
-          .summary ul { margin: 0; padding-left: 20px; }
-          .summary li { margin: 8px 0; }
-          .meta { color: #666; font-size: 14px; margin: 10px 0; }
-          .footer { text-align: center; margin-top: 20px; color: #999; font-size: 12px; }
-          .recording-link { display: inline-block; background: #219ebc; color: white; padding: 10px 20px; text-decoration: none; border-radius: 5px; margin-top: 10px; }
-        </style>
-      </head>
-      <body>
-        <div class="container">
-          <div class="header">
-            <h1>📞 TAS Call Summary</h1>
-          </div>
-          <div class="content">
-            <p class="meta"><strong>Phone Number:</strong> ${phoneNumber}</p>
-            <p class="meta"><strong>Duration:</strong> ${formatDuration(duration)}</p>
+    <!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>TAS Call Summary</title>
+</head>
+<body style="margin:0; padding:0; background-color:#eef3f8; font-family:Arial, Helvetica, sans-serif; color:#1f2937;">
+  <table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%" style="background-color:#eef3f8; margin:0; padding:0;">
+    <tr>
+      <td align="center" style="padding:32px 16px;">
+        
+        <table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%" style="max-width:640px; background-color:#ffffff; border-radius:16px; overflow:hidden; box-shadow:0 6px 24px rgba(0,0,0,0.08);">
+          
+          <!-- Header -->
+          <tr>
+            <td style="background:linear-gradient(135deg, #023047 0%, #219ebc 100%); padding:28px 32px 22px 32px;">
+              <div style="font-size:12px; line-height:12px; font-weight:bold; letter-spacing:1.2px; text-transform:uppercase; color:#bfeaf3; margin-bottom:10px;">
+                TAS AI Agent
+              </div>
+              <div style="font-size:30px; line-height:36px; font-weight:bold; color:#ffffff; margin:0;">
+                📞 Call Summary
+              </div>
+              <div style="font-size:15px; line-height:22px; color:#d8f3f8; margin-top:8px;">
+                Automated summary of your recent TAS call activity
+              </div>
+            </td>
+          </tr>
 
-            <h2>Summary of TAS Call</h2>
-            <div class="summary">
-              <ul>
-                ${bulletListHtml}
-              </ul>
-            </div>
+          <!-- Meta Row -->
+          <tr>
+            <td style="padding:24px 32px 8px 32px;">
+              <table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%">
+                <tr>
+                  <td valign="top" width="50%" style="padding:0 8px 16px 0;">
+                    <div style="background-color:#f8fafc; border:1px solid #e5e7eb; border-radius:12px; padding:16px;">
+                      <div style="font-size:12px; line-height:16px; text-transform:uppercase; letter-spacing:0.8px; color:#6b7280; font-weight:bold; margin-bottom:6px;">
+                        Phone Number
+                      </div>
+                      <div style="font-size:16px; line-height:22px; color:#111827; font-weight:bold;">
+                        ${phoneNumber}
+                      </div>
+                    </div>
+                  </td>
+                  <td valign="top" width="50%" style="padding:0 0 16px 8px;">
+                    <div style="background-color:#f8fafc; border:1px solid #e5e7eb; border-radius:12px; padding:16px;">
+                      <div style="font-size:12px; line-height:16px; text-transform:uppercase; letter-spacing:0.8px; color:#6b7280; font-weight:bold; margin-bottom:6px;">
+                        Duration
+                      </div>
+                      <div style="font-size:16px; line-height:22px; color:#111827; font-weight:bold;">
+                        ${formatDuration(duration)}
+                      </div>
+                    </div>
+                  </td>
+                </tr>
+              </table>
+            </td>
+          </tr>
 
-            ${
-              hasRecording
-                ? `
-              <p>
-                <a href="${recordingUrl}" class="recording-link">🎧 Listen to Recording</a>
-              </p>
-            `
-                : `
-              <p style="color: #999; font-style: italic; margin-top: 15px;">
-                Recording not available
-              </p>
-            `
-            }
-          </div>
-          <div class="footer">
-            <p>TAS AI Agent</p>
-          </div>
-        </div>
-      </body>
-      </html>
+          <!-- Summary Title -->
+          <tr>
+            <td style="padding:8px 32px 0 32px;">
+              <div style="font-size:22px; line-height:28px; font-weight:bold; color:#111827; margin:0 0 14px 0;">
+                Summary of TAS Call
+              </div>
+            </td>
+          </tr>
+
+          <!-- Summary Box -->
+          <tr>
+            <td style="padding:0 32px 8px 32px;">
+              <div style="background:linear-gradient(180deg, #ffffff 0%, #f9fbfc 100%); border:1px solid #dbe7ee; border-left:5px solid #219ebc; border-radius:14px; padding:20px 22px;">
+                <ul style="margin:0; padding-left:20px; color:#374151; font-size:15px; line-height:24px;">
+                  ${bulletListHtml}
+                </ul>
+              </div>
+            </td>
+          </tr>
+
+          <!-- Recording -->
+          <tr>
+            <td style="padding:16px 32px 8px 32px;">
+              ${
+                hasRecording
+                  ? `
+                <table role="presentation" cellpadding="0" cellspacing="0" border="0">
+                  <tr>
+                    <td align="center" style="border-radius:10px; background-color:#219ebc;">
+                      <a href="${recordingUrl}" target="_blank" style="display:inline-block; padding:14px 22px; font-size:15px; font-weight:bold; color:#ffffff; text-decoration:none; border-radius:10px;">
+                        🎧 Listen to Recording
+                      </a>
+                    </td>
+                  </tr>
+                </table>
+              `
+                  : `
+                <div style="font-size:14px; line-height:20px; color:#9ca3af; font-style:italic; padding-top:4px;">
+                  Recording not available
+                </div>
+              `
+              }
+            </td>
+          </tr>
+
+          <!-- Divider -->
+          <tr>
+            <td style="padding:18px 32px 0 32px;">
+              <div style="height:1px; background-color:#e5e7eb; line-height:1px; font-size:1px;">&nbsp;</div>
+            </td>
+          </tr>
+
+          <!-- Footer -->
+          <tr>
+            <td style="padding:18px 32px 28px 32px; text-align:center;">
+              <div style="font-size:13px; line-height:20px; color:#6b7280;">
+                Generated by <strong style="color:#374151;">TAS AI Agent</strong>
+              </div>
+              <div style="font-size:12px; line-height:18px; color:#9ca3af; margin-top:4px;">
+                This is an automated call summary email.
+              </div>
+            </td>
+          </tr>
+
+        </table>
+
+      </td>
+    </tr>
+  </table>
+</body>
+</html>
     `;
 
     const msg = {
