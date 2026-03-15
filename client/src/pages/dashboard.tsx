@@ -14,6 +14,7 @@ import type { TranscriptMessage } from "@shared/schema";
 import { Phone, ChartBar as BarChart2 } from "lucide-react";
 import { Link } from "wouter";
 import { supabase, EDGE_FUNCTIONS_URL } from "@/lib/supabase";
+import { playDtmfTone } from "@/lib/dtmf-tones";
 
 type CallStatus = "idle" | "ringing" | "connected" | "ended" | "transferred";
 
@@ -108,6 +109,9 @@ export default function Dashboard() {
       })
       .on("broadcast", { event: "call_summary" }, ({ payload }) => {
         if (payload.summary) setCallSummary(payload.summary);
+      })
+      .on("broadcast", { event: "dtmf_press" }, ({ payload }) => {
+        if (payload.digit) playDtmfTone(payload.digit);
       })
       .subscribe();
 

@@ -343,6 +343,21 @@ Deno.serve(async (req: Request) => {
         if (functionCall?.name === "press_button" && message.call?.id) {
           const digit = functionCall.parameters?.digit;
           console.log(`[DTMF] Pressed: ${digit}`);
+
+          const vapiCallId = message.call.id;
+          const { data: dtmfCall } = await supabase
+            .from("calls")
+            .select("id")
+            .eq("twilio_call_sid", vapiCallId)
+            .maybeSingle();
+
+          if (dtmfCall && digit) {
+            await supabase.channel("call-events").send({
+              type: "broadcast",
+              event: "dtmf_press",
+              payload: { callId: dtmfCall.id, digit },
+            });
+          }
         }
         break;
       }
