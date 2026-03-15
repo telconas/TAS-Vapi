@@ -5,6 +5,7 @@ import { Button } from "@/components/ui/button";
 import { supabase } from "@/lib/supabase";
 import { Phone, Clock, DollarSign, ChevronLeft, ChevronRight, ArrowLeft, ChartBar as BarChart2, FileText, Pencil, Trash2, Star, CircleCheck as CheckCircle2, Circle as XCircle, TrendingUp } from "lucide-react";
 import CallEditModal, { type CallDetail } from "@/components/call-edit-modal";
+import CallDetailModal from "@/components/call-detail-modal";
 
 const HOURLY_RATE = 35;
 
@@ -78,6 +79,7 @@ export default function Analytics() {
   const [allCalls, setAllCalls] = useState<CallRecord[]>([]);
   const [loading, setLoading] = useState(true);
   const [editingCall, setEditingCall] = useState<CallDetail | null>(null);
+  const [viewingCall, setViewingCall] = useState<CallDetail | null>(null);
   const [deletingCallId, setDeletingCallId] = useState<string | null>(null);
   const [togglingPinId, setTogglingPinId] = useState<string | null>(null);
   const [showPinnedOnly, setShowPinnedOnly] = useState(false);
@@ -360,7 +362,11 @@ export default function Analytics() {
                       const dur = call.duration ?? 0;
                       const cost = call.cost_usd != null ? Number(call.cost_usd) : calcCost(dur);
                       return (
-                        <div key={call.id} className="p-3 rounded-lg bg-muted/30 border border-border space-y-2">
+                        <div
+                          key={call.id}
+                          className="p-3 rounded-lg bg-muted/30 border border-border space-y-2 cursor-pointer hover:bg-muted/50 transition-colors"
+                          onClick={() => setViewingCall(call as CallDetail)}
+                        >
                           <div className="flex items-center justify-between">
                             <div className="space-y-0.5 min-w-0 flex-1 mr-3">
                               <div className="flex items-center gap-2 flex-wrap">
@@ -375,7 +381,7 @@ export default function Analytics() {
                                 {call.caller_name && <span>&bull; {call.caller_name}</span>}
                               </div>
                             </div>
-                            <div className="flex items-center gap-2 text-sm shrink-0">
+                            <div className="flex items-center gap-2 text-sm shrink-0" onClick={(e) => e.stopPropagation()}>
                               <div className="text-right hidden sm:block">
                                 <p className="text-xs text-muted-foreground">Duration</p>
                                 <p className="font-mono font-medium">{formatDuration(dur)}</p>
@@ -594,6 +600,13 @@ export default function Analytics() {
           </div>
         </div>
       </main>
+
+      <CallDetailModal
+        call={viewingCall}
+        open={viewingCall !== null}
+        onClose={() => setViewingCall(null)}
+        onEdit={(call) => { setViewingCall(null); setEditingCall(call); }}
+      />
 
       <CallEditModal
         call={editingCall}

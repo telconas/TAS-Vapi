@@ -5,6 +5,7 @@ import { Button } from "@/components/ui/button";
 import { supabase } from "@/lib/supabase";
 import { Phone, Clock, DollarSign, ArrowLeft, FileText, ChevronLeft, ChevronRight, Download, Pencil, Star, CircleCheck as CheckCircle2, Circle as XCircle } from "lucide-react";
 import CallEditModal, { type CallDetail } from "@/components/call-edit-modal";
+import CallDetailModal from "@/components/call-detail-modal";
 
 const HOURLY_RATE = 35;
 
@@ -133,6 +134,7 @@ export default function Reports() {
   const [loading, setLoading] = useState(true);
   const [expandedProvider, setExpandedProvider] = useState<string | null>(null);
   const [editingCall, setEditingCall] = useState<CallDetail | null>(null);
+  const [viewingCall, setViewingCall] = useState<CallDetail | null>(null);
   const [togglingPinId, setTogglingPinId] = useState<string | null>(null);
 
   const handleTogglePin = async (call: CallRecord) => {
@@ -365,7 +367,8 @@ export default function Reports() {
                         return (
                           <div
                             key={call.id}
-                            className="px-6 py-3 bg-muted/10 space-y-1.5"
+                            className="px-6 py-3 bg-muted/10 space-y-1.5 cursor-pointer hover:bg-muted/30 transition-colors"
+                            onClick={() => setViewingCall(call as CallDetail)}
                           >
                             <div className="flex items-center justify-between">
                               <div className="space-y-0.5 min-w-0 flex-1 mr-3">
@@ -402,7 +405,7 @@ export default function Reports() {
                                   )}
                                 </div>
                               </div>
-                              <div className="flex items-center gap-2 text-sm shrink-0">
+                              <div className="flex items-center gap-2 text-sm shrink-0" onClick={(e) => e.stopPropagation()}>
                                 <div className="text-right hidden sm:block">
                                   <p className="text-xs text-muted-foreground">Duration</p>
                                   <p className="font-mono font-medium">{formatDuration(dur)}</p>
@@ -466,6 +469,13 @@ export default function Reports() {
           </div>
         )}
       </main>
+
+      <CallDetailModal
+        call={viewingCall}
+        open={viewingCall !== null}
+        onClose={() => setViewingCall(null)}
+        onEdit={(call) => { setViewingCall(null); setEditingCall(call); }}
+      />
 
       <CallEditModal
         call={editingCall}
