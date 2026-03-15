@@ -31,7 +31,7 @@ export default function Login({ onLogin }: LoginProps) {
           <div className="mx-auto mb-4 w-12 h-12 rounded-full bg-primary/10 flex items-center justify-center">
             <Lock className="w-6 h-6 text-primary" />
           </div>
-          <CardTitle className="text-xl">AI Voice Agent Dashboard</CardTitle>
+          <CardTitle className="text-xl">TAS AI Voice Agent</CardTitle>
         </CardHeader>
         <CardContent>
           <form onSubmit={handleSubmit} className="space-y-4">
