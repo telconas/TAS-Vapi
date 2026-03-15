@@ -187,7 +187,7 @@ Deno.serve(async (req: Request) => {
 
   try {
     const body = await req.json();
-    const { toEmail } = body;
+    const { toEmail, date } = body;
 
     if (!toEmail) {
       return new Response(JSON.stringify({ error: "toEmail is required" }), {
@@ -205,9 +205,16 @@ Deno.serve(async (req: Request) => {
 
     const supabase = getSupabase();
 
-    const now = new Date();
-    const startOfDay = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 0, 0, 0, 0).toISOString();
-    const endOfDay = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 23, 59, 59, 999).toISOString();
+    let targetDate: Date;
+    if (date && /^\d{4}-\d{2}-\d{2}$/.test(date)) {
+      const [year, month, day] = date.split("-").map(Number);
+      targetDate = new Date(year, month - 1, day);
+    } else {
+      targetDate = new Date();
+    }
+
+    const startOfDay = new Date(targetDate.getFullYear(), targetDate.getMonth(), targetDate.getDate(), 0, 0, 0, 0).toISOString();
+    const endOfDay = new Date(targetDate.getFullYear(), targetDate.getMonth(), targetDate.getDate(), 23, 59, 59, 999).toISOString();
 
     const { data: calls, error } = await supabase
       .from("calls")
@@ -238,7 +245,7 @@ Deno.serve(async (req: Request) => {
       { calls: 0, totalSeconds: 0, totalCost: 0 }
     );
 
-    const dateLabel = now.toLocaleDateString("en-US", {
+    const dateLabel = targetDate.toLocaleDateString("en-US", {
       weekday: "long",
       year: "numeric",
       month: "long",

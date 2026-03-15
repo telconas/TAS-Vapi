@@ -3,12 +3,15 @@ import { Link } from "wouter";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { Calendar } from "@/components/ui/calendar";
 import { supabase } from "@/lib/supabase";
-import { Phone, Clock, DollarSign, ArrowLeft, FileText, ChevronLeft, ChevronRight, Download, Pencil, Star, CircleCheck as CheckCircle2, Circle as XCircle, Search, X, Mail } from "lucide-react";
+import { Phone, Clock, DollarSign, ArrowLeft, FileText, ChevronLeft, ChevronRight, Download, Pencil, Star, CircleCheck as CheckCircle2, Circle as XCircle, Search, X, Mail, Calendar as CalendarIcon } from "lucide-react";
 import CallEditModal, { type CallDetail } from "@/components/call-edit-modal";
 import CallDetailModal from "@/components/call-detail-modal";
 import { useToast } from "@/hooks/use-toast";
 import { EDGE_FUNCTIONS_URL } from "@/lib/supabase";
+import { format } from "date-fns";
 
 const HOURLY_RATE = 30;
 
@@ -144,20 +147,24 @@ export default function Reports() {
   const [togglingPinId, setTogglingPinId] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState("");
   const [sendingReport, setSendingReport] = useState(false);
+  const [reportDate, setReportDate] = useState<Date>(new Date());
+  const [datePickerOpen, setDatePickerOpen] = useState(false);
 
   const handleSendDailyReport = async () => {
     setSendingReport(true);
     try {
+      const dateStr = format(reportDate, "yyyy-MM-dd");
       const res = await fetch(`${EDGE_FUNCTIONS_URL}/send-daily-report`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ toEmail: REPORT_EMAIL }),
+        body: JSON.stringify({ toEmail: REPORT_EMAIL, date: dateStr }),
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || "Failed to send report");
+      const dateLabel = format(reportDate, "MMM d, yyyy");
       toast({
         title: "Report sent",
-        description: `Daily report (${data.callCount} call${data.callCount !== 1 ? "s" : ""}) sent to ${REPORT_EMAIL}`,
+        description: `Daily report for ${dateLabel} (${data.callCount} call${data.callCount !== 1 ? "s" : ""}) sent to ${REPORT_EMAIL}`,
       });
     } catch (err: any) {
       toast({
@@ -280,15 +287,39 @@ export default function Reports() {
                 <Download className="w-4 h-4 mr-2" />
                 Export CSV
               </Button>
-              <Button
-                variant="default"
-                size="sm"
-                onClick={handleSendDailyReport}
-                disabled={sendingReport}
-              >
-                <Mail className="w-4 h-4 mr-2" />
-                {sendingReport ? "Sending..." : "Send Daily Report"}
-              </Button>
+              <div className="flex items-center gap-0">
+                <Popover open={datePickerOpen} onOpenChange={setDatePickerOpen}>
+                  <PopoverTrigger asChild>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      className="rounded-r-none border-r-0 gap-1.5 font-normal text-muted-foreground"
+                    >
+                      <CalendarIcon className="w-3.5 h-3.5" />
+                      {format(reportDate, "MMM d")}
+                    </Button>
+                  </PopoverTrigger>
+                  <PopoverContent className="w-auto p-0" align="end">
+                    <Calendar
+                      mode="single"
+                      selected={reportDate}
+                      onSelect={(d) => { if (d) { setReportDate(d); setDatePickerOpen(false); } }}
+                      disabled={(d) => d > new Date()}
+                      initialFocus
+                    />
+                  </PopoverContent>
+                </Popover>
+                <Button
+                  variant="default"
+                  size="sm"
+                  className="rounded-l-none"
+                  onClick={handleSendDailyReport}
+                  disabled={sendingReport}
+                >
+                  <Mail className="w-4 h-4 mr-2" />
+                  {sendingReport ? "Sending..." : "Send Daily Report"}
+                </Button>
+              </div>
               <Link href="/">
                 <Button variant="outline" size="sm">
                   <ArrowLeft className="w-4 h-4 mr-2" />
