@@ -34,6 +34,33 @@ function calcCost(seconds: number): number {
   return (seconds / 3600) * HOURLY_RATE;
 }
 
+function buildCsvAttachment(calls: any[], dateLabel: string): string {
+  const escape = (v: string) => `"${String(v).replace(/"/g, '""')}"`;
+  const rows: string[][] = [
+    ["Date", "Time", "Phone Number", "Provider", "Caller", "Duration (s)", "Duration", "Cost", "Outcome", "Summary", "Notes"],
+  ];
+  for (const c of calls) {
+    const dur = c.duration ?? 0;
+    const cost = c.cost_usd != null ? Number(c.cost_usd) : calcCost(dur);
+    const dt = c.started_at ? new Date(c.started_at) : null;
+    rows.push([
+      dt ? dt.toLocaleDateString("en-US") : "",
+      dt ? dt.toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit", hour12: true }) : "",
+      c.phone_number,
+      c.provider_name || "",
+      c.caller_name || "",
+      String(dur),
+      formatDuration(dur),
+      formatCost(cost),
+      c.outcome || "",
+      c.summary || "",
+      c.notes || "",
+    ]);
+  }
+  const csv = rows.map((r) => r.map(escape).join(",")).join("\r\n");
+  return btoa(unescape(encodeURIComponent(csv)));
+}
+
 function buildDailyReportHtml(calls: any[], date: string, totals: { calls: number; totalSeconds: number; totalCost: number }): string {
   const avgSeconds = totals.calls > 0 ? Math.round(totals.totalSeconds / totals.calls) : 0;
 
@@ -253,6 +280,8 @@ Deno.serve(async (req: Request) => {
     });
 
     const htmlBody = buildDailyReportHtml(callList, dateLabel, totals);
+    const csvBase64 = buildCsvAttachment(callList, dateLabel);
+    const csvFilename = `calls-${date || new Date().toISOString().slice(0, 10)}.csv`;
 
     const sgResponse = await fetch("https://api.sendgrid.com/v3/mail/send", {
       method: "POST",
@@ -265,6 +294,14 @@ Deno.serve(async (req: Request) => {
         from: { email: SENDGRID_FROM_EMAIL },
         subject: `TAS Daily Call Report — ${dateLabel} (${totals.calls} call${totals.calls !== 1 ? "s" : ""})`,
         content: [{ type: "text/html", value: htmlBody }],
+        attachments: [
+          {
+            content: csvBase64,
+            filename: csvFilename,
+            type: "text/csv",
+            disposition: "attachment",
+          },
+        ],
       }),
     });
 
