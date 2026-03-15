@@ -8,9 +8,11 @@ import { CallSummary } from "@/components/call-summary";
 import { InstructionInput } from "@/components/instruction-input";
 import { LiveAudioMonitor } from "@/components/live-audio-monitor";
 import { Card } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
 import { useToast } from "@/hooks/use-toast";
 import type { TranscriptMessage } from "@shared/schema";
-import { Phone } from "lucide-react";
+import { Phone, ChartBar as BarChart2 } from "lucide-react";
+import { Link } from "wouter";
 import { supabase, EDGE_FUNCTIONS_URL } from "@/lib/supabase";
 
 type CallStatus = "idle" | "ringing" | "connected" | "ended" | "transferred";
@@ -312,6 +314,14 @@ export default function Dashboard() {
               <p className="text-sm text-muted-foreground">
                 Powered by Vapi and ElevenLabs
               </p>
+            </div>
+            <div className="ml-auto">
+              <Link href="/analytics">
+                <Button variant="outline" size="sm">
+                  <BarChart2 className="w-4 h-4 mr-2" />
+                  Analytics
+                </Button>
+              </Link>
             </div>
           </div>
         </div>

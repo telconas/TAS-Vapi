@@ -1,5 +1,7 @@
 import { Badge } from "@/components/ui/badge";
-import { Phone, PhoneCall, PhoneOff, PhoneForwarded, Timer } from "lucide-react";
+import { Phone, PhoneCall, PhoneOff, PhoneForwarded, Timer, DollarSign } from "lucide-react";
+
+const HOURLY_RATE = 35;
 
 interface CallStatusProps {
   status: "idle" | "ringing" | "connected" | "ended" | "transferred" | "transferring";
@@ -60,6 +62,7 @@ export function CallStatus({ status, duration }: CallStatusProps) {
   };
 
   const showTimer = status === "connected" || status === "ringing" || status === "transferring";
+  const liveCost = ((duration ?? 0) / 3600) * HOURLY_RATE;
 
   return (
     <div className="space-y-4">
@@ -76,30 +79,53 @@ export function CallStatus({ status, duration }: CallStatusProps) {
       </div>
 
       {showTimer && (
-        <div className="flex items-center gap-3 px-4 py-3 rounded-lg bg-muted/50 border border-border">
-          <Timer className={`w-5 h-5 ${status === "connected" ? "text-chart-2" : "text-muted-foreground"}`} />
-          <div>
-            <p className="text-xs text-muted-foreground uppercase tracking-wide leading-none mb-1">
-              {status === "connected" ? "Call Duration" : "Elapsed"}
-            </p>
-            <span
-              className={`text-2xl font-mono font-semibold tabular-nums ${status === "connected" ? "text-foreground" : "text-muted-foreground"}`}
-              data-testid="text-call-duration"
-            >
-              {formatDuration(duration ?? 0)}
-            </span>
+        <div className="grid grid-cols-2 gap-3">
+          <div className="flex items-center gap-3 px-4 py-3 rounded-lg bg-muted/50 border border-border">
+            <Timer className={`w-5 h-5 flex-shrink-0 ${status === "connected" ? "text-chart-2" : "text-muted-foreground"}`} />
+            <div>
+              <p className="text-xs text-muted-foreground uppercase tracking-wide leading-none mb-1">
+                {status === "connected" ? "Call Duration" : "Elapsed"}
+              </p>
+              <span
+                className={`text-2xl font-mono font-semibold tabular-nums ${status === "connected" ? "text-foreground" : "text-muted-foreground"}`}
+                data-testid="text-call-duration"
+              >
+                {formatDuration(duration ?? 0)}
+              </span>
+            </div>
+          </div>
+
+          <div className="flex items-center gap-3 px-4 py-3 rounded-lg bg-emerald-500/5 border border-emerald-500/20">
+            <DollarSign className="w-5 h-5 flex-shrink-0 text-emerald-500" />
+            <div>
+              <p className="text-xs text-muted-foreground uppercase tracking-wide leading-none mb-1">Live Cost</p>
+              <span className="text-2xl font-mono font-semibold tabular-nums text-emerald-600 dark:text-emerald-400">
+                ${liveCost.toFixed(2)}
+              </span>
+            </div>
           </div>
         </div>
       )}
 
       {status === "ended" && duration !== undefined && duration > 0 && (
-        <div className="flex items-center gap-3 px-4 py-3 rounded-lg bg-muted/30 border border-border">
-          <Timer className="w-5 h-5 text-muted-foreground" />
-          <div>
-            <p className="text-xs text-muted-foreground uppercase tracking-wide leading-none mb-1">Total Duration</p>
-            <span className="text-2xl font-mono font-semibold tabular-nums text-muted-foreground" data-testid="text-call-duration">
-              {formatDuration(duration)}
-            </span>
+        <div className="grid grid-cols-2 gap-3">
+          <div className="flex items-center gap-3 px-4 py-3 rounded-lg bg-muted/30 border border-border">
+            <Timer className="w-5 h-5 flex-shrink-0 text-muted-foreground" />
+            <div>
+              <p className="text-xs text-muted-foreground uppercase tracking-wide leading-none mb-1">Total Duration</p>
+              <span className="text-2xl font-mono font-semibold tabular-nums text-muted-foreground" data-testid="text-call-duration">
+                {formatDuration(duration)}
+              </span>
+            </div>
+          </div>
+          <div className="flex items-center gap-3 px-4 py-3 rounded-lg bg-emerald-500/5 border border-emerald-500/20">
+            <DollarSign className="w-5 h-5 flex-shrink-0 text-emerald-500" />
+            <div>
+              <p className="text-xs text-muted-foreground uppercase tracking-wide leading-none mb-1">Call Cost</p>
+              <span className="text-2xl font-mono font-semibold tabular-nums text-emerald-600 dark:text-emerald-400">
+                ${((duration / 3600) * HOURLY_RATE).toFixed(2)}
+              </span>
+            </div>
           </div>
         </div>
       )}

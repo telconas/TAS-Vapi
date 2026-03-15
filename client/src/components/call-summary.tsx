@@ -1,10 +1,12 @@
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Download, Clock, MessageSquare, Copy, Check } from "lucide-react";
+import { Download, Clock, MessageSquare, Copy, Check, DollarSign } from "lucide-react";
 import type { TranscriptMessage } from "@shared/schema";
 import { useState } from "react";
 import { useToast } from "@/hooks/use-toast";
 import { RecordingPlayer } from "./recording-player";
+
+const HOURLY_RATE = 35;
 
 interface CallSummaryProps {
   duration: number;
@@ -63,7 +65,7 @@ export function CallSummary({ duration, transcript, onDownloadTranscript, record
           </Button>
         </div>
 
-        <div className="grid grid-cols-3 gap-6">
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
           <div className="space-y-2">
             <div className="flex items-center gap-2 text-muted-foreground">
               <Clock className="w-4 h-4" />
@@ -75,9 +77,20 @@ export function CallSummary({ duration, transcript, onDownloadTranscript, record
           </div>
 
           <div className="space-y-2">
+            <div className="flex items-center gap-2 text-emerald-500">
+              <DollarSign className="w-4 h-4" />
+              <span className="text-sm font-medium text-muted-foreground">Call Cost</span>
+            </div>
+            <p className="text-2xl font-semibold font-mono text-emerald-600 dark:text-emerald-400">
+              ${((duration / 3600) * HOURLY_RATE).toFixed(2)}
+            </p>
+            <p className="text-xs text-muted-foreground">@ $35/hr</p>
+          </div>
+
+          <div className="space-y-2">
             <div className="flex items-center gap-2 text-muted-foreground">
               <MessageSquare className="w-4 h-4" />
-              <span className="text-sm font-medium">Total Messages</span>
+              <span className="text-sm font-medium">Messages</span>
             </div>
             <p className="text-2xl font-semibold" data-testid="text-summary-messages">
               {messageCount}
