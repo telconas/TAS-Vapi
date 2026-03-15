@@ -296,7 +296,7 @@ Deno.serve(async (req: Request) => {
 
           if (dbCall) {
             const nowMs = Date.now();
-            const callStartMs = dbCall.created_at ? new Date(dbCall.created_at).getTime() : nowMs;
+            const callStartMs = dbCall.started_at ? new Date(dbCall.started_at).getTime() : nowMs;
 
             let callDuration =
               vapiCall.duration ||
@@ -308,7 +308,7 @@ Deno.serve(async (req: Request) => {
                   )
                 : 0);
 
-            if (callDuration <= 0) {
+            if (callDuration <= 0 && callStartMs < nowMs) {
               callDuration = Math.floor((nowMs - callStartMs) / 1000);
             }
 
