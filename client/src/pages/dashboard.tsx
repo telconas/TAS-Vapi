@@ -189,7 +189,7 @@ export default function Dashboard() {
     try {
       s.callActiveRef.current = true;
       s.currentCallIdRef.current = null;
-      s.setPhoneNumber(phone);
+      s.setDialedNumber(phone);
       s.setCallStatus("ringing");
       s.setDuration(0);
       s.startDurationCounter();
@@ -299,7 +299,7 @@ export default function Dashboard() {
     const url = URL.createObjectURL(blob);
     const a = document.createElement("a");
     a.href = url;
-    a.download = `transcript-${s.phoneNumber}-${Date.now()}.txt`;
+    a.download = `transcript-${s.dialedNumber}-${Date.now()}.txt`;
     document.body.appendChild(a);
     a.click();
     document.body.removeChild(a);
@@ -366,7 +366,7 @@ export default function Dashboard() {
                       <span className={`w-2 h-2 rounded-full ${statusColor} ${s.callStatus === "ringing" || s.callStatus === "connected" ? "animate-pulse" : ""}`} />
                       <span className={`text-xs ${active ? "text-muted-foreground" : "text-muted-foreground/70"}`}>
                         {statusLabel}
-                        {s.phoneNumber ? ` · ${s.phoneNumber.slice(-10)}` : ""}
+                        {s.dialedNumber ? ` · ${s.dialedNumber.slice(-10)}` : ""}
                       </span>
                     </span>
                   )}
@@ -388,6 +388,8 @@ export default function Dashboard() {
                   disabled={isCallActive}
                 />
                 <PhoneInputForm
+                  form={slot.form}
+                  onFormChange={slot.setForm}
                   onStartCall={handleStartCall}
                   onHangUp={handleHangUp}
                   onTransfer={handleTransfer}

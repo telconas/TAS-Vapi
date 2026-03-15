@@ -3,9 +3,19 @@ import type { TranscriptMessage } from "@shared/schema";
 
 export type CallStatus = "idle" | "ringing" | "connected" | "ended" | "transferred";
 
+export interface FormState {
+  countryCode: string;
+  phoneNumber: string;
+  selectedProvider: string;
+  callerName: string;
+  useCustomName: boolean;
+  prompt: string;
+  email: string;
+}
+
 export interface CallSlotState {
   callStatus: CallStatus;
-  phoneNumber: string;
+  dialedNumber: string;
   duration: number;
   transcript: TranscriptMessage[];
   isAudioPlaying: boolean;
@@ -13,11 +23,12 @@ export interface CallSlotState {
   listenUrl: string | null;
   recordingUrl: string | null;
   callSummary: string | null;
+  form: FormState;
 }
 
 export interface CallSlotActions {
   setCallStatus: (s: CallStatus) => void;
-  setPhoneNumber: (v: string) => void;
+  setDialedNumber: (v: string) => void;
   setDuration: (v: number | ((prev: number) => number)) => void;
   setTranscript: (v: TranscriptMessage[] | ((prev: TranscriptMessage[]) => TranscriptMessage[])) => void;
   setIsAudioPlaying: (v: boolean) => void;
@@ -25,6 +36,7 @@ export interface CallSlotActions {
   setListenUrl: (v: string | null) => void;
   setRecordingUrl: (v: string | null) => void;
   setCallSummary: (v: string | null) => void;
+  setForm: (v: Partial<FormState>) => void;
   callActiveRef: React.MutableRefObject<boolean>;
   currentCallIdRef: React.MutableRefObject<string | null>;
   durationIntervalRef: React.MutableRefObject<NodeJS.Timeout | null>;
@@ -35,9 +47,19 @@ export interface CallSlotActions {
 
 export type CallSlot = CallSlotState & CallSlotActions;
 
+const defaultForm = (): FormState => ({
+  countryCode: "+1",
+  phoneNumber: "",
+  selectedProvider: "",
+  callerName: "James Martin",
+  useCustomName: false,
+  prompt: "",
+  email: "jpm@telconassociates.com",
+});
+
 const defaultState = (): CallSlotState => ({
   callStatus: "idle",
-  phoneNumber: "",
+  dialedNumber: "",
   duration: 0,
   transcript: [],
   isAudioPlaying: false,
@@ -45,6 +67,7 @@ const defaultState = (): CallSlotState => ({
   listenUrl: null,
   recordingUrl: null,
   callSummary: null,
+  form: defaultForm(),
 });
 
 export function useCallSlot(): CallSlot {
@@ -54,7 +77,7 @@ export function useCallSlot(): CallSlot {
   const durationIntervalRef = useRef<NodeJS.Timeout | null>(null);
 
   const setCallStatus = useCallback((s: CallStatus) => setState((p) => ({ ...p, callStatus: s })), []);
-  const setPhoneNumber = useCallback((v: string) => setState((p) => ({ ...p, phoneNumber: v })), []);
+  const setDialedNumber = useCallback((v: string) => setState((p) => ({ ...p, dialedNumber: v })), []);
   const setDuration = useCallback((v: number | ((prev: number) => number)) =>
     setState((p) => ({ ...p, duration: typeof v === "function" ? v(p.duration) : v })), []);
   const setTranscript = useCallback((v: TranscriptMessage[] | ((prev: TranscriptMessage[]) => TranscriptMessage[])) =>
@@ -64,6 +87,8 @@ export function useCallSlot(): CallSlot {
   const setListenUrl = useCallback((v: string | null) => setState((p) => ({ ...p, listenUrl: v })), []);
   const setRecordingUrl = useCallback((v: string | null) => setState((p) => ({ ...p, recordingUrl: v })), []);
   const setCallSummary = useCallback((v: string | null) => setState((p) => ({ ...p, callSummary: v })), []);
+  const setForm = useCallback((v: Partial<FormState>) =>
+    setState((p) => ({ ...p, form: { ...p.form, ...v } })), []);
 
   const startDurationCounter = useCallback(() => {
     if (durationIntervalRef.current) clearInterval(durationIntervalRef.current);
@@ -89,7 +114,7 @@ export function useCallSlot(): CallSlot {
   return {
     ...state,
     setCallStatus,
-    setPhoneNumber,
+    setDialedNumber,
     setDuration,
     setTranscript,
     setIsAudioPlaying,
@@ -97,6 +122,7 @@ export function useCallSlot(): CallSlot {
     setListenUrl,
     setRecordingUrl,
     setCallSummary,
+    setForm,
     callActiveRef,
     currentCallIdRef,
     durationIntervalRef,

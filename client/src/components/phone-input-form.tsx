@@ -1,4 +1,3 @@
-import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -11,8 +10,11 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Phone, PhoneOff, PhoneForwarded } from "lucide-react";
+import type { FormState } from "@/hooks/use-call-slot";
 
 interface PhoneInputFormProps {
+  form: FormState;
+  onFormChange: (v: Partial<FormState>) => void;
   onStartCall: (
     phoneNumber: string,
     prompt: string,
@@ -48,7 +50,7 @@ const callerNames = [
   { value: "Samantha Carlson", label: "Samantha Carlson" },
 ];
 
-const providers = [
+export const providers = [
   { name: "All Stream", number: "800-360-4467" },
   { name: "Astound", number: "800-427-8686" },
   { name: "ATT", number: "800-321-2000" },
@@ -80,38 +82,32 @@ const providers = [
 ];
 
 export function PhoneInputForm({
+  form,
+  onFormChange,
   onStartCall,
   onHangUp,
   onTransfer,
   isCallActive,
 }: PhoneInputFormProps) {
-  const [countryCode, setCountryCode] = useState("+1");
-  const [phoneNumber, setPhoneNumber] = useState("");
-  const [selectedProvider, setSelectedProvider] = useState("");
-  const [callerName, setCallerName] = useState("James Martin");
-  const [useCustomName, setUseCustomName] = useState(false);
-  const [prompt, setPrompt] = useState("");
-  const [email, setEmail] = useState("jpm@telconassociates.com");
-
   const handleProviderSelect = (value: string) => {
-    setSelectedProvider(value);
     if (value) {
       const provider = providers.find((p) => p.number === value);
       if (provider) {
-        // Strip all non-digits from the phone number
         const cleanNumber = provider.number.replace(/\D/g, "");
-        setPhoneNumber(cleanNumber);
+        onFormChange({ selectedProvider: value, phoneNumber: cleanNumber });
+        return;
       }
     }
+    onFormChange({ selectedProvider: value });
   };
 
   const handleStartCall = () => {
-    const fullNumber = `${countryCode}${phoneNumber}`;
-    const provider = providers.find((p) => p.number === selectedProvider);
-    onStartCall(fullNumber, prompt, callerName, email || undefined, provider?.name);
+    const fullNumber = `${form.countryCode}${form.phoneNumber}`;
+    const provider = providers.find((p) => p.number === form.selectedProvider);
+    onStartCall(fullNumber, form.prompt, form.callerName, form.email || undefined, provider?.name);
   };
 
-  const isValid = phoneNumber.length >= 10 && prompt.trim().length > 0;
+  const isValid = form.phoneNumber.length >= 10 && form.prompt.trim().length > 0;
 
   return (
     <div className="space-y-6">
@@ -123,25 +119,21 @@ export function PhoneInputForm({
           <button
             type="button"
             onClick={() => {
-              setUseCustomName(!useCustomName);
-              if (!useCustomName) {
-                setCallerName("");
-              } else {
-                setCallerName("James Martin");
-              }
+              const next = !form.useCustomName;
+              onFormChange({ useCustomName: next, callerName: next ? "" : "James Martin" });
             }}
             className="text-sm text-primary hover:underline"
             disabled={isCallActive}
             data-testid="button-toggle-custom-name"
           >
-            {useCustomName ? "Use preset names" : "Type custom name"}
+            {form.useCustomName ? "Use preset names" : "Type custom name"}
           </button>
         </div>
-        {useCustomName ? (
+        {form.useCustomName ? (
           <Input
             id="caller-name"
-            value={callerName}
-            onChange={(e) => setCallerName(e.target.value)}
+            value={form.callerName}
+            onChange={(e) => onFormChange({ callerName: e.target.value })}
             placeholder="Enter caller name"
             className="w-full bg-card border-card-border"
             disabled={isCallActive}
@@ -149,8 +141,8 @@ export function PhoneInputForm({
           />
         ) : (
           <Select
-            value={callerName}
-            onValueChange={setCallerName}
+            value={form.callerName}
+            onValueChange={(v) => onFormChange({ callerName: v })}
             disabled={isCallActive}
           >
             <SelectTrigger
@@ -181,8 +173,8 @@ export function PhoneInputForm({
         <Textarea
           id="prompt"
           placeholder="Paste account information and task specifics. Include account number, PIN, service address, and brief instructions for the agent."
-          value={prompt}
-          onChange={(e) => setPrompt(e.target.value)}
+          value={form.prompt}
+          onChange={(e) => onFormChange({ prompt: e.target.value })}
           className="min-h-[100px] bg-card border-card-border resize-none"
           disabled={isCallActive}
           data-testid="input-prompt"
@@ -194,7 +186,7 @@ export function PhoneInputForm({
           Provider (Optional)
         </Label>
         <Select
-          value={selectedProvider}
+          value={form.selectedProvider}
           onValueChange={handleProviderSelect}
           disabled={isCallActive}
         >
@@ -224,8 +216,8 @@ export function PhoneInputForm({
         </Label>
         <div className="flex gap-3">
           <Select
-            value={countryCode}
-            onValueChange={setCountryCode}
+            value={form.countryCode}
+            onValueChange={(v) => onFormChange({ countryCode: v })}
             disabled={isCallActive}
           >
             <SelectTrigger
@@ -250,11 +242,8 @@ export function PhoneInputForm({
             id="phone-number"
             type="tel"
             placeholder="5551234567"
-            value={phoneNumber}
-            onChange={(e) => {
-              setPhoneNumber(e.target.value.replace(/\D/g, ""));
-              setSelectedProvider(""); // Clear provider selection when manually typing
-            }}
+            value={form.phoneNumber}
+            onChange={(e) => onFormChange({ phoneNumber: e.target.value.replace(/\D/g, ""), selectedProvider: "" })}
             className="flex-1 bg-card border-card-border text-lg font-mono"
             disabled={isCallActive}
             data-testid="input-phone-number"
@@ -270,8 +259,8 @@ export function PhoneInputForm({
           id="email"
           type="email"
           placeholder="your@email.com"
-          value={email}
-          onChange={(e) => setEmail(e.target.value)}
+          value={form.email}
+          onChange={(e) => onFormChange({ email: e.target.value })}
           className="bg-card border-card-border"
           disabled={isCallActive}
           data-testid="input-email"
