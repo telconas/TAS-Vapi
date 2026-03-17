@@ -178,6 +178,22 @@ Start every call in IVR MODE.
 MODE 1: IVR MODE (DEFAULT)
 ------------------------------------------------------------
 
+SILENCE RULE
+
+When you hear:
+- hold music
+- ringing
+- silence
+- transfer messages
+- automated announcements
+
+Do not say anything.
+
+Do not respond.
+
+Wait until a question is asked.
+If no question is asked, do not speak.
+
 In IVR systems you must behave efficiently.
 
 Rules:
@@ -452,58 +468,50 @@ export async function createVapiAssistant(params: {
   console.log("Assistant name:", params.name);
   console.log("Voice:", params.voice);
 
-  const assistantPayload = {
-    name: params.name,
-    firstMessageMode: "assistant-speaks-first",
-    responseDelaySeconds: 0.3,
-    model: {
-      provider: "openai",
-      model: modelName,
-      messages: [
-        { role: "system", content: params.systemPrompt },
-        {
-          role: "user",
-          content: "Remember: You MUST respond when IVR asks you questions.",
+ const assistantPayload = {
+  name: params.name,
+  firstMessageMode: params.firstMessageMode ?? "assistant-waits-for-user",
+  responseDelaySeconds: 0.8,
+  model: {
+    provider: "openai",
+    model: "gpt-4.1-mini",
+    messages: [
+      { role: "system", content: params.systemPrompt }
+    ],
+    tools: [
+      { type: "dtmf", async: false },
+      {
+        type: "transferCall",
+        destinations: [
+          {
+            type: "number",
+            number: "+19134395811",
+            description: "Transfer to support line"
+          }
+        ],
+        function: {
+          name: "transfer_call",
+          description: "Transfer the call to another number"
+        }
+      },
+      {
+        type: "query",
+        function: {
+          name: "knowledge-search",
+          description: "Search the knowledge base for call handling instructions, scripts, and procedures"
         },
-        {
-          role: "assistant",
-          content: "Understood. I will always respond to IVR questions.",
-        },
-      ],
-      tools: [
-        { type: "dtmf", async: false },
-        {
-          type: "transferCall",
-          destinations: [
-            {
-              type: "number",
-              number: "+19134395811",
-              message: "Let me transfer the call now. Can you hold for just a sec?",
-              description: "Transfer to support line",
-            },
-          ],
-          function: {
-            name: "transfer_call",
-            description: "Transfer the call to another number",
-          },
-        },
-        {
-          type: "query",
-          function: {
-            name: "knowledge-search",
-            description: "Search the knowledge base for call handling instructions, scripts, and procedures",
-          },
-          knowledgeBases: [
-            {
-              provider: "google",
-              name: "call-instructions",
-              description: "Contains detailed call handling instructions, agent scripts, DocuSign procedures, retention handling, appointment scheduling, email spellings, and all reference material for conducting phone calls",
-              fileIds: ["c3d26ef5-a6c0-44c2-bc68-d3b96d715325"],
-            },
-          ],
-        },
-      ],
-    },
+        knowledgeBases: [
+          {
+            provider: "google",
+            name: "call-instructions",
+            description: "Contains call handling instructions and reference material",
+            fileIds: ["c3d26ef5-a6c0-44c2-bc68-d3b96d715325"]
+          }
+        ]
+      }
+    ]
+  }
+};
     voice: voiceConfig,
     firstMessage: "...",
     transcriber: {
