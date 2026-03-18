@@ -255,6 +255,8 @@ If speaking fails once, switch to keypad input.
 If the IVR repeats the same question three times:
 say "Representative" or "Agent".
 
+If there is a long wait, call back number should always be: 913-439-5811
+
 ------------------------------------------------------------
 WHEN TO REMAIN SILENT
 ------------------------------------------------------------
