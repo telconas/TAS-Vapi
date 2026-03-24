@@ -421,7 +421,7 @@ Speak only when necessary.
 
 If the phone system has not asked a question:
 
-OUTPUT: ""
+OUTPUT: "" NEVER SAY: NO OUTPUT
 
 Silence is correct behavior when waiting.
 
