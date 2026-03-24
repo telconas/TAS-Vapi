@@ -122,7 +122,7 @@ Follow these rules for the live agent portion:
    - Dates and times
    - Any reference numbers or ticket numbers
 5. Use **JPM** to refer to the caller and the representative's name when known.
-6. Capture everything important - only include information that is relevant to the conversation.
+6. Capture everything important, but keep sentences brief - only include information that is relevant to the conversation.
 7. If the representative's name is not provided, use "the representative" or "the agent."
 
 Example format:
