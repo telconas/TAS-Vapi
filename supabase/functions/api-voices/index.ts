@@ -32,6 +32,7 @@ const PINNED_VOICE_IDS = [
   "qSeXEcewz7tA0Q0qk9fH",
   "kXsOSDWolD7e9l1Z0sbH",
   "wP7XBmkAmRwrjtfK2KeY",
+  "2ovjd6dAl6KW3BirMAAo",
 ];
 
 Deno.serve(async (req: Request) => {
