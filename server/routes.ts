@@ -109,7 +109,7 @@ If no live agent interaction occurred (call was entirely automated/IVR), respond
 
 Follow these rules for the live agent portion:
 
-1. Write **full sentences in bullet points**, each describing one distinct action, statement, or event.
+1. Write **full sentences in bullet points**, each describing IMPORTANT events and information.
 2. Use **chronological order** so the bullet points read like a story of what happened.
 3. Always identify the **representative's name** if mentioned.
 4. **ALWAYS include important details mentioned during the conversation:**
