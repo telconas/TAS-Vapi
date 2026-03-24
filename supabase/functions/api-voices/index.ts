@@ -87,11 +87,14 @@ Deno.serve(async (req: Request) => {
       }
 
       const voicesData = await voicesResponse.json();
-      const accountVoices = (voicesData.voices || []).map((voice: any) => ({
-        voiceId: voice.voice_id,
-        name: voice.name,
-        previewUrl: voice.preview_url,
-      }));
+      const pinnedSet = new Set(PINNED_VOICE_IDS);
+      const accountVoices = (voicesData.voices || [])
+        .filter((voice: any) => pinnedSet.has(voice.voice_id))
+        .map((voice: any) => ({
+          voiceId: voice.voice_id,
+          name: voice.name,
+          previewUrl: voice.preview_url,
+        }));
 
       const accountVoiceIds = new Set(accountVoices.map((v: any) => v.voiceId));
       const pinnedToFetch = PINNED_VOICE_IDS.filter((id) => !accountVoiceIds.has(id));
