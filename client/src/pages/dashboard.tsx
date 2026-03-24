@@ -86,10 +86,7 @@ export default function Dashboard() {
   const slot0 = useCallSlot();
   const slot1 = useCallSlot();
   const slot2 = useCallSlot();
-  const slot3 = useCallSlot();
-  const slot4 = useCallSlot();
-  const slot5 = useCallSlot();
-  const slots = [slot0, slot1, slot2, slot3, slot4, slot5];
+  const slots = [slot0, slot1, slot2];
   const slotsRef = useRef(slots);
   slotsRef.current = slots;
   const slot = slots[activeTab];
@@ -106,7 +103,7 @@ export default function Dashboard() {
           const voices = await response.json();
           setElevenLabsVoices(voices);
           const defaultVoice = voices.length > 0 ? voices[0].voiceId : "";
-          [slot0, slot1, slot2, slot3, slot4, slot5].forEach((s, i) => {
+          [slot0, slot1, slot2].forEach((s, i) => {
             const saved = loadSavedForm(i);
             if (saved) {
               s.setForm({ ...saved, selectedVoice: saved.selectedVoice || defaultVoice });
