@@ -467,6 +467,7 @@ Deno.serve(async (req: Request) => {
           call_type: "ai",
           caller_name: callerName || "James Martin",
           provider_name: providerName || null,
+          notes: prompt,
         })
         .select()
         .single();
