@@ -5,7 +5,7 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
-import { Pencil, Clock, DollarSign, Phone, CircleCheck as CheckCircle2, Circle as XCircle, Star, FileText } from "lucide-react";
+import { Pencil, Clock, DollarSign, Phone, CircleCheck as CheckCircle2, Circle as XCircle, Star, FileText, PhoneForwarded, Bot } from "lucide-react";
 import type { CallDetail } from "@/components/call-edit-modal";
 
 const COST_PER_MINUTE = 0.12;
@@ -58,6 +58,15 @@ export default function CallDetailModal({ call, open, onClose, onEdit }: CallDet
             <div className="flex items-center gap-2">
               <Phone className="w-4 h-4 text-muted-foreground" />
               <span className="font-mono">{call.phone_number}</span>
+              {isTransferred ? (
+                <span className="inline-flex items-center gap-1 text-xs font-medium text-blue-600 bg-blue-500/10 border border-blue-500/30 rounded px-1.5 py-0.5">
+                  <PhoneForwarded className="w-3 h-3" /> Transferred
+                </span>
+              ) : (
+                <span className="inline-flex items-center gap-1 text-xs font-medium text-teal-600 bg-teal-500/10 border border-teal-500/30 rounded px-1.5 py-0.5">
+                  <Bot className="w-3 h-3" /> AI Handled
+                </span>
+              )}
               {call.pinned && <Star className="w-3.5 h-3.5 fill-amber-500 text-amber-500" />}
             </div>
             <Button

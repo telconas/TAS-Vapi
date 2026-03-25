@@ -4,7 +4,7 @@ import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { supabase } from "@/lib/supabase";
-import { Phone, Clock, DollarSign, ChevronLeft, ChevronRight, ArrowLeft, ChartBar as BarChart2, FileText, Pencil, Trash2, Star, CircleCheck as CheckCircle2, Circle as XCircle, TrendingUp, Search, X } from "lucide-react";
+import { Phone, Clock, DollarSign, ChevronLeft, ChevronRight, ArrowLeft, ChartBar as BarChart2, FileText, Pencil, Trash2, Star, CircleCheck as CheckCircle2, Circle as XCircle, TrendingUp, Search, X, PhoneForwarded, Bot } from "lucide-react";
 import CallEditModal, { type CallDetail } from "@/components/call-edit-modal";
 import CallDetailModal from "@/components/call-detail-modal";
 
@@ -63,6 +63,23 @@ const MONTHS = [
   "July", "August", "September", "October", "November", "December",
 ];
 
+type TransferFilter = "all" | "transferred" | "ai_only";
+
+function TransferBadge({ status }: { status: string }) {
+  if (status === "transferred") {
+    return (
+      <span className="inline-flex items-center gap-1 text-xs font-medium text-blue-600 bg-blue-500/10 border border-blue-500/30 rounded px-1.5 py-0.5">
+        <PhoneForwarded className="w-3 h-3" /> Transferred
+      </span>
+    );
+  }
+  return (
+    <span className="inline-flex items-center gap-1 text-xs font-medium text-teal-600 bg-teal-500/10 border border-teal-500/30 rounded px-1.5 py-0.5">
+      <Bot className="w-3 h-3" /> AI Handled
+    </span>
+  );
+}
+
 function OutcomeBadge({ outcome }: { outcome: string | null }) {
   if (outcome === "resolved") {
     return (
@@ -92,6 +109,7 @@ export default function Analytics() {
   const [togglingPinId, setTogglingPinId] = useState<string | null>(null);
   const [showPinnedOnly, setShowPinnedOnly] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
+  const [transferFilter, setTransferFilter] = useState<TransferFilter>("all");
 
   const handleDeleteCall = async (callId: string) => {
     setDeletingCallId(callId);
@@ -143,9 +161,21 @@ export default function Analytics() {
     fetchCalls();
   }, []);
 
+  const filteredCalls = useMemo(() => {
+    if (transferFilter === "all") return allCalls;
+    if (transferFilter === "transferred") return allCalls.filter((c) => c.status === "transferred");
+    return allCalls.filter((c) => c.status !== "transferred");
+  }, [allCalls, transferFilter]);
+
+  const transferStats = useMemo(() => {
+    const transferred = allCalls.filter((c) => c.status === "transferred").length;
+    const aiHandled = allCalls.filter((c) => c.status !== "transferred").length;
+    return { transferred, aiHandled, total: allCalls.length };
+  }, [allCalls]);
+
   const dayDataMap = useMemo(() => {
     const map: Record<string, DayData> = {};
-    for (const call of allCalls) {
+    for (const call of filteredCalls) {
       const dateStr = call.started_at
         ? new Date(call.started_at).toISOString().split("T")[0]
         : null;
@@ -160,7 +190,7 @@ export default function Analytics() {
       map[dateStr].totalCost += cost;
     }
     return map;
-  }, [allCalls]);
+  }, [filteredCalls]);
 
   const monthSummary = useMemo(() => {
     let calls = 0;
@@ -179,18 +209,18 @@ export default function Analytics() {
 
   const selectedDayCalls = useMemo(() => {
     if (!selectedDate) return [];
-    return allCalls.filter((c) => {
+    return filteredCalls.filter((c) => {
       if (!c.started_at) return false;
       return new Date(c.started_at).toISOString().split("T")[0] === selectedDate;
     });
-  }, [allCalls, selectedDate]);
+  }, [filteredCalls, selectedDate]);
 
-  const pinnedCalls = useMemo(() => allCalls.filter((c) => c.pinned), [allCalls]);
+  const pinnedCalls = useMemo(() => filteredCalls.filter((c) => c.pinned), [filteredCalls]);
 
   const searchResults = useMemo(() => {
     const q = searchQuery.trim().toLowerCase();
     if (!q) return [];
-    return allCalls.filter((c) => {
+    return filteredCalls.filter((c) => {
       return (
         c.phone_number.toLowerCase().includes(q) ||
         (c.caller_name?.toLowerCase().includes(q)) ||
@@ -200,11 +230,11 @@ export default function Analytics() {
         (c.outcome?.toLowerCase().includes(q))
       );
     });
-  }, [allCalls, searchQuery]);
+  }, [filteredCalls, searchQuery]);
 
   const providerDurationData = useMemo(() => {
     const map: Record<string, { totalSeconds: number; count: number }> = {};
-    for (const call of allCalls) {
+    for (const call of filteredCalls) {
       const key = call.provider_name || "Unknown";
       const dur = call.duration ?? 0;
       if (!map[key]) map[key] = { totalSeconds: 0, count: 0 };
@@ -216,15 +246,15 @@ export default function Analytics() {
       .filter((d) => d.count >= 1)
       .sort((a, b) => b.avgSeconds - a.avgSeconds)
       .slice(0, 8);
-  }, [allCalls]);
+  }, [filteredCalls]);
 
   const successStats = useMemo(() => {
-    const withOutcome = allCalls.filter((c) => c.outcome !== null);
+    const withOutcome = filteredCalls.filter((c) => c.outcome !== null);
     const resolved = withOutcome.filter((c) => c.outcome === "resolved").length;
     const unresolved = withOutcome.filter((c) => c.outcome === "unresolved").length;
     const rate = withOutcome.length > 0 ? Math.round((resolved / withOutcome.length) * 100) : null;
     return { resolved, unresolved, withOutcome: withOutcome.length, rate };
-  }, [allCalls]);
+  }, [filteredCalls]);
 
   const calendarDays = useMemo(() => {
     const firstDay = new Date(year, month, 1).getDay();
@@ -286,6 +316,26 @@ export default function Analytics() {
               </div>
             </div>
             <div className="ml-auto flex items-center gap-2">
+              <div className="flex items-center border border-border rounded-md overflow-hidden">
+                {([
+                  { value: "all" as TransferFilter, label: "All", icon: null },
+                  { value: "transferred" as TransferFilter, label: "Transferred", icon: <PhoneForwarded className="w-3.5 h-3.5" /> },
+                  { value: "ai_only" as TransferFilter, label: "AI Only", icon: <Bot className="w-3.5 h-3.5" /> },
+                ]).map((opt) => (
+                  <button
+                    key={opt.value}
+                    onClick={() => setTransferFilter(opt.value)}
+                    className={`flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium transition-colors ${
+                      transferFilter === opt.value
+                        ? "bg-primary text-primary-foreground"
+                        : "bg-background text-muted-foreground hover:bg-muted/50"
+                    }`}
+                  >
+                    {opt.icon}
+                    {opt.label}
+                  </button>
+                ))}
+              </div>
               <Button
                 variant={showPinnedOnly ? "default" : "outline"}
                 size="sm"
@@ -346,6 +396,7 @@ export default function Analytics() {
                           <div className="space-y-0.5 min-w-0 flex-1 mr-3">
                             <div className="flex items-center gap-2 flex-wrap">
                               <p className="text-sm font-medium font-mono">{call.phone_number}</p>
+                              <TransferBadge status={call.status} />
                               <OutcomeBadge outcome={call.outcome} />
                               {call.pinned && <Star className="w-3 h-3 fill-amber-500 text-amber-500" />}
                             </div>
@@ -494,6 +545,7 @@ export default function Analytics() {
                             <div className="space-y-0.5 min-w-0 flex-1 mr-3">
                               <div className="flex items-center gap-2 flex-wrap">
                                 <p className="text-sm font-medium font-mono">{call.phone_number}</p>
+                                <TransferBadge status={call.status} />
                                 <OutcomeBadge outcome={call.outcome} />
                               </div>
                               <div className="flex items-center gap-2 text-xs text-muted-foreground">
@@ -685,6 +737,45 @@ export default function Analytics() {
                       <span>Total tracked</span>
                       <span className="font-semibold">{successStats.withOutcome}</span>
                     </div>
+                  </div>
+                </>
+              )}
+            </Card>
+
+            <Card className="p-5">
+              <div className="flex items-center gap-3 mb-3">
+                <div className="w-9 h-9 rounded-lg bg-blue-500/10 flex items-center justify-center">
+                  <PhoneForwarded className="w-5 h-5 text-blue-500" />
+                </div>
+                <p className="text-sm text-muted-foreground">Call Handling</p>
+              </div>
+              {transferStats.total === 0 ? (
+                <p className="text-sm text-muted-foreground">No calls yet.</p>
+              ) : (
+                <>
+                  <div className="flex gap-2 mb-3">
+                    <div className="flex-1 rounded-lg bg-teal-500/10 border border-teal-500/20 p-2.5 text-center">
+                      <p className="text-xl font-bold text-teal-600">{transferStats.aiHandled}</p>
+                      <p className="text-[10px] text-teal-600/80 font-medium uppercase tracking-wide">AI Handled</p>
+                    </div>
+                    <div className="flex-1 rounded-lg bg-blue-500/10 border border-blue-500/20 p-2.5 text-center">
+                      <p className="text-xl font-bold text-blue-600">{transferStats.transferred}</p>
+                      <p className="text-[10px] text-blue-600/80 font-medium uppercase tracking-wide">Transferred</p>
+                    </div>
+                  </div>
+                  <div className="h-2 rounded-full bg-muted overflow-hidden flex">
+                    <div
+                      className="h-full bg-teal-500 transition-all duration-500"
+                      style={{ width: `${transferStats.total > 0 ? (transferStats.aiHandled / transferStats.total) * 100 : 0}%` }}
+                    />
+                    <div
+                      className="h-full bg-blue-500 transition-all duration-500"
+                      style={{ width: `${transferStats.total > 0 ? (transferStats.transferred / transferStats.total) * 100 : 0}%` }}
+                    />
+                  </div>
+                  <div className="flex justify-between mt-2 text-[10px] text-muted-foreground">
+                    <span>{transferStats.total > 0 ? Math.round((transferStats.aiHandled / transferStats.total) * 100) : 0}% AI handled</span>
+                    <span>{transferStats.total > 0 ? Math.round((transferStats.transferred / transferStats.total) * 100) : 0}% transferred</span>
                   </div>
                 </>
               )}

@@ -10,6 +10,8 @@ import {
   CircleCheck as CheckCircle2,
   Circle as XCircle,
   Star,
+  PhoneForwarded,
+  Bot,
 } from "lucide-react";
 
 const COST_PER_MINUTE = 0.12;
@@ -38,6 +40,21 @@ function formatDuration(seconds: number): string {
 
 function calcCost(seconds: number): number {
   return (seconds / 60) * COST_PER_MINUTE;
+}
+
+function TransferBadge({ status }: { status: string }) {
+  if (status === "transferred") {
+    return (
+      <span className="inline-flex items-center gap-0.5 text-[10px] font-medium text-blue-600 bg-blue-500/10 border border-blue-500/30 rounded px-1 py-0.5">
+        <PhoneForwarded className="w-2.5 h-2.5" /> Xfer
+      </span>
+    );
+  }
+  return (
+    <span className="inline-flex items-center gap-0.5 text-[10px] font-medium text-teal-600 bg-teal-500/10 border border-teal-500/30 rounded px-1 py-0.5">
+      <Bot className="w-2.5 h-2.5" /> AI
+    </span>
+  );
 }
 
 function OutcomeBadge({ outcome }: { outcome: string | null }) {
@@ -140,6 +157,7 @@ export function RecentCalls({ refreshTrigger }: RecentCallsProps) {
                     <span className="text-sm font-medium font-mono truncate">
                       {call.phone_number}
                     </span>
+                    <TransferBadge status={call.status} />
                     {call.pinned && <Star className="w-3 h-3 fill-amber-500 text-amber-500 shrink-0" />}
                     <OutcomeBadge outcome={call.outcome} />
                   </div>
