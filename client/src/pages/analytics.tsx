@@ -8,7 +8,7 @@ import { Phone, Clock, DollarSign, ChevronLeft, ChevronRight, ArrowLeft, ChartBa
 import CallEditModal, { type CallDetail } from "@/components/call-edit-modal";
 import CallDetailModal from "@/components/call-detail-modal";
 
-const HOURLY_RATE = 30;
+const COST_PER_MINUTE = 0.12;
 
 interface DayData {
   date: string;
@@ -47,7 +47,7 @@ function formatCost(cost: number): string {
 }
 
 function calcCost(seconds: number): number {
-  return (seconds / 3600) * HOURLY_RATE;
+  return (seconds / 60) * COST_PER_MINUTE;
 }
 
 const DAYS_OF_WEEK = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
@@ -257,7 +257,7 @@ export default function Analytics() {
             </div>
             <div className="hidden sm:block">
               <h1 className="text-2xl font-bold">Call Analytics</h1>
-              <p className="text-sm text-muted-foreground">Cost tracking at $30/hour</p>
+              <p className="text-sm text-muted-foreground">Cost tracking at $0.12/min</p>
             </div>
             <div className="flex-1 max-w-sm ml-2">
               <div className="relative">
@@ -633,12 +633,12 @@ export default function Analytics() {
                 <div className="w-9 h-9 rounded-lg bg-emerald-500/10 flex items-center justify-center">
                   <DollarSign className="w-5 h-5 text-emerald-500" />
                 </div>
-                <p className="text-sm text-muted-foreground">Cost Saved</p>
+                <p className="text-sm text-muted-foreground">Total Cost</p>
               </div>
               <p className="text-3xl font-bold text-emerald-600 dark:text-emerald-400">
                 {formatCost(monthSummary.totalCost)}
               </p>
-              <p className="text-xs text-muted-foreground mt-1">vs. $30/hr live agent</p>
+              <p className="text-xs text-muted-foreground mt-1">@ $0.12/min</p>
             </Card>
 
             <Card className="p-5">

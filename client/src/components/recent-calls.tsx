@@ -12,7 +12,7 @@ import {
   Star,
 } from "lucide-react";
 
-const HOURLY_RATE = 30;
+const COST_PER_MINUTE = 0.12;
 
 interface RecentCall {
   id: string;
@@ -36,7 +36,7 @@ function formatDuration(seconds: number): string {
 }
 
 function calcCost(seconds: number): number {
-  return (seconds / 3600) * HOURLY_RATE;
+  return (seconds / 60) * COST_PER_MINUTE;
 }
 
 function OutcomeBadge({ outcome }: { outcome: string | null }) {

@@ -13,7 +13,7 @@ import { useToast } from "@/hooks/use-toast";
 import { EDGE_FUNCTIONS_URL } from "@/lib/supabase";
 import { format } from "date-fns";
 
-const HOURLY_RATE = 30;
+const COST_PER_MINUTE = 0.12;
 
 interface CallRecord {
   id: string;
@@ -45,7 +45,7 @@ function formatCost(cost: number): string {
 }
 
 function calcCost(seconds: number): number {
-  return (seconds / 3600) * HOURLY_RATE;
+  return (seconds / 60) * COST_PER_MINUTE;
 }
 
 function getWeekRange(offset: number): { start: Date; end: Date; label: string } {
@@ -429,12 +429,12 @@ export default function Reports() {
               <div className="w-9 h-9 rounded-lg bg-emerald-500/10 flex items-center justify-center">
                 <DollarSign className="w-5 h-5 text-emerald-500" />
               </div>
-              <p className="text-sm text-muted-foreground">Cost Saved</p>
+              <p className="text-sm text-muted-foreground">Total Cost</p>
             </div>
             <p className="text-3xl font-bold text-emerald-600 dark:text-emerald-400">
               {formatCost(totals.totalCost)}
             </p>
-            <p className="text-xs text-muted-foreground mt-1">vs. $30/hr live agent</p>
+            <p className="text-xs text-muted-foreground mt-1">@ $0.12/min</p>
           </Card>
         </div>
 

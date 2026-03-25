@@ -1,7 +1,7 @@
 import { Badge } from "@/components/ui/badge";
 import { Phone, PhoneCall, PhoneOff, PhoneForwarded, Timer, DollarSign } from "lucide-react";
 
-const HOURLY_RATE = 30;
+const COST_PER_MINUTE = 0.12;
 
 interface CallStatusProps {
   status: "idle" | "ringing" | "connected" | "ended" | "transferred" | "transferring";
@@ -62,7 +62,7 @@ export function CallStatus({ status, duration }: CallStatusProps) {
   };
 
   const showTimer = status === "connected" || status === "ringing" || status === "transferring";
-  const liveCost = ((duration ?? 0) / 3600) * HOURLY_RATE;
+  const liveCost = ((duration ?? 0) / 60) * COST_PER_MINUTE;
 
   return (
     <div className="space-y-4">
@@ -123,7 +123,7 @@ export function CallStatus({ status, duration }: CallStatusProps) {
             <div>
               <p className="text-xs text-muted-foreground uppercase tracking-wide leading-none mb-1">Call Cost</p>
               <span className="text-2xl font-mono font-semibold tabular-nums text-emerald-600 dark:text-emerald-400">
-                ${((duration / 3600) * HOURLY_RATE).toFixed(2)}
+                ${((duration / 60) * COST_PER_MINUTE).toFixed(2)}
               </span>
             </div>
           </div>

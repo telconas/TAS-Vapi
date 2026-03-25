@@ -7,7 +7,7 @@ const corsHeaders = {
   "Access-Control-Allow-Headers": "Content-Type, Authorization, X-Client-Info, Apikey",
 };
 
-const HOURLY_RATE = 35;
+const COST_PER_MINUTE = 0.12;
 const VAPI_API_KEY = Deno.env.get("VAPI_API_KEY") || "";
 const VAPI_BASE_URL = "https://api.vapi.ai";
 const OPENAI_API_KEY = Deno.env.get("OPENAI_API_KEY") || "";
@@ -543,7 +543,7 @@ Deno.serve(async (req: Request) => {
         status: "ended",
         ended_at: new Date().toISOString(),
         duration: endDuration,
-        cost_usd: (endDuration / 3600) * HOURLY_RATE,
+        cost_usd: (endDuration / 60) * COST_PER_MINUTE,
       }).eq("id", callId);
 
       await supabase.channel("call-events").send({

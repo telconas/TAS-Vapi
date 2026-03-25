@@ -8,7 +8,7 @@ import { Button } from "@/components/ui/button";
 import { Pencil, Clock, DollarSign, Phone, CircleCheck as CheckCircle2, Circle as XCircle, Star, FileText } from "lucide-react";
 import type { CallDetail } from "@/components/call-edit-modal";
 
-const HOURLY_RATE = 30;
+const COST_PER_MINUTE = 0.12;
 
 function formatDuration(seconds: number): string {
   const hrs = Math.floor(seconds / 3600);
@@ -24,7 +24,7 @@ function formatCost(cost: number): string {
 }
 
 function calcCost(seconds: number): number {
-  return (seconds / 3600) * HOURLY_RATE;
+  return (seconds / 60) * COST_PER_MINUTE;
 }
 
 interface CallDetailModalProps {

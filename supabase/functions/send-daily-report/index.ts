@@ -7,7 +7,7 @@ const corsHeaders = {
   "Access-Control-Allow-Headers": "Content-Type, Authorization, X-Client-Info, Apikey",
 };
 
-const HOURLY_RATE = 30;
+const COST_PER_MINUTE = 0.12;
 const SENDGRID_API_KEY = Deno.env.get("SENDGRID_API_KEY") || "";
 const SENDGRID_FROM_EMAIL = Deno.env.get("SENDGRID_FROM_EMAIL") || "avb@telconassociates.com";
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL") || "";
@@ -31,7 +31,7 @@ function formatCost(cost: number): string {
 }
 
 function calcCost(seconds: number): number {
-  return (seconds / 3600) * HOURLY_RATE;
+  return (seconds / 60) * COST_PER_MINUTE;
 }
 
 function buildCsvAttachment(calls: any[]): string {
@@ -370,7 +370,7 @@ function buildHtmlAttachment(calls: any[], periodLabel: string, reportType: stri
     <div class="header-label">TAS AI Agent &bull; ${reportType} Report</div>
     <div class="header-title">Call Analytics Report</div>
     <div class="header-period">${periodLabel}</div>
-    <div class="header-meta">Generated ${new Date().toLocaleDateString("en-US", { weekday: "long", year: "numeric", month: "long", day: "numeric" })} &bull; $${HOURLY_RATE}/hr vs. live agent</div>
+    <div class="header-meta">Generated ${new Date().toLocaleDateString("en-US", { weekday: "long", year: "numeric", month: "long", day: "numeric" })} &bull; $0.12/min</div>
   </div>
 
   <div class="stats-section">
@@ -385,9 +385,9 @@ function buildHtmlAttachment(calls: any[], periodLabel: string, reportType: stri
         <div class="stat-sub">${(totals.totalSeconds / 60).toFixed(1)} min</div>
       </div>
       <div class="stat-card green">
-        <div class="stat-label">Cost Saved</div>
+        <div class="stat-label">Total Cost</div>
         <div class="stat-value" style="font-size:22px;">${formatCost(totals.totalCost)}</div>
-        <div class="stat-sub">vs. live agent</div>
+        <div class="stat-sub">@ $0.12/min</div>
       </div>
       <div class="stat-card amber">
         <div class="stat-label">Avg Duration</div>
@@ -415,7 +415,7 @@ function buildHtmlAttachment(calls: any[], periodLabel: string, reportType: stri
             <th>Provider</th>
             <th>Calls</th>
             <th>Total Time</th>
-            <th>Cost Saved</th>
+            <th>Cost</th>
           </tr>
         </thead>
         <tbody>
@@ -496,9 +496,9 @@ function buildEmailText(periodLabel: string, reportType: string, totals: { calls
                 </td>
                 <td width="50%" style="padding:0 0 16px 8px;">
                   <div style="background:#f0fdf4;border:1px solid #bbf7d0;border-radius:10px;padding:16px;text-align:center;">
-                    <div style="font-size:10px;font-weight:700;letter-spacing:1px;text-transform:uppercase;color:#15803d;margin-bottom:6px;">Cost Saved</div>
+                    <div style="font-size:10px;font-weight:700;letter-spacing:1px;text-transform:uppercase;color:#15803d;margin-bottom:6px;">Total Cost</div>
                     <div style="font-size:26px;font-weight:800;color:#14532d;">${formatCost(totals.totalCost)}</div>
-                    <div style="font-size:11px;color:#4ade80;margin-top:3px;">vs. $${HOURLY_RATE}/hr live agent</div>
+                    <div style="font-size:11px;color:#4ade80;margin-top:3px;">@ $0.12/min</div>
                   </div>
                 </td>
               </tr>
