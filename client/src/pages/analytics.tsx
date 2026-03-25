@@ -24,6 +24,7 @@ interface CallRecord {
   caller_name: string | null;
   duration: number | null;
   cost_usd: number | null;
+  vapi_cost_usd: number | null;
   status: string;
   started_at: string | null;
   ended_at: string | null;
@@ -48,6 +49,12 @@ function formatCost(cost: number): string {
 
 function calcCost(seconds: number): number {
   return (seconds / 60) * COST_PER_MINUTE;
+}
+
+function getCallCost(call: CallRecord): number {
+  const dur = call.duration ?? 0;
+  if (call.status === "transferred" && call.vapi_cost_usd != null) return Number(call.vapi_cost_usd);
+  return call.cost_usd != null ? Number(call.cost_usd) : calcCost(dur);
 }
 
 const DAYS_OF_WEEK = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
@@ -119,7 +126,7 @@ export default function Analytics() {
       try {
         const { data, error } = await supabase
           .from("calls")
-          .select("id, phone_number, provider_name, caller_name, duration, cost_usd, status, started_at, ended_at, summary, notes, pinned, outcome")
+          .select("id, phone_number, provider_name, caller_name, duration, cost_usd, vapi_cost_usd, status, started_at, ended_at, summary, notes, pinned, outcome")
           .in("status", ["ended", "transferred"])
           .order("started_at", { ascending: false });
 
@@ -144,7 +151,7 @@ export default function Analytics() {
         : null;
       if (!dateStr) continue;
       const dur = call.duration ?? 0;
-      const cost = call.cost_usd != null ? Number(call.cost_usd) : calcCost(dur);
+      const cost = getCallCost(call);
       if (!map[dateStr]) {
         map[dateStr] = { date: dateStr, calls: 0, totalSeconds: 0, totalCost: 0 };
       }
@@ -257,7 +264,7 @@ export default function Analytics() {
             </div>
             <div className="hidden sm:block">
               <h1 className="text-2xl font-bold">Call Analytics</h1>
-              <p className="text-sm text-muted-foreground">Cost tracking at $0.12/min</p>
+              <p className="text-sm text-muted-foreground">Vapi cost at $0.12/min</p>
             </div>
             <div className="flex-1 max-w-sm ml-2">
               <div className="relative">
@@ -328,7 +335,7 @@ export default function Analytics() {
                 <div className="space-y-2">
                   {searchResults.map((call) => {
                     const dur = call.duration ?? 0;
-                    const cost = call.cost_usd != null ? Number(call.cost_usd) : calcCost(dur);
+                    const cost = getCallCost(call);
                     return (
                       <div
                         key={call.id}
@@ -476,7 +483,7 @@ export default function Analytics() {
                   <div className="space-y-3">
                     {displayedDayCalls.map((call) => {
                       const dur = call.duration ?? 0;
-                      const cost = call.cost_usd != null ? Number(call.cost_usd) : calcCost(dur);
+                      const cost = getCallCost(call);
                       return (
                         <div
                           key={call.id}
@@ -638,7 +645,7 @@ export default function Analytics() {
               <p className="text-3xl font-bold text-emerald-600 dark:text-emerald-400">
                 {formatCost(monthSummary.totalCost)}
               </p>
-              <p className="text-xs text-muted-foreground mt-1">@ $0.12/min</p>
+              <p className="text-xs text-muted-foreground mt-1">Vapi @ $0.12/min</p>
             </Card>
 
             <Card className="p-5">
@@ -700,10 +707,7 @@ export default function Analytics() {
                   <span className="text-sm text-muted-foreground">Total cost</span>
                   <span className="font-semibold font-mono text-emerald-600 dark:text-emerald-400">
                     {formatCost(
-                      allCalls.reduce((s, c) => {
-                        const dur = c.duration ?? 0;
-                        return s + (c.cost_usd != null ? Number(c.cost_usd) : calcCost(dur));
-                      }, 0)
+                      allCalls.reduce((s, c) => s + getCallCost(c), 0)
                     )}
                   </span>
                 </div>

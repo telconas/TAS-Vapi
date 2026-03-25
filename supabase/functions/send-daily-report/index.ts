@@ -34,6 +34,12 @@ function calcCost(seconds: number): number {
   return (seconds / 60) * COST_PER_MINUTE;
 }
 
+function getCallCost(c: any): number {
+  const dur = c.duration ?? 0;
+  if (c.status === "transferred" && c.vapi_cost_usd != null) return Number(c.vapi_cost_usd);
+  return c.cost_usd != null ? Number(c.cost_usd) : calcCost(dur);
+}
+
 function buildCsvAttachment(calls: any[]): string {
   const escape = (v: string) => `"${String(v).replace(/"/g, '""')}"`;
   const rows: string[][] = [
@@ -41,7 +47,7 @@ function buildCsvAttachment(calls: any[]): string {
   ];
   for (const c of calls) {
     const dur = c.duration ?? 0;
-    const cost = c.cost_usd != null ? Number(c.cost_usd) : calcCost(dur);
+    const cost = getCallCost(c);
     const dt = c.started_at ? new Date(c.started_at) : null;
     rows.push([
       dt ? dt.toLocaleDateString("en-US") : "",
@@ -72,7 +78,7 @@ function buildHtmlAttachment(calls: any[], periodLabel: string, reportType: stri
   for (const c of calls) {
     const key = c.provider_name || "Unknown";
     const dur = c.duration ?? 0;
-    const cost = c.cost_usd != null ? Number(c.cost_usd) : calcCost(dur);
+    const cost = getCallCost(c);
     if (!providerMap[key]) providerMap[key] = { calls: 0, seconds: 0, cost: 0 };
     providerMap[key].calls += 1;
     providerMap[key].seconds += dur;
@@ -611,7 +617,7 @@ Deno.serve(async (req: Request) => {
 
     const { data: calls, error } = await supabase
       .from("calls")
-      .select("id, phone_number, provider_name, caller_name, duration, cost_usd, status, started_at, ended_at, summary, notes, outcome")
+      .select("id, phone_number, provider_name, caller_name, duration, cost_usd, vapi_cost_usd, status, started_at, ended_at, summary, notes, outcome")
       .in("status", ["ended", "transferred"])
       .gte("started_at", start.toISOString())
       .lte("started_at", end.toISOString())
@@ -628,11 +634,9 @@ Deno.serve(async (req: Request) => {
 
     const totals = callList.reduce(
       (acc: { calls: number; totalSeconds: number; totalCost: number }, c: any) => {
-        const dur = c.duration ?? 0;
-        const cost = c.cost_usd != null ? Number(c.cost_usd) : calcCost(dur);
         acc.calls += 1;
-        acc.totalSeconds += dur;
-        acc.totalCost += cost;
+        acc.totalSeconds += c.duration ?? 0;
+        acc.totalCost += getCallCost(c);
         return acc;
       },
       { calls: 0, totalSeconds: 0, totalCost: 0 }

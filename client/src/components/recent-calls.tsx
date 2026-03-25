@@ -21,6 +21,7 @@ interface RecentCall {
   caller_name: string | null;
   duration: number | null;
   cost_usd: number | null;
+  vapi_cost_usd: number | null;
   status: string;
   started_at: string | null;
   summary: string | null;
@@ -70,7 +71,7 @@ export function RecentCalls({ refreshTrigger }: RecentCallsProps) {
       setLoading(true);
       const { data } = await supabase
         .from("calls")
-        .select("id, phone_number, provider_name, caller_name, duration, cost_usd, status, started_at, summary, pinned, outcome")
+        .select("id, phone_number, provider_name, caller_name, duration, cost_usd, vapi_cost_usd, status, started_at, summary, pinned, outcome")
         .in("status", ["ended", "transferred"])
         .order("started_at", { ascending: false })
         .limit(8);
@@ -111,7 +112,10 @@ export function RecentCalls({ refreshTrigger }: RecentCallsProps) {
         <div className="space-y-1.5">
           {calls.map((call) => {
             const dur = call.duration ?? 0;
-            const cost = call.cost_usd != null ? Number(call.cost_usd) : calcCost(dur);
+            const isTransferred = call.status === "transferred";
+            const cost = isTransferred && call.vapi_cost_usd != null
+              ? Number(call.vapi_cost_usd)
+              : call.cost_usd != null ? Number(call.cost_usd) : calcCost(dur);
             const timeAgo = call.started_at
               ? (() => {
                   const diff = (Date.now() - new Date(call.started_at).getTime()) / 1000;
@@ -148,7 +152,10 @@ export function RecentCalls({ refreshTrigger }: RecentCallsProps) {
 
                 <div className="text-right shrink-0 space-y-0.5">
                   <p className="text-xs font-mono text-muted-foreground">{formatDuration(dur)}</p>
-                  <p className="text-xs font-mono text-emerald-600 dark:text-emerald-400">${cost.toFixed(2)}</p>
+                  <p className="text-xs font-mono text-emerald-600 dark:text-emerald-400">
+                    ${cost.toFixed(2)}
+                    {isTransferred && <span className="text-[10px] text-muted-foreground ml-0.5">(Vapi)</span>}
+                  </p>
                 </div>
 
                 {timeAgo && (

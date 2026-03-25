@@ -38,7 +38,10 @@ export default function CallDetailModal({ call, open, onClose, onEdit }: CallDet
   if (!call) return null;
 
   const dur = call.duration ?? 0;
-  const cost = call.cost_usd != null ? Number(call.cost_usd) : calcCost(dur);
+  const isTransferred = call.status === "transferred";
+  const cost = isTransferred && call.vapi_cost_usd != null
+    ? Number(call.vapi_cost_usd)
+    : call.cost_usd != null ? Number(call.cost_usd) : calcCost(dur);
   const dt = call.started_at ? new Date(call.started_at) : null;
   const dateLabel = dt
     ? dt.toLocaleDateString("en-US", { weekday: "long", year: "numeric", month: "long", day: "numeric" })
@@ -84,9 +87,12 @@ export default function CallDetailModal({ call, open, onClose, onEdit }: CallDet
             <div className="rounded-lg bg-muted/40 border border-border p-3 flex flex-col gap-1">
               <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
                 <DollarSign className="w-3.5 h-3.5" />
-                Cost
+                {isTransferred ? "Vapi Cost" : "Cost"}
               </div>
               <p className="font-mono font-semibold text-sm text-emerald-600 dark:text-emerald-400">{formatCost(cost)}</p>
+              {isTransferred && (
+                <p className="text-[10px] text-muted-foreground">AI portion only</p>
+              )}
             </div>
             <div className="rounded-lg bg-muted/40 border border-border p-3 flex flex-col gap-1">
               <div className="text-xs text-muted-foreground mb-0.5">Outcome</div>

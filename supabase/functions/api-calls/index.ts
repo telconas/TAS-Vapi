@@ -539,11 +539,13 @@ Deno.serve(async (req: Request) => {
       const endDuration = endedCall?.duration && endedCall.duration > 0
         ? endedCall.duration
         : Math.floor((nowMs - startMs) / 1000);
+      const endCost = (endDuration / 60) * COST_PER_MINUTE;
       await supabase.from("calls").update({
         status: "ended",
         ended_at: new Date().toISOString(),
         duration: endDuration,
-        cost_usd: (endDuration / 60) * COST_PER_MINUTE,
+        cost_usd: endCost,
+        vapi_cost_usd: endCost,
       }).eq("id", callId);
 
       await supabase.channel("call-events").send({
@@ -604,10 +606,16 @@ Deno.serve(async (req: Request) => {
         ? Math.floor((Date.now() - new Date(call.started_at).getTime()) / 1000)
         : (call.duration ?? 0);
 
+      const vapiDuration = transferDuration > 0 ? transferDuration : (call.duration ?? 0);
+      const vapiCost = (vapiDuration / 60) * COST_PER_MINUTE;
+
       await supabase.from("calls").update({
         status: "transferred",
         ended_at: now,
-        duration: transferDuration > 0 ? transferDuration : (call.duration ?? 0),
+        transferred_at: now,
+        duration: vapiDuration,
+        cost_usd: vapiCost,
+        vapi_cost_usd: vapiCost,
       }).eq("id", callId);
 
       await supabase.channel("call-events").send({

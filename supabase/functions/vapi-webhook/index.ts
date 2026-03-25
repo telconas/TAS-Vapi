@@ -318,14 +318,36 @@ Deno.serve(async (req: Request) => {
               vapiCall.recordingUrl;
 
             const endedAt = new Date().toISOString();
-            const updateData: any = { status: "ended", ended_at: endedAt };
-            if (recordingUrl) updateData.recording_url = recordingUrl;
-            if (callDuration > 0) {
-              updateData.duration = callDuration;
-              updateData.cost_usd = calcCostUsd(callDuration);
+            const isTransferred = dbCall.status === "transferred";
+            const updateData: any = {};
+
+            if (!isTransferred) {
+              updateData.status = "ended";
+              updateData.ended_at = endedAt;
             }
 
-            await supabase.from("calls").update(updateData).eq("id", dbCall.id);
+            if (recordingUrl) updateData.recording_url = recordingUrl;
+
+            if (isTransferred) {
+              if (dbCall.vapi_cost_usd == null && dbCall.transferred_at) {
+                const vapiSeconds = Math.floor(
+                  (new Date(dbCall.transferred_at).getTime() - new Date(dbCall.started_at).getTime()) / 1000
+                );
+                if (vapiSeconds > 0) {
+                  updateData.duration = vapiSeconds;
+                  updateData.cost_usd = calcCostUsd(vapiSeconds);
+                  updateData.vapi_cost_usd = calcCostUsd(vapiSeconds);
+                }
+              }
+            } else if (callDuration > 0) {
+              updateData.duration = callDuration;
+              updateData.cost_usd = calcCostUsd(callDuration);
+              updateData.vapi_cost_usd = calcCostUsd(callDuration);
+            }
+
+            if (Object.keys(updateData).length > 0) {
+              await supabase.from("calls").update(updateData).eq("id", dbCall.id);
+            }
 
             EdgeRuntime.waitUntil((async () => {
               if (!recordingUrl && vapiCall.id) {

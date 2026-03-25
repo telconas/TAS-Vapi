@@ -21,6 +21,7 @@ export interface CallDetail {
   caller_name: string | null;
   duration: number | null;
   cost_usd: number | null;
+  vapi_cost_usd: number | null;
   status: string;
   started_at: string | null;
   ended_at: string | null;
