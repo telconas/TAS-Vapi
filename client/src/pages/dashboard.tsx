@@ -16,6 +16,7 @@ import { Link } from "wouter";
 import { supabase, EDGE_FUNCTIONS_URL } from "@/lib/supabase";
 import { providers } from "@/components/phone-input-form";
 import { RecentCalls } from "@/components/recent-calls";
+import { DashboardStats } from "@/components/dashboard-stats";
 import { playDtmfTone } from "@/lib/dtmf-tones";
 import { playCallAlert, requestNotificationPermission, sendCallNotification } from "@/lib/call-alert";
 
@@ -585,6 +586,8 @@ export default function Dashboard() {
             })}
           </div>
         </div>
+
+        <DashboardStats refreshTrigger={callHistoryRefresh} />
 
         <div className="grid grid-cols-1 lg:grid-cols-5 gap-8">
           <div className="lg:col-span-2 space-y-6">

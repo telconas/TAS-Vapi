@@ -16,9 +16,93 @@ const SUPABASE_URL = Deno.env.get("SUPABASE_URL") || "";
 const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") || "";
 
 const COST_PER_MINUTE = 0.12;
+const NOTIFICATION_EMAIL = "jpm@telconassociates.com";
 
 function calcCostUsd(durationSeconds: number): number {
   return (durationSeconds / 60) * COST_PER_MINUTE;
+}
+
+async function sendCallNotification(payload: {
+  event: "completed" | "failed" | "transferred";
+  phoneNumber: string;
+  providerName?: string;
+  callerName?: string;
+  duration?: number;
+  summary?: string;
+  costUsd?: number;
+}): Promise<void> {
+  if (!SENDGRID_API_KEY) return;
+  try {
+    const label =
+      payload.event === "completed" ? "Call Completed" :
+      payload.event === "failed" ? "Scheduled Call Failed" :
+      "Call Transferred";
+    const subject = `${label}: ${payload.phoneNumber}${payload.providerName ? ` (${payload.providerName})` : ""}`;
+
+    const dur = payload.duration ?? 0;
+    const cost = payload.costUsd ?? calcCostUsd(dur);
+    const fmtDur = dur > 0 ? `${Math.floor(dur / 60)}m ${dur % 60}s` : "0s";
+    const fmtCost = `$${cost.toFixed(2)}`;
+
+    const detailRows: string[] = [];
+    detailRows.push(`<tr><td style="padding:8px 12px;color:#64748b;font-size:13px;">Phone</td><td style="padding:8px 12px;font-weight:600;font-size:13px;font-family:monospace;">${payload.phoneNumber}</td></tr>`);
+    if (payload.providerName) detailRows.push(`<tr><td style="padding:8px 12px;color:#64748b;font-size:13px;">Provider</td><td style="padding:8px 12px;font-weight:600;font-size:13px;">${payload.providerName}</td></tr>`);
+    if (payload.callerName) detailRows.push(`<tr><td style="padding:8px 12px;color:#64748b;font-size:13px;">Caller</td><td style="padding:8px 12px;font-weight:600;font-size:13px;">${payload.callerName}</td></tr>`);
+    if (dur > 0) {
+      detailRows.push(`<tr><td style="padding:8px 12px;color:#64748b;font-size:13px;">Duration</td><td style="padding:8px 12px;font-weight:600;font-size:13px;font-family:monospace;">${fmtDur}</td></tr>`);
+      detailRows.push(`<tr><td style="padding:8px 12px;color:#64748b;font-size:13px;">Cost</td><td style="padding:8px 12px;font-weight:700;font-size:13px;color:#059669;font-family:monospace;">${fmtCost}</td></tr>`);
+    }
+
+    const colors =
+      payload.event === "completed" ? { bg: "#f0fdf4", text: "#15803d" } :
+      payload.event === "failed" ? { bg: "#fef2f2", text: "#dc2626" } :
+      { bg: "#eff6ff", text: "#1d4ed8" };
+
+    const summaryBlock = payload.summary
+      ? `<div style="margin-top:20px;padding:16px;background:#f8fafc;border-left:3px solid #0891b2;border-radius:4px;">
+          <div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:1px;color:#64748b;margin-bottom:8px;">Summary</div>
+          <div style="font-size:13px;color:#334155;line-height:1.6;">${payload.summary.replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/\n/g, "<br/>")}</div>
+        </div>` : "";
+
+    const html = `<!DOCTYPE html><html><head><meta charset="UTF-8"/></head>
+<body style="margin:0;padding:0;background:#f0f4f8;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Arial,sans-serif;">
+  <table width="100%" cellpadding="0" cellspacing="0" style="background:#f0f4f8;padding:32px 16px;">
+    <tr><td align="center">
+      <table width="100%" cellpadding="0" cellspacing="0" style="max-width:520px;background:#fff;border-radius:12px;overflow:hidden;box-shadow:0 2px 12px rgba(0,0,0,0.06);">
+        <tr><td style="background:linear-gradient(135deg,#023047 0%,#0891b2 100%);padding:24px 28px 18px;">
+          <div style="font-size:10px;font-weight:700;letter-spacing:2px;text-transform:uppercase;color:#7dd3e8;margin-bottom:6px;">TAS AI Agent</div>
+          <div style="font-size:22px;font-weight:800;color:#fff;">${label}</div>
+        </td></tr>
+        <tr><td style="padding:24px 28px;">
+          <div style="display:inline-block;padding:4px 12px;border-radius:20px;font-size:11px;font-weight:700;background:${colors.bg};color:${colors.text};margin-bottom:16px;">${label.toUpperCase()}</div>
+          <table width="100%" cellpadding="0" cellspacing="0" style="border-collapse:collapse;">${detailRows.join("")}</table>
+          ${summaryBlock}
+        </td></tr>
+        <tr><td style="padding:16px 28px;border-top:1px solid #f1f5f9;text-align:center;">
+          <div style="font-size:11px;color:#94a3b8;">Automated notification from TAS AI Agent</div>
+        </td></tr>
+      </table>
+    </td></tr>
+  </table>
+</body></html>`;
+
+    await fetch("https://api.sendgrid.com/v3/mail/send", {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${SENDGRID_API_KEY}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        personalizations: [{ to: [{ email: NOTIFICATION_EMAIL }] }],
+        from: { email: SENDGRID_FROM_EMAIL },
+        subject,
+        content: [{ type: "text/html", value: html }],
+      }),
+    });
+    console.log(`[NOTIFICATION] Sent ${payload.event} notification for ${payload.phoneNumber}`);
+  } catch (err) {
+    console.error("[NOTIFICATION] Failed to send:", err);
+  }
 }
 
 function formatCost(cost: number): string {
@@ -354,6 +438,25 @@ Deno.serve(async (req: Request) => {
                 recordingUrl = await pollForRecording(supabase, vapiCall.id, dbCall.id);
               }
               await generateSummaryAndEmail(supabase, dbCall.id, recordingUrl || undefined, callDuration > 0 ? callDuration : undefined);
+
+              const { data: freshCall } = await supabase
+                .from("calls")
+                .select("phone_number, provider_name, caller_name, duration, cost_usd, summary, status")
+                .eq("id", dbCall.id)
+                .maybeSingle();
+
+              if (freshCall) {
+                const notifEvent = freshCall.status === "transferred" ? "transferred" : "completed";
+                await sendCallNotification({
+                  event: notifEvent,
+                  phoneNumber: freshCall.phone_number,
+                  providerName: freshCall.provider_name || undefined,
+                  callerName: freshCall.caller_name || undefined,
+                  duration: freshCall.duration ?? callDuration,
+                  summary: freshCall.summary || undefined,
+                  costUsd: freshCall.cost_usd != null ? Number(freshCall.cost_usd) : undefined,
+                });
+              }
             })());
           }
         }
