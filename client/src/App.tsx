@@ -7,6 +7,7 @@ import { TooltipProvider } from "@/components/ui/tooltip";
 import Dashboard from "@/pages/dashboard";
 import Analytics from "@/pages/analytics";
 import Reports from "@/pages/reports";
+import Scheduled from "@/pages/scheduled";
 import Login from "@/pages/login";
 import NotFound from "@/pages/not-found";
 
@@ -16,6 +17,7 @@ function Router() {
       <Route path="/" component={Dashboard} />
       <Route path="/analytics" component={Analytics} />
       <Route path="/reports" component={Reports} />
+      <Route path="/scheduled" component={Scheduled} />
       <Route component={NotFound} />
     </Switch>
   );
